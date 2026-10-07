@@ -4,5 +4,6 @@ coverage/
 .next/
 .turbo/
 *.log
+next-env.d.ts
 .env*
 !.env.example
