@@ -1,17 +1,17 @@
 # Unit & E2E Testing Guidelines — Frontend (React / Next.js) — TICKETVIBE
 
-A portable convention for unit-testing React components and hooks with Vitest, React Testing Library, and MSW v2, plus E2E testing with Playwright. Copy this file into any React/Next.js application and adapt the "Tooling status" banner, the sections marked TICKETVIBE, and the "Project Overrides" section to that project.
+A portable convention for unit-testing React components and hooks with Vitest, React Testing Library, and MSW v2, plus E2E testing with Playwright. Copy this file into any React/Next.js application and adapt the sections marked TICKETVIBE (the tooling banner and Project Overrides) to that project.
 
-> **Tooling status (TICKETVIBE):** Vitest is installed. React Testing Library, MSW and Playwright are **not installed yet** — they arrive with the first component/E2E tickets (component tests: ticket 04+, E2E: ticket 05+; see [`docs/TESTING.md`](../TESTING.md)). Sections below describe the conventions to follow when that tooling lands; only the Commands section at the bottom is runnable today.
+> **Tooling status (TICKETVIBE):** Vitest is installed (in `packages/shared` and `apps/api` — `apps/web` gets it with its test script). React Testing Library, MSW and Playwright are **not installed yet** — they arrive with the first component/E2E tickets (component tests: ticket 04+, E2E: ticket 05+; see [`docs/TESTING.md`](../TESTING.md)). Sections below describe the conventions to follow when that tooling lands; only the `## Commands (this project)` section lists project commands runnable today.
 
 ## Tech Stack
 
 - **Unit/Component framework:** Vitest (works with Jest — swap `vitest` imports for `jest`).
-- **Component rendering:** React Testing Library (`@testing-library/react`).
-- **User interactions:** `@testing-library/user-event` (preferred over `fireEvent`).
+- **Component rendering:** React Testing Library (`@testing-library/react`). *(not installed yet)*
+- **User interactions:** `@testing-library/user-event` (preferred over `fireEvent`). *(not installed yet)*
 - **Network mocking:** MSW v2 (Mock Service Worker) — intercepts `fetch` at the network boundary. *(not installed yet)*
 - **E2E framework:** Playwright (`@playwright/test`). *(not installed yet)*
-- **Matchers:** `@testing-library/jest-dom` (DOM assertions like `toBeInTheDocument`).
+- **Matchers:** `@testing-library/jest-dom` (DOM assertions like `toBeInTheDocument`). *(not installed yet)*
 
 ## Principles
 
@@ -195,13 +195,13 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 export const eventsHandlers = [
 	http.get(`${API_URL}/events`, () => {
 		return HttpResponse.json([
-			{ id: '1', name: 'Show do Alpha', venue: 'Auditório Beta', startsAt: '2026-11-01T20:00:00-03:00' },
-			{ id: '2', name: 'Peça Gama', venue: 'Teatro Delta', startsAt: '2026-12-05T19:30:00-03:00' },
+			{ id: '1', name: 'Show do Alpha', venue: 'Auditório Beta', startsAt: '2026-11-01T20:00:00-03:00', priceFrom: 120 },
+			{ id: '2', name: 'Peça Gama', venue: 'Teatro Delta', startsAt: '2026-12-05T19:30:00-03:00', priceFrom: 90 },
 		])
 	}),
 
 	http.get(`${API_URL}/events/:id`, ({ params }) => {
-		const event = { id: params.id, name: 'Show do Alpha', venue: 'Auditório Beta', startsAt: '2026-11-01T20:00:00-03:00' }
+		const event = { id: params.id, name: 'Show do Alpha', venue: 'Auditório Beta', startsAt: '2026-11-01T20:00:00-03:00', priceFrom: 120 }
 		return HttpResponse.json(event)
 	}),
 
@@ -226,7 +226,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 const server = setupServer(
 	http.get(`${API_URL}/events`, () => {
 		return HttpResponse.json([
-			{ id: '1', name: 'Show do Alpha', venue: 'Auditório Beta', startsAt: '2026-11-01T20:00:00-03:00' },
+			{ id: '1', name: 'Show do Alpha', venue: 'Auditório Beta', startsAt: '2026-11-01T20:00:00-03:00', priceFrom: 120 },
 		])
 	}),
 )
