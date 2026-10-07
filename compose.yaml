@@ -1,0 +1,28 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ticketvibe-postgres
+    environment:
+      POSTGRES_USER: ticketvibe
+      POSTGRES_PASSWORD: ticketvibe
+      POSTGRES_DB: ticketvibe
+    ports:
+      - "5432:5432"
+    volumes:
+      - ticketvibe-pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: ticketvibe-redis
+    ports:
+      - "6379:6379"
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: ticketvibe-mailpit
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+volumes:
+  ticketvibe-pgdata:
