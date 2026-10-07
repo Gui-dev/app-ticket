@@ -1,6 +1,6 @@
 # Unit Testing Guidelines — API (Hexagonal Architecture) — TICKETVIBE
 
-A portable convention for unit-testing backend domain code built with use cases, repository contracts, and in-memory repositories. Copy this file into any application and adapt only the "Project Overrides" section at the bottom.
+A portable convention for unit-testing backend domain code built with use cases, repository contracts, and in-memory repositories. Copy this file into any application and adapt the "Status" banner, the sections marked TICKETVIBE, and the "Project Overrides" section to that project.
 
 > **Status (TICKETVIBE):** unit testing is live for `packages/shared` and `apps/api`; the hexagonal module layout and the Drizzle/integration layer arrive with ticket 04 (see [`docs/TESTING.md`](../TESTING.md)).
 
@@ -19,7 +19,7 @@ A portable convention for unit-testing backend domain code built with use cases,
 
 ## Test File Placement
 
-### Unit tests — co-located with source
+### Unit tests — co-located with source (planned layout)
 
 Every `.spec.ts` (or `.test.ts`) file lives **next to the file it tests**, using the same base name:
 
@@ -256,18 +256,15 @@ The test should highlight only the fields that matter to the behavior under test
 
 Coverage tooling is not installed yet (it starts with ticket 04+). When it lands, enforce minimum coverage on business logic paths:
 
-```
-thresholds:
-  lines: 80
-  functions: 80
-  statements: 80
-  branches: 80
-  paths:
-    - src/modules/**/use-cases/**
-    - src/modules/**/domain/**
+```bash
+# business logic (use-cases + domain) — planned gate
+  src/modules/**/{use-cases,domain}/**        ≥ 80%
+
+# whole codebase
+  all source files                            ≥ 70%
 ```
 
-Paths like `src/lib/abilities/**` (cross-cutting business rules) may also be included. Infrastructure and framework glue (`src/lib/errors/`, `src/middleware/`) is typically covered by integration tests, not enforced here.
+Zod schemas (`src/modules/**/schemas/**`, mostly type-level wrappers) are covered by the whole-codebase line rather than an explicit threshold. Infrastructure and framework glue is typically covered by integration tests, not enforced here.
 
 ## Definition of Done (for a use case)
 
@@ -276,7 +273,7 @@ Paths like `src/lib/abilities/**` (cross-cutting business rules) may also be inc
 - [ ] Success, validation, and side-effect tests written before the implementation (TDD).
 - [ ] All previously passing tests still pass.
 - [ ] No I/O in the unit suite; the production implementation is covered by integration tests elsewhere.
-- [ ] Coverage gate passes on the business logic paths.
+- [ ] Coverage gate passes on the business logic paths (when coverage tooling lands, ticket 04+).
 
 ## Commands (this project)
 
@@ -322,13 +319,13 @@ export class CreateTaskUseCase {
 }
 ```
 
-Tests (`create-task.use-case.test.ts`): see "Writing Use Case Tests" above — success, validation, and persistence read-back.
+Tests (`create-task.use-case.spec.ts`): see "Writing Use Case Tests" above — success, validation, and persistence read-back.
 
 ## Project Overrides — TICKETVIBE
 
 - **Test suffix:** `.spec.ts`, co-located with the source (unit and integration alike — there is no `tests/integration/` directory).
 - **Commands:** `pnpm --filter @ticketvibe/api test`, `pnpm --filter @ticketvibe/api typecheck`, root `pnpm test` / `pnpm typecheck`. No `test:watch` / `test:coverage` scripts exist — never document them before they are added.
-- **Test database:** integration tests use a local `ticketvibe_test` database (Postgres via `pnpm infra:up`); helpers (`resetDatabase`, `seedTestData`) arrive with ticket 04.
+- **Test database:** integration tests will use (planned) a local `ticketvibe_test` database (Postgres via `pnpm infra:up`); helpers (`resetDatabase`, `seedTestData`) arrive with ticket 04.
 - **HTTP test seam:** `buildApp()` in `apps/api/src/app.ts` — tests use Fastify `inject` (see `apps/api/src/app.spec.ts`).
 - **Contract seam:** route tests validate payloads against Zod schemas from `packages/shared` (`healthResponseSchema` is the first one).
-- **Module layout:** hexagonal `modules/<domain>/{domain,infra,use-cases,schemas,routes}` per spec; first module arrives with ticket 04. Better Auth persistence (tickets 08–09) stays outside the modules.
+- **Module layout:** hexagonal `modules/<domain>/{domain,infra,use-cases,schemas,routes}` per spec; first module arrives with ticket 04. Better Auth persistence (tickets 08–09) is not part of the first modules.
