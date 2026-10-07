@@ -6,7 +6,7 @@
       "outputs": [".next/**", "!.next/cache/**", "!.next/dev/**"]
     },
     "typecheck": {
-      "dependsOn": ["^typecheck"]
+      "dependsOn": ["^typecheck", "build"]
     },
     "test": {
       "dependsOn": ["^typecheck"]
