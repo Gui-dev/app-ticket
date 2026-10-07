@@ -19,9 +19,11 @@ A portable convention for unit-testing backend domain code built with use cases,
 
 ## Test File Placement
 
-### Unit tests — co-located with source (planned layout)
+### Unit tests — co-located with source
 
 Every `.spec.ts` (or `.test.ts`) file lives **next to the file it tests**, using the same base name:
+
+Planned module example (first module arrives with ticket 04):
 
 ```
 modules/<domain>/
@@ -256,7 +258,7 @@ The test should highlight only the fields that matter to the behavior under test
 
 Coverage tooling is not installed yet (it starts with ticket 04+). When it lands, enforce minimum coverage on business logic paths:
 
-```bash
+```text
 # business logic (use-cases + domain) — planned gate
   src/modules/**/{use-cases,domain}/**        ≥ 80%
 
@@ -264,7 +266,7 @@ Coverage tooling is not installed yet (it starts with ticket 04+). When it lands
   all source files                            ≥ 70%
 ```
 
-Zod schemas (`src/modules/**/schemas/**`, mostly type-level wrappers) are covered by the whole-codebase line rather than an explicit threshold. Infrastructure and framework glue is typically covered by integration tests, not enforced here.
+Zod schemas (`src/modules/**/schemas/**`, mostly type-level wrappers) are covered by the whole-codebase line rather than an explicit threshold. Infrastructure and framework glue is typically covered by integration tests, with no explicit threshold of its own.
 
 ## Definition of Done (for a use case)
 
