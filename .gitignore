@@ -5,3 +5,4 @@ coverage/
 .turbo/
 *.log
 .env*
+!.env.example
