@@ -173,7 +173,7 @@ por:
 Logo após o parágrafo introdutório (linha 3, que começa "A portable convention…"), insira uma linha em branco e:
 
 ```markdown
-> **Status (TICKETVIBE):** unit testing is live for `packages/shared` and `apps/api`; the hexagonal module layout and the Drizzle/integration layer arrive with ticket 04 (see [`docs/TESTING.md`](../../TESTING.md)).
+> **Status (TICKETVIBE):** unit testing is live for `packages/shared` and `apps/api`; the hexagonal module layout and the Drizzle/integration layer arrive with ticket 04 (see [`docs/TESTING.md`](../TESTING.md)).
 ```
 
 - [ ] **Step 2: Corrigir a contradição da tabela de nomes**
@@ -297,7 +297,7 @@ por:
 Logo após o parágrafo introdutório, insira uma linha em branco e:
 
 ```markdown
-> **Tooling status (TICKETVIBE):** Vitest is installed. React Testing Library, MSW and Playwright are **not installed yet** — they arrive with the first component/E2E tickets (component tests: ticket 04+, E2E: ticket 05+; see [`docs/TESTING.md`](../../TESTING.md)). Sections below describe the conventions to follow when that tooling lands; only the Commands section at the bottom is runnable today.
+> **Tooling status (TICKETVIBE):** Vitest is installed. React Testing Library, MSW and Playwright are **not installed yet** — they arrive with the first component/E2E tickets (component tests: ticket 04+, E2E: ticket 05+; see [`docs/TESTING.md`](../TESTING.md)). Sections below describe the conventions to follow when that tooling lands; only the Commands section at the bottom is runnable today.
 ```
 
 - [ ] **Step 2: Anotar a `## Tech Stack`**
