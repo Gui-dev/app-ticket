@@ -1,6 +1,8 @@
-# Unit Testing Guidelines — API (Hexagonal Architecture)
+# Unit Testing Guidelines — API (Hexagonal Architecture) — TICKETVIBE
 
 A portable convention for unit-testing backend domain code built with use cases, repository contracts, and in-memory repositories. Copy this file into any application and adapt only the "Project Overrides" section at the bottom.
+
+> **Status (TICKETVIBE):** unit testing is live for `packages/shared` and `apps/api`; the hexagonal module layout and the Drizzle/integration layer arrive with ticket 04 (see [`docs/TESTING.md`](../TESTING.md)).
 
 ## Tech Stack
 
@@ -67,7 +69,7 @@ Rules:
 | Item | Convention | Example |
 |---|---|---|
 | Unit test file | `<source-file-name>.spec.ts` co-located with the source | `create-task.use-case.spec.ts` next to `create-task.use-case.ts` |
-| Integration test file | `<feature>.spec.ts` in `tests/integration/` | `task-crud.spec.ts` |
+| Integration test file | `<feature>.integration.spec.ts` co-located with the source | `reserve-seat.use-case.integration.spec.ts` |
 | Use case suite | `describe('<UseCaseName>')` | `describe('CreateTaskUseCase')` |
 | Repository suite | `describe('<RepositoryName>') → describe('<method>')` | `describe('InMemoryTaskRepository') → describe('findByAssignee')` |
 | Test title | `it('should [observable behavior]')` — never `it('works')` | `it('should reject an empty title')` |
@@ -162,10 +164,12 @@ Guidance:
 
 ## Repository Testing
 
-Each repository contract has two implementations: a production Drizzle implementation and an in-memory test double. Both are tested independently — there are no shared contract suites in this project.
+Each repository contract has two implementations: a production Drizzle implementation and an in-memory test double. Both are tested independently — there is no shared contract suite for repository interfaces. The cross-package seam of this project is the Zod contract in `packages/shared`, not a repository test suite.
 
-- **In-memory tests** exercise the in-memory repository directly (fast, no I/O).
-- **Drizzle tests** hit the `kronostore_test` database directly (integration, requires running Postgres).
+- **In-memory tests** exercise the in-memory repository directly (fast, no I/O) — **live pattern** as soon as the first module exists.
+- **Drizzle tests** hit the local `ticketvibe_test` database directly (integration, requires `pnpm infra:up`).
+
+*(The Drizzle layer does not exist yet — the first hexagonal module arrives with ticket 04. Until then, only unit tests exist: `packages/shared` contract tests and the `apps/api` health route.)*
 
 ## Writing In-Memory Repository Tests
 
@@ -250,7 +254,7 @@ The test should highlight only the fields that matter to the behavior under test
 
 ## Coverage Gate
 
-CI should enforce minimum coverage on business logic paths:
+Coverage tooling is not installed yet (it starts with ticket 04+). When it lands, enforce minimum coverage on business logic paths:
 
 ```
 thresholds:
@@ -274,14 +278,14 @@ Paths like `src/lib/abilities/**` (cross-cutting business rules) may also be inc
 - [ ] No I/O in the unit suite; the production implementation is covered by integration tests elsewhere.
 - [ ] Coverage gate passes on the business logic paths.
 
-## Commands (adapt to your project)
+## Commands (this project)
 
 ```bash
-pnpm --filter @kronostore/api test           # unit suite
-pnpm --filter @kronostore/api typecheck      # type checking
-pnpm --filter @kronostore/api test:watch     # watch mode
-pnpm --filter @kronostore/api test:coverage  # coverage report
+pnpm --filter @ticketvibe/api test           # unit suite (vitest run)
+pnpm --filter @ticketvibe/api typecheck      # type checking (tsc --noEmit)
 ```
+
+There are no `test:watch` or `test:coverage` scripts in this repository — do not document or run them until they are added.
 
 ## Full Worked Example
 
@@ -320,6 +324,11 @@ export class CreateTaskUseCase {
 
 Tests (`create-task.use-case.test.ts`): see "Writing Use Case Tests" above — success, validation, and persistence read-back.
 
-## Project Overrides
+## Project Overrides — TICKETVIBE
 
-Record project-specific deviations here so the rest of the file stays portable (test file suffix, suite locations, commands, framework quirks).
+- **Test suffix:** `.spec.ts`, co-located with the source (unit and integration alike — there is no `tests/integration/` directory).
+- **Commands:** `pnpm --filter @ticketvibe/api test`, `pnpm --filter @ticketvibe/api typecheck`, root `pnpm test` / `pnpm typecheck`. No `test:watch` / `test:coverage` scripts exist — never document them before they are added.
+- **Test database:** integration tests use a local `ticketvibe_test` database (Postgres via `pnpm infra:up`); helpers (`resetDatabase`, `seedTestData`) arrive with ticket 04.
+- **HTTP test seam:** `buildApp()` in `apps/api/src/app.ts` — tests use Fastify `inject` (see `apps/api/src/app.spec.ts`).
+- **Contract seam:** route tests validate payloads against Zod schemas from `packages/shared` (`healthResponseSchema` is the first one).
+- **Module layout:** hexagonal `modules/<domain>/{domain,infra,use-cases,schemas,routes}` per spec; first module arrives with ticket 04. Better Auth persistence (tickets 08–09) stays outside the modules.
