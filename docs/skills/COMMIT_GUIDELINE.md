@@ -1,4 +1,4 @@
-# Skill: Professional Git Commits (English)
+# Skill: Professional Git Commits (English) — TICKETVIBE
 
 ## Standard Format
 Always follow the Conventional Commits specification:
