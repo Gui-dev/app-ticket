@@ -1,6 +1,6 @@
 # Unit & E2E Testing Guidelines — Frontend (React / Next.js) — TICKETVIBE
 
-A portable convention for unit-testing React components and hooks with Vitest, React Testing Library, and MSW v2, plus E2E testing with Playwright. Copy this file into any React/Next.js application and adapt only the "Project Overrides" section at the bottom.
+A portable convention for unit-testing React components and hooks with Vitest, React Testing Library, and MSW v2, plus E2E testing with Playwright. Copy this file into any React/Next.js application and adapt the "Tooling status" banner, the sections marked TICKETVIBE, and the "Project Overrides" section to that project.
 
 > **Tooling status (TICKETVIBE):** Vitest is installed. React Testing Library, MSW and Playwright are **not installed yet** — they arrive with the first component/E2E tickets (component tests: ticket 04+, E2E: ticket 05+; see [`docs/TESTING.md`](../TESTING.md)). Sections below describe the conventions to follow when that tooling lands; only the Commands section at the bottom is runnable today.
 
@@ -124,18 +124,18 @@ Guidance:
 ```tsx
 const user = userEvent.setup()
 await user.click(screen.getByRole('button', { name: 'Submit' }))
-await user.type(screen.getByLabelText('Name'), 'My Project')
+await user.type(screen.getByLabelText('Name'), 'Show do Alpha')
 ```
 
 - **Async operations:** use `waitFor` or `screen.findBy*` (async query) — never fixed timeouts:
 
 ```tsx
 // Preferred — waits for the element to appear
-expect(await screen.findByText('Project created')).toBeInTheDocument()
+expect(await screen.findByText('Show do Alpha')).toBeInTheDocument()
 
 // Also valid — explicit wait
 await waitFor(() => {
-  expect(screen.getByText('Project created')).toBeInTheDocument()
+  expect(screen.getByText('Show do Alpha')).toBeInTheDocument()
 })
 ```
 
@@ -277,10 +277,10 @@ screen.getByRole('link', { name: /Alpha/ })
 screen.getByLabelText('Name')
 
 // Acceptable — queries by text
-screen.getByText('No projects yet')
+screen.getByText('Nenhum evento encontrado')
 
 // Last resort — testId (not accessible, avoid)
-screen.getByTestId('project-card')
+screen.getByTestId('event-card')
 ```
 
 Assert ARIA attributes and roles:
