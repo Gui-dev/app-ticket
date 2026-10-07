@@ -49,7 +49,7 @@ How testing works in this repository. Project-specific deviations from the gener
 - Frontend: [`docs/skills/TESTING_FRONTEND_GUIDELINE.md`](./skills/TESTING_FRONTEND_GUIDELINE.md)
 - Commits: [`docs/skills/COMMIT_GUIDELINE.md`](./skills/COMMIT_GUIDELINE.md)
 
-## Principles (from the spec)
+## Principles (spec & testing guidelines)
 
 - Assert only external behavior: HTTP status/body, database effects, rendered state, browser flows — never private calls or internal class structure.
 - The Zod contract in `packages/shared` is the single seam between `apps/web` and `apps/api`; other tests hang off it.
@@ -102,8 +102,8 @@ Expected: `[worker] listening for heartbeat jobs`, `[worker] job processed: N`, 
 | Level | Tooling | Status |
 |---|---|---|
 | Unit | Vitest, co-located `.spec.ts` | **live** — `packages/shared`, `apps/api` |
-| Integration (routes + real Postgres) | Vitest against a local `ticketvibe_test` database; helpers `resetDatabase` / `seedTestData` | **arrives with ticket 04** (first route over the DB) |
-| E2E | Playwright against the real local stack (web :3000, api :3001, Mailpit API :8025) | **arrives with ticket 08** (first E2E acceptance criterion) |
+| Integration (routes + real Postgres) | Vitest against a planned local `ticketvibe_test` database; planned helpers `resetDatabase` / `seedTestData` | **arrives with ticket 04** (first route over the DB) |
+| E2E | Playwright against the real local stack (web :3000, api :3001, Mailpit API :8025) | **from ticket 05 on** (first E2E acceptance criterion is ticket 05; full auth→purchase journey at 08) |
 
 Planned hexagonal layout for API domain modules (from the spec — no module exists yet):
 
@@ -118,13 +118,13 @@ apps/api/src/modules/<domain>/
 
 ## Coverage
 
-- Coverage tooling is **not installed yet**; the gate starts with the integration work (ticket 04+).
-- Planned policy (per spec): minimum 80% lines/functions/statements/branches on business-logic paths — `apps/api/src/modules/**/{use-cases,domain}/**` and `apps/web/src/{components,hooks,lib}/**`. Infrastructure and framework glue are covered by integration/E2E instead, not by the unit gate.
+- Coverage tooling is **not installed yet**; the gate is expected to start with ticket 04+.
+- Planned policy (per the testing guidelines in `docs/skills/`; the spec defers coverage guidance to this doc): minimum 80% lines/functions/statements/branches on business-logic paths — `apps/api/src/modules/**/{use-cases,domain}/**` and `apps/web/src/{components,hooks,lib}/**`. Infrastructure and framework glue are covered by integration/E2E instead, not by the unit gate.
 - E2E tests complement unit coverage and are never measured by it.
 
 ## Gates (Lefthook)
 
-- **pre-commit:** `biome check --write --staged --files-ignore-unknown=true --no-errors-on-unmatched && git update-index --again`
+- **pre-commit:** `pnpm exec biome check --write --staged --files-ignore-unknown=true --no-errors-on-unmatched && git update-index --again`
 - **pre-push:** `pnpm typecheck` then `pnpm test`
 - E2E is not in the hooks (manual now, cloud CI out of scope for this study project).
 ````
@@ -297,7 +297,7 @@ por:
 Logo após o parágrafo introdutório, insira uma linha em branco e:
 
 ```markdown
-> **Tooling status (TICKETVIBE):** Vitest is installed. React Testing Library, MSW and Playwright are **not installed yet** — they arrive with the first component/E2E tickets (component tests: ticket 04+, E2E: ticket 08+; see [`docs/TESTING.md`](../../TESTING.md)). Sections below describe the conventions to follow when that tooling lands; only the Commands section at the bottom is runnable today.
+> **Tooling status (TICKETVIBE):** Vitest is installed. React Testing Library, MSW and Playwright are **not installed yet** — they arrive with the first component/E2E tickets (component tests: ticket 04+, E2E: ticket 05+; see [`docs/TESTING.md`](../../TESTING.md)). Sections below describe the conventions to follow when that tooling lands; only the Commands section at the bottom is runnable today.
 ```
 
 - [ ] **Step 2: Anotar a `## Tech Stack`**
@@ -666,7 +666,7 @@ Substitua as duas linhas finais ("Record project-specific deviations here…") p
 
 - **Test suffix:** `.spec.ts` / `.spec.tsx`, co-located with the source; E2E centralized in `tests/e2e/`.
 - **Commands:** root `pnpm test`, `pnpm typecheck`, `pnpm lint`. `apps/web` has **no `test` script** until RTL + MSW land — never document `test:watch` / `test:coverage` / `test:e2e` before those scripts exist.
-- **Tooling status:** Vitest ✅ (installed) · RTL + MSW ⏳ first component test (ticket 04+) · Playwright ⏳ first E2E (ticket 08+).
+- **Tooling status:** Vitest ✅ (installed) · RTL + MSW ⏳ first component test (ticket 04+) · Playwright ⏳ first E2E (ticket 05+).
 - **Routes in examples are illustrative** (`/event/1`); real routes arrive with their tickets (event page: ticket 06, seat map: ticket 10, backoffice: tickets 17+).
 - **Auth/session mocking** (organizer guards, etc.) is deferred until tickets 08–09 define the session source; backoffice guard guidance is added by ticket 17.
 - **MSW handlers** will validate payloads against the Zod schemas in `packages/shared` — that is the web↔api contract seam.

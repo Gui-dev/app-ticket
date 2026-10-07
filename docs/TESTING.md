@@ -6,7 +6,7 @@ How testing works in this repository. Project-specific deviations from the gener
 - Frontend: [`docs/skills/TESTING_FRONTEND_GUIDELINE.md`](./skills/TESTING_FRONTEND_GUIDELINE.md)
 - Commits: [`docs/skills/COMMIT_GUIDELINE.md`](./skills/COMMIT_GUIDELINE.md)
 
-## Principles (from the spec)
+## Principles (spec & testing guidelines)
 
 - Assert only external behavior: HTTP status/body, database effects, rendered state, browser flows — never private calls or internal class structure.
 - The Zod contract in `packages/shared` is the single seam between `apps/web` and `apps/api`; other tests hang off it.
@@ -59,8 +59,8 @@ Expected: `[worker] listening for heartbeat jobs`, `[worker] job processed: N`, 
 | Level | Tooling | Status |
 |---|---|---|
 | Unit | Vitest, co-located `.spec.ts` | **live** — `packages/shared`, `apps/api` |
-| Integration (routes + real Postgres) | Vitest against a local `ticketvibe_test` database; helpers `resetDatabase` / `seedTestData` | **arrives with ticket 04** (first route over the DB) |
-| E2E | Playwright against the real local stack (web :3000, api :3001, Mailpit API :8025) | **arrives with ticket 08** (first E2E acceptance criterion) |
+| Integration (routes + real Postgres) | Vitest against a planned local `ticketvibe_test` database; planned helpers `resetDatabase` / `seedTestData` | **arrives with ticket 04** (first route over the DB) |
+| E2E | Playwright against the real local stack (web :3000, api :3001, Mailpit API :8025) | **from ticket 05 on** (first E2E acceptance criterion is ticket 05; full auth→purchase journey at 08) |
 
 Planned hexagonal layout for API domain modules (from the spec — no module exists yet):
 
@@ -75,12 +75,12 @@ apps/api/src/modules/<domain>/
 
 ## Coverage
 
-- Coverage tooling is **not installed yet**; the gate starts with the integration work (ticket 04+).
-- Planned policy (per spec): minimum 80% lines/functions/statements/branches on business-logic paths — `apps/api/src/modules/**/{use-cases,domain}/**` and `apps/web/src/{components,hooks,lib}/**`. Infrastructure and framework glue are covered by integration/E2E instead, not by the unit gate.
+- Coverage tooling is **not installed yet**; the gate is expected to start with ticket 04+.
+- Planned policy (per the testing guidelines in `docs/skills/`; the spec defers coverage guidance to this doc): minimum 80% lines/functions/statements/branches on business-logic paths — `apps/api/src/modules/**/{use-cases,domain}/**` and `apps/web/src/{components,hooks,lib}/**`. Infrastructure and framework glue are covered by integration/E2E instead, not by the unit gate.
 - E2E tests complement unit coverage and are never measured by it.
 
 ## Gates (Lefthook)
 
-- **pre-commit:** `biome check --write --staged --files-ignore-unknown=true --no-errors-on-unmatched && git update-index --again`
+- **pre-commit:** `pnpm exec biome check --write --staged --files-ignore-unknown=true --no-errors-on-unmatched && git update-index --again`
 - **pre-push:** `pnpm typecheck` then `pnpm test`
 - E2E is not in the hooks (manual now, cloud CI out of scope for this study project).
