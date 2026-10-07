@@ -1,14 +1,16 @@
-# Unit & E2E Testing Guidelines — Frontend (React / Next.js)
+# Unit & E2E Testing Guidelines — Frontend (React / Next.js) — TICKETVIBE
 
 A portable convention for unit-testing React components and hooks with Vitest, React Testing Library, and MSW v2, plus E2E testing with Playwright. Copy this file into any React/Next.js application and adapt only the "Project Overrides" section at the bottom.
+
+> **Tooling status (TICKETVIBE):** Vitest is installed. React Testing Library, MSW and Playwright are **not installed yet** — they arrive with the first component/E2E tickets (component tests: ticket 04+, E2E: ticket 05+; see [`docs/TESTING.md`](../TESTING.md)). Sections below describe the conventions to follow when that tooling lands; only the Commands section at the bottom is runnable today.
 
 ## Tech Stack
 
 - **Unit/Component framework:** Vitest (works with Jest — swap `vitest` imports for `jest`).
 - **Component rendering:** React Testing Library (`@testing-library/react`).
 - **User interactions:** `@testing-library/user-event` (preferred over `fireEvent`).
-- **Network mocking:** MSW v2 (Mock Service Worker) — intercepts `fetch` at the network boundary.
-- **E2E framework:** Playwright (`@playwright/test`).
+- **Network mocking:** MSW v2 (Mock Service Worker) — intercepts `fetch` at the network boundary. *(not installed yet)*
+- **E2E framework:** Playwright (`@playwright/test`). *(not installed yet)*
 - **Matchers:** `@testing-library/jest-dom` (DOM assertions like `toBeInTheDocument`).
 
 ## Principles
@@ -26,16 +28,16 @@ A portable convention for unit-testing React components and hooks with Vitest, R
 ```
 src/
 ├── components/
-│   ├── project-card.tsx
-│   ├── project-card.spec.tsx          # co-located
-│   ├── create-project-form.tsx
-│   └── create-project-form.spec.tsx   # co-located
+│   ├── event-card.tsx
+│   ├── event-card.spec.tsx           # co-located
+│   ├── seat-map.tsx
+│   └── seat-map.spec.tsx             # co-located
 ├── hooks/
-│   ├── use-projects.ts
-│   └── use-projects.spec.ts           # co-located
+│   ├── use-events.ts
+│   └── use-events.spec.ts            # co-located
 └── lib/
     ├── api-client.ts
-    └── api-client.spec.ts             # co-located
+    └── api-client.spec.ts            # co-located
 ```
 
 Why co-location: test-to-source mapping is obvious; refactors move both files together; no guessing where tests live.
@@ -46,8 +48,8 @@ Playwright tests stay in `tests/e2e/` because they are cross-cutting (full pages
 
 ```
 tests/e2e/
-├── auth.spec.ts
-├── projects.spec.ts
+├── browse-events.spec.ts
+├── seat-selection.spec.ts
 └── helpers/
     └── mailpit.ts
 ```
@@ -56,13 +58,13 @@ tests/e2e/
 
 | Item | Convention | Example |
 |---|---|---|
-| Component test file | `<component-name>.spec.tsx` co-located | `project-card.spec.tsx` |
-| Hook test file | `<hook-name>.spec.ts` co-located | `use-projects.spec.ts` |
+| Component test file | `<component-name>.spec.tsx` co-located | `event-card.spec.tsx` |
+| Hook test file | `<hook-name>.spec.ts` co-located | `use-events.spec.ts` |
 | Lib test file | `<lib-name>.spec.ts` co-located | `api-client.spec.ts` |
-| E2E test file | `<feature>.spec.ts` in `tests/e2e/` | `projects.spec.ts` |
-| Component suite | `describe('<ComponentName />')` | `describe('<ProjectCard />')` |
-| Hook suite | `describe('<useHookName>')` | `describe('<useProjects>')` |
-| Test title | `it('should [observable behavior]')` | `it('should render the project name')` |
+| E2E test file | `<feature>.spec.ts` in `tests/e2e/` | `browse-events.spec.ts` |
+| Component suite | `describe('<ComponentName />')` | `describe('<EventCard />')` |
+| Hook suite | `describe('<useHookName>')` | `describe('<useEvents>')` |
+| Test title | `it('should [observable behavior]')` | `it('should render the event name')` |
 
 ## Writing Component Tests
 
@@ -70,47 +72,46 @@ Standard pattern — render, interact, assert:
 
 ```tsx
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
-import { ProjectCard } from './project-card'
+import { describe, expect, it } from 'vitest'
+import { EventCard } from './event-card'
 
-describe('<ProjectCard />', () => {
-	it('should render the project name and description', () => {
+describe('<EventCard />', () => {
+	it('should render the event name and venue', () => {
 		render(
-			<ProjectCard
-				project={{
+			<EventCard
+				event={{
 					id: '1',
-					name: 'Alpha',
-					description: 'First project',
-					createdAt: '2026-01-01T00:00:00Z',
+					name: 'Show do Alpha',
+					venue: 'Auditório Beta',
+					startsAt: '2026-11-01T20:00:00-03:00',
+					priceFrom: 120,
 				}}
 			/>,
 		)
 
-		expect(screen.getByText('Alpha')).toBeInTheDocument()
-		expect(screen.getByText('First project')).toBeInTheDocument()
+		expect(screen.getByText('Show do Alpha')).toBeInTheDocument()
+		expect(screen.getByText('Auditório Beta')).toBeInTheDocument()
 	})
 
-	it('should link to the project detail page', () => {
+	it('should link to the event detail page', () => {
 		render(
-			<ProjectCard
-				project={{ id: '1', name: 'Alpha', description: null, createdAt: '2026-01-01T00:00:00Z' }}
+			<EventCard
+				event={{ id: '1', name: 'Show do Alpha', venue: 'Auditório Beta', startsAt: '2026-11-01T20:00:00-03:00', priceFrom: 120 }}
 			/>,
 		)
 
-		const link = screen.getByRole('link', { name: /Alpha/i })
-		expect(link).toHaveAttribute('href', '/app/projects/1')
+		const link = screen.getByRole('link', { name: /Show do Alpha/i })
+		expect(link).toHaveAttribute('href', '/event/1')
 	})
 
-	it('should handle missing description gracefully', () => {
+	it('should hide the price hint when there is no price yet', () => {
 		render(
-			<ProjectCard
-				project={{ id: '1', name: 'Alpha', description: null, createdAt: '2026-01-01T00:00:00Z' }}
+			<EventCard
+				event={{ id: '1', name: 'Show do Alpha', venue: 'Auditório Beta', startsAt: '2026-11-01T20:00:00-03:00', priceFrom: null }}
 			/>,
 		)
 
-		expect(screen.getByText('Alpha')).toBeInTheDocument()
-		expect(screen.queryByText(/description/i)).not.toBeInTheDocument()
+		expect(screen.queryByText(/a partir de/i)).not.toBeInTheDocument()
 	})
 })
 ```
@@ -147,25 +148,25 @@ Use `renderHook` from `@testing-library/react`:
 ```tsx
 import { renderHook, waitFor } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { useProjects } from './use-projects'
+import { useEvents } from './use-events'
 
-describe('<useProjects>', () => {
+describe('<useEvents>', () => {
 	it('should return empty list initially', () => {
-		const { result } = renderHook(() => useProjects())
+		const { result } = renderHook(() => useEvents())
 
-		expect(result.current.projects).toEqual([])
+		expect(result.current.events).toEqual([])
 		expect(result.current.isLoading).toBe(true)
 	})
 
-	it('should fetch projects on mount', async () => {
+	it('should fetch events on mount', async () => {
 		// MSW handler returns mock data — see MSW section below
-		const { result } = renderHook(() => useProjects())
+		const { result } = renderHook(() => useEvents())
 
 		await waitFor(() => {
 			expect(result.current.isLoading).toBe(false)
 		})
 
-		expect(result.current.projects).toHaveLength(2)
+		expect(result.current.events).toHaveLength(2)
 	})
 })
 ```
@@ -186,38 +187,36 @@ npx msw init public/ --save   # creates service-worker.js in public/
 Define handlers per feature (or a shared file for global handlers):
 
 ```ts
-// src/mocks/handlers/projects.ts
+// src/mocks/handlers/events.ts
 import { http, HttpResponse } from 'msw'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
-export const projectsHandlers = [
-	http.get(`${API_URL}/organizations/active/projects`, () => {
+export const eventsHandlers = [
+	http.get(`${API_URL}/events`, () => {
 		return HttpResponse.json([
-			{ id: '1', name: 'Alpha', description: 'First', createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z' },
-			{ id: '2', name: 'Beta', description: 'Second', createdAt: '2026-01-02T00:00:00Z', updatedAt: '2026-01-02T00:00:00Z' },
+			{ id: '1', name: 'Show do Alpha', venue: 'Auditório Beta', startsAt: '2026-11-01T20:00:00-03:00' },
+			{ id: '2', name: 'Peça Gama', venue: 'Teatro Delta', startsAt: '2026-12-05T19:30:00-03:00' },
 		])
 	}),
 
-	http.get(`${API_URL}/organizations/active/projects/:id`, ({ params }) => {
-		const project = { id: params.id, name: 'Alpha', description: 'First', createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z' }
-		return HttpResponse.json(project)
+	http.get(`${API_URL}/events/:id`, ({ params }) => {
+		const event = { id: params.id, name: 'Show do Alpha', venue: 'Auditório Beta', startsAt: '2026-11-01T20:00:00-03:00' }
+		return HttpResponse.json(event)
 	}),
 
-	http.post(`${API_URL}/organizations/active/projects`, async ({ request }) => {
-		const body = await request.json() as { name: string; description?: string }
-		return HttpResponse.json(
-			{ id: '3', ...body, description: body.description ?? null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-			{ status: 201 },
-		)
+	http.get(`${API_URL}/events/:id/availability`, ({ params }) => {
+		return HttpResponse.json({ eventId: params.id, seats: [] })
 	}),
 ]
 ```
 
+Handlers will validate payloads against the Zod schemas in `packages/shared` once those event schemas exist (contract seam — see `docs/TESTING.md`).
+
 ### Server setup per test file
 
 ```ts
-// src/components/create-project-form.spec.tsx
+// src/components/event-grid.spec.tsx
 import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
 import { afterAll, afterEach, beforeAll } from 'vitest'
@@ -225,9 +224,10 @@ import { afterAll, afterEach, beforeAll } from 'vitest'
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 
 const server = setupServer(
-	http.post(`${API_URL}/organizations/active/projects`, async ({ request }) => {
-		const body = await request.json() as { name: string }
-		return HttpResponse.json({ id: 'new', ...body, description: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, { status: 201 })
+	http.get(`${API_URL}/events`, () => {
+		return HttpResponse.json([
+			{ id: '1', name: 'Show do Alpha', venue: 'Auditório Beta', startsAt: '2026-11-01T20:00:00-03:00' },
+		])
 	}),
 )
 
@@ -250,18 +250,16 @@ Key MSW v2 API:
 ### Testing error states
 
 ```tsx
-it('should show error message when API fails', async () => {
+it('should show an error message when the API fails', async () => {
 	server.use(
-		http.post(`${API_URL}/organizations/active/projects`, () => {
-			return HttpResponse.json({ error: 'VALIDATION_ERROR', message: 'Name is required' }, { status: 400 })
+		http.get(`${API_URL}/events`, () => {
+			return HttpResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 })
 		}),
 	)
 
-	render(<CreateProjectForm />)
+	render(<EventGrid />)
 
-	await user.click(screen.getByRole('button', { name: 'Create' }))
-
-	expect(await screen.findByText('Name is required')).toBeInTheDocument()
+	expect(await screen.findByText('Não foi possível carregar os eventos')).toBeInTheDocument()
 })
 ```
 
@@ -272,7 +270,7 @@ Always prefer accessible queries and assertions:
 ```tsx
 // Good — queries by role (accessible)
 screen.getByRole('button', { name: 'Submit' })
-screen.getByRole('heading', { name: 'Projects' })
+screen.getByRole('heading', { name: 'Eventos' })
 screen.getByRole('link', { name: /Alpha/ })
 
 // Good — queries by label (accessible)
@@ -352,21 +350,13 @@ export default defineConfig({
 ```ts
 import { expect, test } from '@playwright/test'
 
-test('user can create a project', async ({ page }) => {
-	await page.goto('/app/projects')
+test('buyer can open an event page from the home', async ({ page }) => {
+	await page.goto('/')
 
-	// Open create dialog
-	await page.getByRole('button', { name: 'New Project' }).click()
+	await page.getByRole('link', { name: /Show do Alpha/i }).click()
 
-	// Fill form
-	await page.getByLabel('Name').fill('My Project')
-	await page.getByLabel('Description').fill('A test project')
-
-	// Submit
-	await page.getByRole('button', { name: 'Create' }).click()
-
-	// Assert project appears in list
-	await expect(page.getByText('My Project')).toBeVisible()
+	await expect(page).toHaveURL(/\/event\//)
+	await expect(page.getByRole('heading', { name: 'Show do Alpha' })).toBeVisible()
 })
 ```
 
@@ -378,98 +368,9 @@ test('user can create a project', async ({ page }) => {
 - **Unique data:** generate unique emails/Names with `Date.now()` + random suffix.
 - **Helpers:** extract reusable logic (email polling, auth setup) into `tests/e2e/helpers/`.
 
-## Admin Components
-
-Admin components follow the same patterns as other components. Key testing considerations:
-
-### Mocking Auth Store for Admin Users
-
-Admin pages require authentication with admin role. Mock the auth store to provide an admin user:
-
-```tsx
-vi.mock("@/stores/auth-store", () => ({
-  useAuthStore: (selector: (s: { user: { role: string } | null; isAuthenticated: boolean }) => unknown) =>
-    selector({ user: { role: "admin" }, isAuthenticated: true }),
-}));
-```
-
-For non-admin user tests:
-
-```tsx
-vi.mock("@/stores/auth-store", () => ({
-  useAuthStore: (selector: (s: { user: { role: string } | null; isAuthenticated: boolean }) => unknown) =>
-    selector({ user: { role: "customer" }, isAuthenticated: true }),
-}));
-```
-
-### Testing Auth Guard Behavior
-
-Admin pages should redirect non-admin users to `/login`. Test this by mocking the auth store with a non-admin user and verifying the redirect:
-
-```tsx
-it("redirects non-admin users to login", async () => {
-  const push = vi.fn();
-  vi.mock("next/navigation", () => ({
-    useRouter: () => ({ push }),
-  }));
-
-  render(<AdminPage />);
-  await waitFor(() => {
-    expect(push).toHaveBeenCalledWith("/login");
-  });
-});
-```
-
-### Testing CRUD Operations
-
-Admin pages typically perform CRUD operations. Use MSW to mock API responses:
-
-```tsx
-import { http, HttpResponse } from "msw";
-import { server } from "@/mocks/server";
-
-// Override handler for specific test
-server.use(
-  http.get("*/admin/orders", () => {
-    return HttpResponse.json([mockOrder]);
-  }),
-);
-```
-
-### Example Admin Test Pattern
-
-Here's a complete example of testing an admin orders list page:
-
-```tsx
-import { render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
-import { AdminOrdersPage } from "./page";
-
-vi.mock("@/stores/auth-store", () => ({
-  useAuthStore: (selector: (s: { user: { role: string } | null; isAuthenticated: boolean }) => unknown) =>
-    selector({ user: { role: "admin" }, isAuthenticated: true }),
-}));
-
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn() }),
-}));
-
-describe("AdminOrdersPage", () => {
-  it("renders orders table for admin users", async () => {
-    render(<AdminOrdersPage />);
-
-    await waitFor(() => {
-      expect(screen.getByText("Pedidos")).toBeDefined();
-    });
-
-    expect(screen.getByText("Todos os Pedidos")).toBeDefined();
-  });
-});
-```
-
 ## Coverage Gate
 
-CI should enforce minimum coverage on component and hook paths:
+Coverage tooling is not installed yet (it starts with the first component tests, ticket 04+). When it lands, enforce minimum coverage on component and hook paths:
 
 ```
 thresholds:
@@ -494,73 +395,80 @@ E2E tests cover critical journeys but are not measured by coverage tools — the
 - [ ] All previously passing tests still pass.
 - [ ] Coverage gate passes on component/hook/lib paths.
 
-## Commands (adapt to your project)
+## Commands (this project)
 
 ```bash
-pnpm --filter @kronostore/web test           # vitest run (unit tests)
-pnpm --filter @kronostore/web typecheck      # type checking
-pnpm --filter @kronostore/web test:watch     # vitest watch
-pnpm --filter @kronostore/web test:coverage  # coverage report
-pnpm --filter @kronostore/web test:e2e       # playwright test
+pnpm test                 # unit suite today = shared + api (apps/web has no test script yet)
+pnpm typecheck            # all packages (turbo; builds web first to generate .next/types)
+pnpm lint                 # biome (covers apps/web via its nested config)
 ```
+
+There are no `test:watch`, `test:coverage` or `test:e2e` scripts in this repository — do not document or run them until they are added.
 
 ## Full Worked Example
 
-Component (`components/project-card.tsx`):
+Component (`components/event-card.tsx`):
 
 ```tsx
 import Link from 'next/link'
 
-interface Project {
+interface Event {
 	id: string
 	name: string
-	description: string | null
-	createdAt: string
+	venue: string
+	startsAt: string
+	priceFrom: number | null
 }
 
-export function ProjectCard({ project }: { project: Project }) {
+export function EventCard({ event }: { event: Event }) {
 	return (
 		<Link
-			href={`/app/projects/${project.id}`}
+			href={`/event/${event.id}`}
 			className="block rounded-lg border p-4 hover:bg-muted"
 		>
-			<h3 className="font-medium">{project.name}</h3>
-			{project.description ? (
-				<p className="mt-1 text-sm text-muted-foreground">{project.description}</p>
+			<h3 className="font-medium">{event.name}</h3>
+			<p className="mt-1 text-sm text-muted-foreground">{event.venue}</p>
+			{event.priceFrom !== null ? (
+				<p className="mt-1 text-sm">A partir de R$ {event.priceFrom}</p>
 			) : null}
 		</Link>
 	)
 }
 ```
 
-Test (`components/project-card.spec.tsx` — co-located):
+Test (`components/event-card.spec.tsx` — co-located):
 
 ```tsx
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { ProjectCard } from './project-card'
+import { EventCard } from './event-card'
 
-describe('<ProjectCard />', () => {
-	it('should render the project name', () => {
+describe('<EventCard />', () => {
+	it('should render the event name', () => {
 		render(
-			<ProjectCard
-				project={{ id: '1', name: 'Alpha', description: null, createdAt: '2026-01-01T00:00:00Z' }}
+			<EventCard
+				event={{ id: '1', name: 'Show do Alpha', venue: 'Auditório Beta', startsAt: '2026-11-01T20:00:00-03:00', priceFrom: 120 }}
 			/>,
 		)
-		expect(screen.getByText('Alpha')).toBeInTheDocument()
+		expect(screen.getByText('Show do Alpha')).toBeInTheDocument()
 	})
 
-	it('should link to the project detail page', () => {
+	it('should link to the event detail page', () => {
 		render(
-			<ProjectCard
-				project={{ id: '1', name: 'Alpha', description: null, createdAt: '2026-01-01T00:00:00Z' }}
+			<EventCard
+				event={{ id: '1', name: 'Show do Alpha', venue: 'Auditório Beta', startsAt: '2026-11-01T20:00:00-03:00', priceFrom: 120 }}
 			/>,
 		)
-		expect(screen.getByRole('link', { name: /Alpha/ })).toHaveAttribute('href', '/app/projects/1')
+		expect(screen.getByRole('link', { name: /Show do Alpha/ })).toHaveAttribute('href', '/event/1')
 	})
 })
 ```
 
-## Project Overrides
+## Project Overrides — TICKETVIBE
 
-Record project-specific deviations here so the rest of the file stays portable (test file suffix, suite locations, commands, framework quirks, MSW handler locations).
+- **Test suffix:** `.spec.ts` / `.spec.tsx`, co-located with the source; E2E centralized in `tests/e2e/`.
+- **Commands:** root `pnpm test`, `pnpm typecheck`, `pnpm lint`. `apps/web` has **no `test` script** until RTL + MSW land — never document `test:watch` / `test:coverage` / `test:e2e` before those scripts exist.
+- **Tooling status:** Vitest ✅ (installed) · RTL + MSW ⏳ first component test (ticket 04+) · Playwright ⏳ first E2E (ticket 05+).
+- **Routes in examples are illustrative** (`/event/1`); real routes arrive with their tickets (event page: ticket 06, seat map: ticket 10, backoffice: tickets 17+).
+- **Auth/session mocking** (organizer guards, etc.) is deferred until tickets 08–09 define the session source; backoffice guard guidance is added by ticket 17.
+- **MSW handlers** will validate payloads against the Zod schemas in `packages/shared` — that is the web↔api contract seam.
