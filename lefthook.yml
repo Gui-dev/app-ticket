@@ -1,0 +1,8 @@
+pre-commit:
+  jobs:
+    - run: pnpm exec biome check --write --staged --files-ignore-unknown=true --no-errors-on-unmatched && git update-index --again
+
+pre-push:
+  jobs:
+    - run: pnpm typecheck
+    - run: pnpm test
