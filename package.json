@@ -9,9 +9,12 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "typecheck": "turbo typecheck",
-    "test": "turbo test"
+    "test": "turbo test",
+    "lint": "biome check .",
+    "format": "biome check --write ."
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.5.15",
     "turbo": "^2.11.7"
   }
 }
