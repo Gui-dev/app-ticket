@@ -4,11 +4,11 @@
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Turborepo + pnpm workspace com `apps/web` (Next.js), `apps/api` (Fastify), `apps/worker` (BullMQ) e `packages/shared` (Zod)
-- [ ] Compose Podman versionado no repo com Postgres, Redis e Mailpit
-- [ ] Biome configurado no lugar de ESLint+Prettier; Lefthook com pre-commit = `biome check` e pre-push = typecheck + testes unitários
-- [ ] Pipeline Turborepo de `typecheck` e `test` verde do zero
-- [ ] Rota de saúde da API respondendo; página inicial do web renderizando
-- [ ] Worker conecta ao Redis e agenda sem job (hello world do BullMQ)
+- [x] Turborepo + pnpm workspace com `apps/web` (Next.js), `apps/api` (Fastify), `apps/worker` (BullMQ) e `packages/shared` (Zod)
+- [x] Compose Podman versionado no repo com Postgres, Redis e Mailpit
+- [x] Biome configurado no lugar de ESLint+Prettier; Lefthook com pre-commit = `biome check` e pre-push = typecheck + testes unitários
+- [x] Pipeline Turborepo de `typecheck` e `test` verde do zero
+- [x] Rota de saúde da API respondendo; página inicial do web renderizando
+- [x] Worker conecta ao Redis e agenda sem job (hello world do BullMQ)
