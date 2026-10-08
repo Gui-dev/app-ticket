@@ -40,6 +40,7 @@ Com o Redis fora o worker fica em loop de reconexão e não processa (nem sai) �
 | `pnpm typecheck` | tsc de todos os pacotes (builda o web antes para gerar `.next/types`) |
 | `pnpm test` | testes unitários (vitest: shared + api) |
 | `pnpm lint` / `pnpm format` | biome check / biome check --write |
+| `pnpm --filter @ticketvibe/web storybook` | Storybook do design system (catálogo em http://localhost:6006) |
 | `pnpm infra:up` | sobe Postgres, Redis e Mailpit |
 | `pnpm infra:down` | derruba os containers **e apaga os volumes** |
 
@@ -51,6 +52,7 @@ Infra (5432/6379/1025/8025) escuta apenas em 127.0.0.1; web e api aceitam conex�
 |---|---|
 | 3000 | web (Next.js) |
 | 3001 | api (Fastify) |
+| 6006 | storybook (design system do web) |
 | 5432 | Postgres 16 |
 | 6379 | Redis 7 |
 | 1025 / 8025 | Mailpit SMTP / UI |
@@ -69,7 +71,7 @@ Nenhuma é obrigatória. Opcionais:
 ## Estrutura
 
 ```
-apps/web          Next.js 16 + Tailwind (pt-BR; moeda BRL conforme spec)
+apps/web          Next.js 16 + Tailwind + Shadcn/ui + Storybook :6006 (pt-BR; moeda BRL conforme spec)
 apps/api          Fastify 5 — rota /health compatível com o contrato do shared (validado em app.spec.ts)
 apps/worker       BullMQ (fila heartbeat) contra o Redis local
 packages/shared   contrato Zod — fonte única web↔api
