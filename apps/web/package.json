@@ -31,7 +31,7 @@
     "storybook": "^10.6.1",
     "@storybook/nextjs-vite": "^10.6.1",
     "@storybook/addon-docs": "^10.6.1",
-    "vite": "latest"
+    "vite": "^8.3.4"
   },
   "packageManager": "pnpm@10.28.0"
 }
