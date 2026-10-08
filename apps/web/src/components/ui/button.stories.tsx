@@ -6,6 +6,20 @@ const meta: Meta<typeof Button> = {
   component: Button,
   tags: ['autodocs'],
   parameters: { layout: 'centered' },
+  argTypes: {
+    variant: {
+      control: 'select',
+      options: [
+        'default',
+        'outline',
+        'secondary',
+        'ghost',
+        'destructive',
+        'link',
+      ],
+    },
+    size: { control: 'select', options: ['sm', 'default', 'lg', 'icon'] },
+  },
 };
 
 export default meta;
