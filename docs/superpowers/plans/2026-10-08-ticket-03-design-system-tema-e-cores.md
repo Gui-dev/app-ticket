@@ -87,7 +87,7 @@ Tipografia: Inter (`--font-inter`, body) + Poppins 600/700 (`--font-poppins`, di
 - Create: `apps/web/postcss.config.mjs`
 - Modify: `apps/web/next.config.ts`, `apps/web/package.json` (via pnpm), `pnpm-lock.yaml`
 
-- [ ] **Step 1: Criar o PostCSS config**
+- [x] **Step 1: Criar o PostCSS config**
 
 Escreva `apps/web/postcss.config.mjs`:
 
@@ -101,7 +101,7 @@ const config = {
 export default config;
 ```
 
-- [ ] **Step 2: Remover a regra Turbopack do Next config**
+- [x] **Step 2: Remover a regra Turbopack do Next config**
 
 Substitua `apps/web/next.config.ts` inteiro por:
 
@@ -116,7 +116,7 @@ const nextConfig: NextConfig = {
 export default nextConfig;
 ```
 
-- [ ] **Step 3: Trocar a dependência**
+- [x] **Step 3: Trocar a dependência**
 
 ```bash
 pnpm --filter @ticketvibe/web remove @tailwindcss/turbopack
@@ -125,22 +125,22 @@ pnpm --filter @ticketvibe/web add -D @tailwindcss/postcss
 
 Esperado: ambas saem com `Done`; `apps/web/package.json` tem `@tailwindcss/postcss` em devDependencies e **não** tem mais `@tailwindcss/turbopack`.
 
-- [ ] **Step 4: Confirmar que nada mais referencia o loader antigo**
+- [x] **Step 4: Confirmar que nada mais referencia o loader antigo**
 
 Run: `rg "@tailwindcss/turbopack" apps/web`
 Expected: EXIT=1 (zero ocorrências)
 
-- [ ] **Step 5: Build do Next prova o pipeline novo**
+- [x] **Step 5: Build do Next prova o pipeline novo**
 
 Run: `pnpm build`
 Expected: exit 0 (Next 16 + Turbopack consome o `postcss.config.mjs`)
 
-- [ ] **Step 6: Provar que o Tailwind expandiu no CSS gerado**
+- [x] **Step 6: Provar que o Tailwind expandiu no CSS gerado**
 
 Run: `grep -c "::file-selector-button" apps/web/.next/static/chunks/*.css`
 Expected: número ≥ 1 em pelo menos um arquivo (preflight do Tailwind v4 presente ⇒ `@import "tailwindcss"` processado pelo PostCSS; se 0, o PostCSS não rodou — não siga antes de resolver)
 
-- [ ] **Step 7: Lint e commit**
+- [x] **Step 7: Lint e commit**
 
 ```bash
 pnpm exec biome check --write apps/web/postcss.config.mjs apps/web/next.config.ts
@@ -158,7 +158,7 @@ git commit -m "build(web): unify tailwind pipeline with postcss"
 - Modify: `apps/web/src/app/globals.css` (edição provisória do init — reescrita na Task 3), `apps/web/package.json`, `pnpm-lock.yaml`
 - Restore: `apps/web/src/app/layout.tsx` (o init o reescreve — desfazer)
 
-- [ ] **Step 1: Rodar o init (flags verificadas em sandbox)**
+- [x] **Step 1: Rodar o init (flags verificadas em sandbox)**
 
 Workdir `apps/web`:
 
@@ -181,7 +181,7 @@ Project initialization completed.
 ```
 Obs.: sem `-p nova` o CLI trava num prompt de preset (falha em ambiente sem TTY). A saída real pode trazer versões diferentes de 4.21.4 — ok.
 
-- [ ] **Step 2: Restaurar o layout que o init reescreveu**
+- [x] **Step 2: Restaurar o layout que o init reescreveu**
 
 ```bash
 git checkout -- apps/web/src/app/layout.tsx
@@ -189,7 +189,7 @@ git checkout -- apps/web/src/app/layout.tsx
 
 (O `init` grava um layout Geist próprio; o layout final é da Task 3.)
 
-- [ ] **Step 3: Adicionar os componentes da base (registry funciona ponta a ponta)**
+- [x] **Step 3: Adicionar os componentes da base (registry funciona ponta a ponta)**
 
 Workdir `apps/web`:
 
@@ -206,7 +206,7 @@ Expected:
   - src/components/ui/input.tsx
 ```
 
-- [ ] **Step 4: Verificar o resultado do scaffold**
+- [x] **Step 4: Verificar o resultado do scaffold**
 
 ```bash
 test -f apps/web/components.json && test -f apps/web/src/lib/utils.ts && echo OK
@@ -218,7 +218,7 @@ git status --short
 
 Expected: `OK`; as 6 deps presentes; o `@import "shadcn/tailwind.css"` no globals; `sem npm lockfile` (se existir `package-lock.json` — o init usou npm por engano — `rm apps/web/package-lock.json && pnpm install` antes de seguir); `git status --short` lista apenas `apps/web/package.json`, `apps/web/src/app/globals.css`, `pnpm-lock.yaml` (M) e `apps/web/components.json`, `apps/web/src/lib/utils.ts`, `apps/web/src/components/ui/` (??) — **`layout.tsx` não pode aparecer**.
 
-- [ ] **Step 5: Formatar o que o CLI escreveu e passar o gate**
+- [x] **Step 5: Formatar o que o CLI escreveu e passar o gate**
 
 ```bash
 pnpm exec biome check --write apps/web/src apps/web/components.json apps/web/package.json
@@ -228,7 +228,7 @@ pnpm --filter @ticketvibe/web typecheck
 
 Expected: todos exit 0. (Os arquivos do CLI saem com aspas duplas/indent 4 — o `--write` normaliza para o estilo do repo.)
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/web/components.json apps/web/src/lib/utils.ts apps/web/src/components/ui apps/web/src/app/globals.css apps/web/package.json pnpm-lock.yaml
@@ -244,7 +244,7 @@ git commit -m "chore(web): scaffold shadcn ui with radix base"
 - Create: `apps/web/src/app/fonts.ts`
 - Rewrite: `apps/web/src/app/layout.tsx`
 
-- [ ] **Step 1: Criar o módulo de fontes**
+- [x] **Step 1: Criar o módulo de fontes**
 
 Escreva `apps/web/src/app/fonts.ts`:
 
@@ -265,7 +265,7 @@ export const poppins = Poppins({
 });
 ```
 
-- [ ] **Step 2: Reescrever `globals.css` com os tokens**
+- [x] **Step 2: Reescrever `globals.css` com os tokens**
 
 Apague `apps/web/src/app/globals.css` e escreva exatamente isto (estrutura igual à que o init gerou — imports/base mantidos; valores substituídos pelos da tabela de tokens):
 
@@ -363,7 +363,7 @@ Apague `apps/web/src/app/globals.css` e escreva exatamente isto (estrutura igual
 
 Notas: paleta dark vive só no `:root` (produto é dark-only, sem bloco `.dark` e sem `@media (prefers-color-scheme)`); o `@custom-variant dark` fica porque os componentes gerados usam utilitários `dark:*` com `<html class="dark">` fixo. Os três `@import` do topo são os mesmos que o init gravou (Task 2) — se algum não estiver no arquivo que o init gerou/instalou, remova essa linha em vez de adicioná-la (só são resolvíveis se as deps correspondentes existirem no `package.json`).
 
-- [ ] **Step 3: Reescrever o layout (aplica dark + fontes)**
+- [x] **Step 3: Reescrever o layout (aplica dark + fontes)**
 
 Apague `apps/web/src/app/layout.tsx` e escreva:
 
@@ -389,7 +389,7 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
 }
 ```
 
-- [ ] **Step 4: Build + asserções de tokens e fontes**
+- [x] **Step 4: Build + asserções de tokens e fontes**
 
 ```bash
 pnpm build
@@ -401,7 +401,7 @@ pnpm --filter @ticketvibe/web typecheck
 Expected: build exit 0; grep ≥ 1 (token no bundle CSS); ao menos 1 `.woff2` (next/font self-hostado no app); typecheck exit 0.
 Se o build falhar resolvendo `shadcn/tailwind.css` ou `tw-animate-css`: confirme que as deps existem em `apps/web/package.json` (`pnpm list --filter @ticketvibe/web shadcn tw-animate-css`) e que o passo 2 manteve só os imports suportados.
 
-- [ ] **Step 5: Lint e commit**
+- [x] **Step 5: Lint e commit**
 
 ```bash
 pnpm exec biome check --write apps/web/src/app
@@ -419,7 +419,7 @@ git commit -m "feat(web): apply ticketvibe dark theme tokens and fonts"
 - Modify: `apps/web/tsconfig.json`, `apps/web/.gitignore`
 - Delete: `apps/web/src/stories/` (template), `apps/web/debug-storybook.log` (se existir)
 
-- [ ] **Step 1: Instalar (flags verificadas em sandbox)**
+- [x] **Step 1: Instalar (flags verificadas em sandbox)**
 
 Workdir `apps/web`:
 
@@ -436,19 +436,19 @@ Storybook was successfully installed in your project!
 To run Storybook, run pnpm run storybook.
 ```
 
-- [ ] **Step 2: Conferir o framework detectado (condiciona os imports abaixo)**
+- [x] **Step 2: Conferir o framework detectado (condiciona os imports abaixo)**
 
 Run: `cat apps/web/.storybook/main.ts`
 Expected: `framework: "@storybook/nextjs-vite"` e `import type { StorybookConfig } from '@storybook/nextjs-vite'` (esperado para Next 16). **Se o init escolher outro pacote** (ex.: `@storybook/nextjs`), troque o nome do pacote em TODOS os `import type { ... } from '@storybook/...'` deste plano (preview e stories) para o pacote indicado no `main.ts` — é a única substituição permitida.
 
-- [ ] **Step 3: Apagar o template e o log**
+- [x] **Step 3: Apagar o template e o log**
 
 ```bash
 rm -rf apps/web/src/stories
 rm -f apps/web/debug-storybook.log
 ```
 
-- [ ] **Step 4: Typecheck passar a cobrir `.storybook/`**
+- [x] **Step 4: Typecheck passar a cobrir `.storybook/`**
 
 Em `apps/web/tsconfig.json`, substitua o array `include` por:
 
@@ -465,7 +465,7 @@ Em `apps/web/tsconfig.json`, substitua o array `include` por:
 ]
 ```
 
-- [ ] **Step 5: Reescrever o preview**
+- [x] **Step 5: Reescrever o preview**
 
 Apague `apps/web/.storybook/preview.tsx` e escreva:
 
@@ -504,7 +504,7 @@ export default preview;
 
 (Se o Step 2 mostrou outro framework, ajuste o `import type { Preview }` conforme a regra de lá.)
 
-- [ ] **Step 6: Scripts e gitignore**
+- [x] **Step 6: Scripts e gitignore**
 
 Confira que o init gravou em `apps/web/package.json`:
 
@@ -520,7 +520,7 @@ grep -q '^.storybook-static$' apps/web/.gitignore || echo '.storybook-static' >>
 grep -q '^debug-storybook.log$' apps/web/.gitignore || echo 'debug-storybook.log' >> apps/web/.gitignore
 ```
 
-- [ ] **Step 7: Formatar, typecheck e build do Storybook**
+- [x] **Step 7: Formatar, typecheck e build do Storybook**
 
 ```bash
 pnpm exec biome check --write apps/web/.storybook apps/web/tsconfig.json apps/web/package.json apps/web/.gitignore
@@ -531,7 +531,7 @@ pnpm --filter @ticketvibe/web build-storybook
 
 Expected: tudo exit 0; o build termina com `Storybook build completed successfully` (sem stories ainda — valida o pipeline: PostCSS + globals + fonts no preview). `apps/web/.storybook-static/` fica coberto pelo gitignore novo.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add apps/web/.storybook apps/web/tsconfig.json apps/web/.gitignore apps/web/package.json pnpm-lock.yaml
@@ -546,7 +546,7 @@ git commit -m "chore(web): add storybook with dark preview"
 - Modify: `apps/web/src/components/ui/button.tsx` (customizar o gerado na Task 2)
 - Create: `apps/web/src/components/ui/button.stories.tsx`
 
-- [ ] **Step 1: Substituir `button.tsx` pelo conteúdo customizado**
+- [x] **Step 1: Substituir `button.tsx` pelo conteúdo customizado**
 
 Apague e escreva `apps/web/src/components/ui/button.tsx`:
 
@@ -611,7 +611,7 @@ function Button({
 export { Button, buttonVariants };
 ```
 
-- [ ] **Step 2: Criar o story**
+- [x] **Step 2: Criar o story**
 
 Escreva `apps/web/src/components/ui/button.stories.tsx`:
 
@@ -649,7 +649,7 @@ export const Ghost: Story = {
 };
 ```
 
-- [ ] **Step 3: Verificar**
+- [x] **Step 3: Verificar**
 
 ```bash
 pnpm exec biome check --write apps/web/src/components/ui
@@ -659,7 +659,7 @@ pnpm --filter @ticketvibe/web typecheck
 
 Expected: exit 0 nos três.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/web/src/components/ui/button.tsx apps/web/src/components/ui/button.stories.tsx
@@ -674,7 +674,7 @@ git commit -m "feat(web): restyle button primitive and add story"
 - Modify: `apps/web/src/components/ui/badge.tsx`
 - Create: `apps/web/src/components/ui/badge.stories.tsx`
 
-- [ ] **Step 1: Substituir `badge.tsx` pelo conteúdo customizado**
+- [x] **Step 1: Substituir `badge.tsx` pelo conteúdo customizado**
 
 Apague e escreva `apps/web/src/components/ui/badge.tsx`:
 
@@ -728,7 +728,7 @@ function Badge({
 export { Badge, badgeVariants };
 ```
 
-- [ ] **Step 2: Criar o story**
+- [x] **Step 2: Criar o story**
 
 Escreva `apps/web/src/components/ui/badge.stories.tsx`:
 
@@ -767,7 +767,7 @@ export const Variants: Story = {
 };
 ```
 
-- [ ] **Step 3: Verificar**
+- [x] **Step 3: Verificar**
 
 ```bash
 pnpm exec biome check --write apps/web/src/components/ui
@@ -777,7 +777,7 @@ pnpm --filter @ticketvibe/web typecheck
 
 Expected: exit 0 nos três.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/web/src/components/ui/badge.tsx apps/web/src/components/ui/badge.stories.tsx
@@ -791,7 +791,7 @@ git commit -m "feat(web): restyle badge primitive and add story"
 **Files:**
 - Create: `apps/web/src/components/ui/chip.tsx`, `apps/web/src/components/ui/chip.stories.tsx`
 
-- [ ] **Step 1: Criar o componente**
+- [x] **Step 1: Criar o componente**
 
 Escreva `apps/web/src/components/ui/chip.tsx`:
 
@@ -836,7 +836,7 @@ function Chip({
 export { Chip };
 ```
 
-- [ ] **Step 2: Criar o story (linha com os dois estados)**
+- [x] **Step 2: Criar o story (linha com os dois estados)**
 
 Escreva `apps/web/src/components/ui/chip.stories.tsx`:
 
@@ -880,7 +880,7 @@ export const CategoryRow: Story = {
 };
 ```
 
-- [ ] **Step 3: Verificar**
+- [x] **Step 3: Verificar**
 
 ```bash
 pnpm exec biome check --write apps/web/src/components/ui
@@ -890,7 +890,7 @@ pnpm --filter @ticketvibe/web typecheck
 
 Expected: exit 0 nos três.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/web/src/components/ui/chip.tsx apps/web/src/components/ui/chip.stories.tsx
@@ -905,7 +905,7 @@ git commit -m "feat(web): add category chip primitive and story"
 - Create: `apps/web/src/components/ui/search-input.tsx`, `apps/web/src/components/ui/search-input.stories.tsx`
 - Keep: `apps/web/src/components/ui/input.tsx` (gerado na Task 2, sem edição)
 
-- [ ] **Step 1: Criar o componente (envolve o `Input` do shadcn)**
+- [x] **Step 1: Criar o componente (envolve o `Input` do shadcn)**
 
 Escreva `apps/web/src/components/ui/search-input.tsx`:
 
@@ -939,7 +939,7 @@ export { SearchInput };
 
 Notas: `dark:bg-secondary` é necessário porque o `Input` gerado define `dark:bg-input/30` e, com `<html class="dark">` fixo, esse utilitário vence o `bg-*` simples — o `cn` mantém o último `dark:*` do mesmo grupo. `pl-11 pr-4` substitui o `px-2.5` base via twMerge.
 
-- [ ] **Step 2: Criar o story**
+- [x] **Step 2: Criar o story**
 
 Escreva `apps/web/src/components/ui/search-input.stories.tsx`:
 
@@ -965,7 +965,7 @@ export const Default: Story = {
 };
 ```
 
-- [ ] **Step 3: Verificar**
+- [x] **Step 3: Verificar**
 
 ```bash
 pnpm exec biome check --write apps/web/src/components/ui
@@ -975,7 +975,7 @@ pnpm --filter @ticketvibe/web typecheck
 
 Expected: exit 0 nos três.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/web/src/components/ui/search-input.tsx apps/web/src/components/ui/search-input.stories.tsx
@@ -989,7 +989,7 @@ git commit -m "feat(web): add search input primitive and story"
 **Files:**
 - Create: `apps/web/src/components/event-card.tsx`, `apps/web/src/components/event-card.stories.tsx`
 
-- [ ] **Step 1: Criar o componente**
+- [x] **Step 1: Criar o componente**
 
 Escreva `apps/web/src/components/event-card.tsx`:
 
@@ -1086,7 +1086,7 @@ export { EventCard };
 
 Notas: sem `imageSrc` o card usa o fallback gradient (o story nunca passa imagem — stories renderizam sem dado externo); `next/image` só é renderizado quando `imageSrc` existe (o import compila no Storybook — verificado em sandbox).
 
-- [ ] **Step 2: Criar o story (dados estáticos do mockup)**
+- [x] **Step 2: Criar o story (dados estáticos do mockup)**
 
 Escreva `apps/web/src/components/event-card.stories.tsx`:
 
@@ -1116,7 +1116,7 @@ export const Default: Story = {
 };
 ```
 
-- [ ] **Step 3: Verificar**
+- [x] **Step 3: Verificar**
 
 ```bash
 pnpm exec biome check --write apps/web/src/components
@@ -1126,7 +1126,7 @@ pnpm --filter @ticketvibe/web typecheck
 
 Expected: exit 0 nos três.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/web/src/components/event-card.tsx apps/web/src/components/event-card.stories.tsx
@@ -1140,7 +1140,7 @@ git commit -m "feat(web): add event card component and story"
 **Files:**
 - Create: `apps/web/src/components/header.tsx`, `apps/web/src/components/header.stories.tsx`
 
-- [ ] **Step 1: Criar o componente**
+- [x] **Step 1: Criar o componente**
 
 Escreva `apps/web/src/components/header.tsx`:
 
@@ -1201,7 +1201,7 @@ export { Header };
 
 Notas: o link do logo é `<a href="/">` simples (navegação client-side com `next/link` fica para o ticket 04, quando houver rotas); `bg-header` vem do token `--color-header` (Task 3); busca some abaixo de `md` (responsivo do mockup).
 
-- [ ] **Step 2: Criar o story (layout full-screen)**
+- [x] **Step 2: Criar o story (layout full-screen)**
 
 Escreva `apps/web/src/components/header.stories.tsx`:
 
@@ -1224,7 +1224,7 @@ export const Default: Story = {
 };
 ```
 
-- [ ] **Step 3: Verificar**
+- [x] **Step 3: Verificar**
 
 ```bash
 pnpm exec biome check --write apps/web/src/components
@@ -1234,7 +1234,7 @@ pnpm --filter @ticketvibe/web typecheck
 
 Expected: exit 0 nos três.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/web/src/components/header.tsx apps/web/src/components/header.stories.tsx
@@ -1248,7 +1248,7 @@ git commit -m "feat(web): add header component and story"
 **Files:**
 - Modify: `README.md`
 
-- [ ] **Step 1: Adicionar a linha de script**
+- [x] **Step 1: Adicionar a linha de script**
 
 Na tabela `## Scripts (raiz)` do `README.md`, adicione a linha:
 
@@ -1256,7 +1256,7 @@ Na tabela `## Scripts (raiz)` do `README.md`, adicione a linha:
 | `pnpm --filter @ticketvibe/web storybook` | Storybook do design system (catálogo em http://localhost:6006) |
 ```
 
-- [ ] **Step 2: Adicionar a porta**
+- [x] **Step 2: Adicionar a porta**
 
 Na tabela `## Portas`, adicione a linha:
 
@@ -1264,7 +1264,7 @@ Na tabela `## Portas`, adicione a linha:
 | 6006 | storybook (design system do web) |
 ```
 
-- [ ] **Step 3: Atualizar a linha do web na estrutura**
+- [x] **Step 3: Atualizar a linha do web na estrutura**
 
 Em `## Estrutura`, substitua a linha do `apps/web` por:
 
@@ -1272,7 +1272,7 @@ Em `## Estrutura`, substitua a linha do `apps/web` por:
 apps/web          Next.js 16 + Tailwind + Shadcn/ui + Storybook :6006 (pt-BR; moeda BRL conforme spec)
 ```
 
-- [ ] **Step 4: Provar que o comando documentado funciona (smoke)**
+- [x] **Step 4: Provar que o comando documentado funciona (smoke)**
 
 ```bash
 pnpm --filter @ticketvibe/web storybook >/tmp/sb.log 2>&1 &
@@ -1291,7 +1291,7 @@ true
 
 Expected: `HTTP=200`; ao final `pgrep -f "storybook dev"` não encontra processos (se sobrar, mate-os antes de seguir).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add README.md
@@ -1305,7 +1305,7 @@ git commit -m "docs: document storybook command and port"
 **Files:**
 - Modify: `.scratch/ticketvibe/issues/03-design-system-tema-e-cores.md`
 
-- [ ] **Step 1: Gates completos**
+- [x] **Step 1: Gates completos**
 
 ```bash
 pnpm lint
@@ -1316,7 +1316,7 @@ pnpm build
 
 Expected: todos exit 0 (`typecheck` roda o build do web via turbo antes — é a checagem de tipos do `.storybook` e dos stories também).
 
-- [ ] **Step 2: Build estático do Storybook**
+- [x] **Step 2: Build estático do Storybook**
 
 ```bash
 pnpm --filter @ticketvibe/web build-storybook
@@ -1324,7 +1324,7 @@ pnpm --filter @ticketvibe/web build-storybook
 
 Expected: exit 0, `Storybook build completed successfully`.
 
-- [ ] **Step 3: Smoke do dev server web**
+- [x] **Step 3: Smoke do dev server web**
 
 ```bash
 pnpm --filter @ticketvibe/web dev >/tmp/web-dev.log 2>&1 &
@@ -1343,7 +1343,7 @@ true
 
 Expected: `HTTP=200`; sem processos `next dev` restantes depois (`pgrep -f "next dev"` vazio).
 
-- [ ] **Step 4: Asserções dos critérios**
+- [x] **Step 4: Asserções dos critérios**
 
 ```bash
 rg -c "#0a0716" apps/web/.next/static/chunks/*.css
@@ -1355,7 +1355,7 @@ rg "storybook" README.md
 Expected: token presente (≥1); o `rg` de rede EXIT=1 (nenhuma story busca dado externo); `IGNORED` impresso (build artifacts ignorados); `storybook` documentado no README.
 Se algum utilitário esperado faltar no CSS (ex.: `bg-primary-hover`), o mapping correspondente no `@theme inline` do `globals.css` não entrou — corrija antes de fechar.
 
-- [ ] **Step 5: Marcar o ticket como done**
+- [x] **Step 5: Marcar o ticket como done**
 
 Em `.scratch/ticketvibe/issues/03-design-system-tema-e-cores.md`: troque `**Status:** ready-for-agent` por `**Status:** done` e marque os 5 checkboxes:
 
@@ -1367,14 +1367,14 @@ Em `.scratch/ticketvibe/issues/03-design-system-tema-e-cores.md`: troque `**Stat
 - [x] Storybook renderiza sem dado externo e é executável por comando documentado
 ```
 
-- [ ] **Step 6: Commit final**
+- [x] **Step 6: Commit final**
 
 ```bash
 git add .scratch/ticketvibe/issues/03-design-system-tema-e-cores.md
 git commit -m "docs: mark ticket 03 as done"
 ```
 
-- [ ] **Step 7: Sweep de higiene**
+- [x] **Step 7: Sweep de higiene**
 
 ```bash
 git status --short
