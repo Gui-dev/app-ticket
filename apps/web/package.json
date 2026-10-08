@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
@@ -25,7 +27,11 @@
     "@types/react-dom": "^19",
     "shadcn": "^4.21.4",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "storybook": "^10.6.1",
+    "@storybook/nextjs-vite": "^10.6.1",
+    "@storybook/addon-docs": "^10.6.1",
+    "vite": "latest"
   },
   "packageManager": "pnpm@10.28.0"
 }
