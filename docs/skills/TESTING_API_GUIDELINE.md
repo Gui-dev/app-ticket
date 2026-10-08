@@ -307,6 +307,7 @@ export interface TaskRepository {
 Use case (`use-cases/create-task.use-case.ts`):
 
 ```typescript
+import { DomainError } from '../domain/domain-error.js'
 import type { Task, TaskRepository } from '../domain/task-repository.js'
 
 export class CreateTaskUseCase {
@@ -314,7 +315,7 @@ export class CreateTaskUseCase {
 
   async execute(input: { title: string; assigneeId?: string }): Promise<Task> {
     const title = input.title.trim()
-    if (!title) throw new Error('Title is required')
+    if (!title) throw new DomainError('TITLE_REQUIRED', 'Title is required')
 
     return this.repository.create({ title, assigneeId: input.assigneeId })
   }

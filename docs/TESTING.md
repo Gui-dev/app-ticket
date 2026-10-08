@@ -60,7 +60,7 @@ Expected: `[worker] listening for heartbeat jobs`, `[worker] job processed: N`, 
 |---|---|---|
 | Unit | Vitest, co-located `.spec.ts` | **live** — `packages/shared`, `apps/api` |
 | Integration (routes + real Postgres) | Vitest against a planned local `ticketvibe_test` database; planned helpers `resetDatabase` / `seedTestData` | **arrives with ticket 04** (first route over the DB) |
-| E2E | Playwright against the real local stack (web :3000, api :3001, Mailpit API :8025) | **from ticket 05 on** (first E2E acceptance criterion is ticket 05; full auth→purchase journey at 08) |
+| E2E | Playwright against the real local stack (web :3000, api :3001, Mailpit API :8025) | **from ticket 05 on** (first E2E acceptance criterion is ticket 05; auth journey at 08, full purchase journey at 13) |
 
 Planned hexagonal layout for API domain modules (from the spec — no module exists yet):
 

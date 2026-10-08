@@ -115,7 +115,7 @@ O TICKETVIBE (nome provisório) é um marketplace de ingressos em português e e
 - **Componentes web**: React Testing Library + MSW, handlers MSW implementando os schemas Zod do contrato. Prior art: handlers `products/cart/auth` e specs de componentes do projeto anterior.
 - **E2E**: Playwright contra a stack real local — fluxo crítico de compra com mapa de assentos, conflito de assento (dois navegadores), expiração de carrinho, recebimento do e-mail via API do Mailpit, leitura do QR. Prior art: `tests/e2e/*` e helpers de Mailpit/Webhook HMAC do projeto anterior.
 - **Storybook**: serves como catálogo e harness de desenvolvimento dos componentes; testes visuais automatizados fora do escopo.
-- **Gates**: Biome + typecheck + unitários no Lefthook; cobertura incremental seguindo as diretrizes em `docs/TESTING.md` (a adaptar para este projeto).
+- **Gates**: Biome + typecheck + unitários no Lefthook; cobertura incremental seguindo as diretrizes em `docs/TESTING.md`.
 
 ## Out of Scope
 
