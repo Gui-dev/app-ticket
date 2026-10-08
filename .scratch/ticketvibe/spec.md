@@ -132,6 +132,6 @@ O TICKETVIBE (nome provisório) é um marketplace de ingressos em português e e
 
 ## Further Notes
 
-- **Pendência conhecida**: os documentos legados do projeto anterior em `docs/` (`TESTING.md`, `skills/*`) ainda citam o projeto antigo (`kronostore`) — precisam ser adaptados a este projeto; idealmente vira um dos primeiros tickets.
+- **Pendência encerrada (ticket 02, 2026-10-07)**: `docs/TESTING.md` e `docs/skills/*` foram adaptados ao TICKETVIBE; sweep com `rg` confirma zero referências ao projeto anterior (`kronostore`).
 - Os mockups de referência estão em `docs/layout/` (home e "Eventos em Alta") e devem guiar a identidade visual da F1.
 - A numeração de fases (F1–F4) é a ordem de execução acordada; cada fase é quebrável em tickets independentes via `to-tickets`.

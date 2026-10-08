@@ -4,9 +4,9 @@
 
 **Blocked by:** 01 (Base do monorepo + ambiente local)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `docs/TESTING.md` atualizado: nomes de pacotes, comandos, caminhos e estrutura do novo workspace
-- [ ] Diretrizes em `docs/skills/` revisadas e renomeadas conforme este projeto
-- [ ] Nenhuma referência restante ao projeto anterior
-- [ ] Comandos documentados foram executados e funcionam como escrito
+- [x] `docs/TESTING.md` atualizado: nomes de pacotes, comandos, caminhos e estrutura do novo workspace
+- [x] Diretrizes em `docs/skills/` revisadas e renomeadas conforme este projeto
+- [x] Nenhuma referência restante ao projeto anterior
+- [x] Comandos documentados foram executados e funcionam como escrito
