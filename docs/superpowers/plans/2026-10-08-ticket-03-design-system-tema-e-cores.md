@@ -137,7 +137,7 @@ Expected: exit 0 (Next 16 + Turbopack consome o `postcss.config.mjs`)
 
 - [ ] **Step 6: Provar que o Tailwind expandiu no CSS gerado**
 
-Run: `grep -c "::file-selector-button" apps/web/.next/static/css/*.css`
+Run: `grep -c "::file-selector-button" apps/web/.next/static/chunks/*.css`
 Expected: número ≥ 1 em pelo menos um arquivo (preflight do Tailwind v4 presente ⇒ `@import "tailwindcss"` processado pelo PostCSS; se 0, o PostCSS não rodou — não siga antes de resolver)
 
 - [ ] **Step 7: Lint e commit**
@@ -393,8 +393,8 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
 
 ```bash
 pnpm build
-grep -c "#0a0716" apps/web/.next/static/css/*.css
-ls apps/web/.next/static/media/*.woff2 | head -3
+grep -c "#0a0716" apps/web/.next/static/chunks/*.css
+find apps/web/.next/static -name "*.woff2" | head -3
 pnpm --filter @ticketvibe/web typecheck
 ```
 
@@ -1308,7 +1308,7 @@ Expected: `HTTP=200`; sem processos `next dev` restantes depois (`pgrep -f "next
 - [ ] **Step 4: Asserções dos critérios**
 
 ```bash
-rg -c "#0a0716" apps/web/.next/static/css/*.css
+rg -c "#0a0716" apps/web/.next/static/chunks/*.css
 rg "fetch\(|axios|useSWR|useQuery" apps/web/src --glob "*.stories.tsx"
 git check-ignore apps/web/storybook-static && echo IGNORED
 rg "storybook" README.md
