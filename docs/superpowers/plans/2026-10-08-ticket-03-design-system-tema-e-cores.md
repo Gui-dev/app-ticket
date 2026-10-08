@@ -842,10 +842,23 @@ const meta: Meta<typeof Chip> = {
   component: Chip,
   tags: ['autodocs'],
   parameters: { layout: 'centered' },
+  argTypes: {
+    label: { control: 'text' },
+    selected: { control: 'boolean' },
+    icon: { control: false },
+  },
 };
 
 export default meta;
 type Story = StoryObj<typeof meta>;
+
+export const Selected: Story = {
+  args: { label: 'Shows', selected: true },
+};
+
+export const Unselected: Story = {
+  args: { label: 'Teatro' },
+};
 
 export const CategoryRow: Story = {
   render: () => (
