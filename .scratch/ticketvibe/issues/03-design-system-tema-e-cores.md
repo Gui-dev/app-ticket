@@ -11,3 +11,7 @@
 - [x] Primitivos documentados no Storybook com stories: botão (primário/secundário/ghost), badge, chip de categoria selecionado/não selecionado, card de evento, input de busca, cabeçalho (logo, busca, localização, ações)
 - [x] Tema escuro aplicado como padrão do `apps/web`
 - [x] Storybook renderiza sem dado externo e é executável por comando documentado
+
+## Adiado para o ticket 04
+
+Deferrals registrados em `.scratch/ticketvibe/issues/04-seed-de-eventos-e-home.md` (seção "Deferrals do ticket 03"): sign-off de design do contraste `--border` (1,38:1), pill do Header sobre `Chip`, wiring do Header, `page.tsx` sem tokens, `not-found` claro, EventCard minors, `.bg-brand-gradient` hardcoded, `dark:bg-secondary` no SearchInput, `.storybook-static` no gitignore.
