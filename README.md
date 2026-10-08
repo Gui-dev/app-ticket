@@ -4,8 +4,8 @@ Marketplace de ingressos para eventos — projeto de estudo. Tudo roda local; se
 
 ## Requisitos
 
-- Node `>= 22.12` e pnpm 10 (via `corepack enable`)
-- Podman 6+ com provider de compose (`podman compose` funcional)
+- Node `>= 22.12` e pnpm 10 (`npm i -g pnpm@10`; `corepack enable` só existe no Node 22–24)
+- Podman 6+ com provider de compose funcional (`podman compose` via `docker-compose` ou `podman-compose`)
 
 ## Quickstart
 
@@ -29,6 +29,7 @@ timeout 10 pnpm --filter @ticketvibe/worker dev
 ```
 
 Esperado: `[worker] listening for heartbeat jobs` e `[worker] job processed: N` (exit `124` do `timeout`).
+O worker sai com código 1 se o Redis não estiver de pé — suba a infra antes.
 
 ## Scripts (raiz)
 
@@ -42,7 +43,9 @@ Esperado: `[worker] listening for heartbeat jobs` e `[worker] job processed: N` 
 | `pnpm infra:up` | sobe Postgres, Redis e Mailpit |
 | `pnpm infra:down` | derruba os containers **e apaga os volumes** |
 
-## Portas (todas em 127.0.0.1)
+## Portas
+
+Infra (5432/6379/1025/8025) escuta apenas em 127.0.0.1; web e api aceitam conexões de qualquer interface (acesso local via 127.0.0.1).
 
 | Porta | Serviço |
 |---|---|
@@ -66,8 +69,8 @@ Nenhuma é obrigatória. Opcionais:
 ## Estrutura
 
 ```
-apps/web          Next.js 16 + Tailwind (pt-BR, BRL)
-apps/api          Fastify 5 — rota /health valida o contrato do shared
+apps/web          Next.js 16 + Tailwind (pt-BR; moeda BRL conforme spec)
+apps/api          Fastify 5 — rota /health compatível com o contrato do shared (validado em app.spec.ts)
 apps/worker       BullMQ (fila heartbeat) contra o Redis local
 packages/shared   contrato Zod — fonte única web↔api
 compose.yaml      Postgres · Redis · Mailpit
@@ -79,4 +82,5 @@ lefthook.yml      pre-commit: biome · pre-push: typecheck + test
 - [`docs/TESTING.md`](docs/TESTING.md) — como testamos: comandos reais, o que existe hoje e o que vem por ticket
 - [`docs/skills/`](docs/skills/) — diretrizes portáteis: API, frontend, commits
 - [`docs/agents/`](docs/agents/) — como agents navegam issues e domínio
+- [`AGENTS.md`](AGENTS.md) — entry point para agents que trabalham neste repo
 - [`.scratch/ticketvibe/spec.md`](.scratch/ticketvibe/spec.md) — spec do produto; [`issues/`](.scratch/ticketvibe/issues/) — tickets
