@@ -1,16 +1,24 @@
 import { cn } from 'cn';
 import type { LucideIcon } from 'lucide-react';
+import type * as React from 'react';
 
-type ChipProps = {
+type ChipProps = Omit<React.ComponentProps<'button'>, 'children'> & {
   icon?: LucideIcon;
   label: string;
   selected?: boolean;
-  className?: string;
 };
 
-function Chip({ icon: Icon, label, selected = false, className }: ChipProps) {
+function Chip({
+  icon: Icon,
+  label,
+  selected = false,
+  className,
+  ...props
+}: ChipProps) {
   return (
     <button
+      data-slot="chip"
+      {...props}
       type="button"
       aria-pressed={selected}
       className={cn(
