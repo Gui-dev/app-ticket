@@ -752,6 +752,10 @@ const meta: Meta<typeof Badge> = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+export const Default: Story = {
+  args: { children: 'Em destaque' },
+};
+
 export const Variants: Story = {
   render: () => (
     <div className="flex flex-wrap items-center gap-3 bg-background p-4">
