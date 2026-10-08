@@ -4,10 +4,10 @@
 
 **Blocked by:** 01 (Base do monorepo + ambiente local)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Tokens de cor extraídos dos mockups (fundo, superfícies, verde de ação, roxo, bordas, estados hover/focus) definidos como variáveis Tailwind/Shadcn
-- [ ] Tipografia, raios de borda e sombras definidos como tokens coerentes com os mockups
-- [ ] Primitivos documentados no Storybook com stories: botão (primário/secundário/ghost), badge, chip de categoria selecionado/não selecionado, card de evento, input de busca, cabeçalho (logo, busca, localização, ações)
-- [ ] Tema escuro aplicado como padrão do `apps/web`
-- [ ] Storybook renderiza sem dado externo e é executável por comando documentado
+- [x] Tokens de cor extraídos dos mockups (fundo, superfícies, verde de ação, roxo, bordas, estados hover/focus) definidos como variáveis Tailwind/Shadcn
+- [x] Tipografia, raios de borda e sombras definidos como tokens coerentes com os mockups
+- [x] Primitivos documentados no Storybook com stories: botão (primário/secundário/ghost), badge, chip de categoria selecionado/não selecionado, card de evento, input de busca, cabeçalho (logo, busca, localização, ações)
+- [x] Tema escuro aplicado como padrão do `apps/web`
+- [x] Storybook renderiza sem dado externo e é executável por comando documentado
