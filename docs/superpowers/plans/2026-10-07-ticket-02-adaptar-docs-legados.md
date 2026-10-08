@@ -776,7 +776,7 @@ timeout 10 pnpm --filter @ticketvibe/worker dev
 ```
 
 Esperado: `[worker] listening for heartbeat jobs` e `[worker] job processed: N` (exit `124` do `timeout`).
-O worker sai com código 1 se o Redis não estiver de pé — suba a infra antes.
+Com o Redis fora o worker fica em loop de reconexão e não processa (nem sai) — suba a infra antes.
 
 ## Scripts (raiz)
 
