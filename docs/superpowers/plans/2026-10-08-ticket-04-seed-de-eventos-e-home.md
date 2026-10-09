@@ -210,6 +210,7 @@ export const categories = pgTable('categories', {
 
 export const venues = pgTable('venues', {
   id: uuid('id').defaultRandom().primaryKey(),
+  slug: text('slug').notNull().unique(),
   name: text('name').notNull(),
   city: text('city').notNull(),
   state: text('state').notNull(),
