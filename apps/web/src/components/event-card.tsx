@@ -42,7 +42,7 @@ function EventCard({
             className="object-cover"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(135deg,#2e2054_0%,#1c1335_55%,#0a2a1e_100%)]">
+          <div className="bg-event-gradient flex h-full w-full items-center justify-center">
             <Ticket className="size-10 text-primary/70" aria-hidden="true" />
           </div>
         )}
