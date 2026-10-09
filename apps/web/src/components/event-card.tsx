@@ -4,7 +4,7 @@ import Image from 'next/image';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 
-type EventCardProps = {
+export type EventCardProps = {
   category: string;
   title: string;
   date: string;
