@@ -289,7 +289,7 @@ export type Db = ReturnType<typeof createDb>;
 | `cyberpunk-electronic-festival` | festivais | parque-olimpico | `2026-12-05T14:00:00-03:00` | 29000 | featured+hot | `Festival 3 Dias` |
 | `melhor-de-standup-grand-finale` | comedy | espaco-unimed | `2026-12-12T21:00:00-03:00` | 11000 | — | `null` |
 | `a-hora-e-a-vez` | teatro | teatro-renault | `2026-12-18T20:00:00-03:00` | 14000 | — | `null` |
-| `festival-de-verao` | festivais | vivo-rio | `2027-01-16T14:00:00-02:00` | 32000 | — | `null` |
+| `festival-de-verao` | festivais | vivo-rio | `2027-01-16T14:00:00-03:00` | 32000 | — | `null` |
 
   - Categorias: `shows` Shows, `esportes` Esportes, `teatro` Teatro, `festivais` Festivais, `comedy` Comédia, `infantil` Infantil, `danca` Dança.
   - Locais: `teatro-renault` (São Paulo/SP), `allianz-parque` (São Paulo/SP), `parque-olimpico` (São Paulo/SP), `espaco-unimed` (São Paulo/SP), `vivo-rio` (Rio de Janeiro/RJ). Todos `city`/`state` preenchidos; `slug` é chave natural.
