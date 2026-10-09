@@ -123,7 +123,7 @@ export const categorySchema = z.object({
 export const venueSchema = z.object({
   name: z.string().min(1),
   city: z.string().min(1),
-  state: z.string.length(2),
+  state: z.string().length(2),
 });
 
 export const eventSchema = z.object({
