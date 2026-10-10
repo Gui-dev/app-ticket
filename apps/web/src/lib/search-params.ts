@@ -7,14 +7,12 @@ function first(value: string | string[] | undefined): string | undefined {
 }
 
 export function parseSearchFilters(raw: RawSearchParams): SearchFilters {
-  const parsed = searchFiltersSchema.safeParse({
-    q: first(raw.q),
-    category: first(raw.category),
-    state: first(raw.state),
-    from: first(raw.from),
-    to: first(raw.to),
-  });
-  return parsed.success ? parsed.data : {};
+  const result: SearchFilters = {};
+  for (const key of ['q', 'category', 'state', 'from', 'to'] as const) {
+    const parsed = searchFiltersSchema.safeParse({ [key]: first(raw[key]) });
+    if (parsed.success) Object.assign(result, parsed.data);
+  }
+  return result;
 }
 
 export function filtersFromSearchParams(

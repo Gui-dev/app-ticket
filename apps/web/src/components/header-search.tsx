@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { type FormEvent, Suspense, useState } from 'react';
+import { type FormEvent, Suspense, useEffect, useState } from 'react';
 
 import { SearchInput } from '@/components/ui/search-input';
 import { buildSearchPath, filtersFromSearchParams } from '@/lib/search-params';
@@ -11,6 +11,10 @@ function HeaderSearchField() {
   const searchParams = useSearchParams();
   const filters = filtersFromSearchParams(searchParams);
   const [value, setValue] = useState(filters.q ?? '');
+
+  useEffect(() => {
+    setValue(filters.q ?? '');
+  }, [filters.q]);
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

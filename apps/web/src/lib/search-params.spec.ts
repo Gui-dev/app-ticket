@@ -20,6 +20,12 @@ describe('parseSearchFilters', () => {
   it('drops invalid values instead of throwing', () => {
     expect(parseSearchFilters({ state: 'XYZ', from: 'nope' })).toEqual({});
   });
+
+  it('keeps valid filters when another value is invalid', () => {
+    expect(parseSearchFilters({ q: 'teatro', state: 'XYZ' })).toEqual({
+      q: 'teatro',
+    });
+  });
 });
 
 describe('filtersFromSearchParams', () => {
