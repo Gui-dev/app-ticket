@@ -111,6 +111,14 @@ describe('GET /events (postgres integration)', () => {
     const body = listEventsResponseSchema.parse(response.json());
     expect(body.events.map((event) => event.slug)).toEqual(ALL_EVENTS_BY_DATE);
   });
+
+  it('stores a search vector for every seeded event', async () => {
+    const { rows } = await testDb.$client.query(
+      'select count(*)::int as missing from events where search_vector is null',
+    );
+
+    expect(rows[0].missing).toBe(0);
+  });
 });
 
 describe('GET /categories (postgres integration)', () => {

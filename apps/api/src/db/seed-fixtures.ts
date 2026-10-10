@@ -1,3 +1,5 @@
+import { sql } from 'drizzle-orm';
+
 import type { Db } from './client.js';
 import { categoryFixtures, eventFixtures, venueFixtures } from './fixtures.js';
 import { categories, events, venues } from './schema.js';
@@ -21,11 +23,13 @@ export async function seedFixtures(db: Db): Promise<void> {
       .values(venueFixtures)
       .returning();
     const venueIds = new Map(insertedVenues.map((row) => [row.slug, row.id]));
+    const venueBySlug = new Map(venueFixtures.map((row) => [row.slug, row]));
 
     for (const fixture of eventFixtures) {
       const categoryId = categoryIds.get(fixture.categorySlug);
       const venueId = venueIds.get(fixture.venueSlug);
-      if (!categoryId || !venueId) {
+      const venue = venueBySlug.get(fixture.venueSlug);
+      if (!categoryId || !venueId || !venue) {
         throw new Error(
           `Missing category or venue for event "${fixture.slug}"`,
         );
@@ -42,6 +46,9 @@ export async function seedFixtures(db: Db): Promise<void> {
         badgeLabel: fixture.badgeLabel,
         featured: fixture.featured,
         isHot: fixture.isHot,
+        searchVector: sql`setweight(to_tsvector('portuguese', unaccent(${fixture.title})), 'A')
+          || setweight(to_tsvector('portuguese', unaccent(${fixture.description})), 'B')
+          || setweight(to_tsvector('portuguese', unaccent(${venue.name} || ' ' || ${venue.city})), 'C')`,
       });
     }
   });
