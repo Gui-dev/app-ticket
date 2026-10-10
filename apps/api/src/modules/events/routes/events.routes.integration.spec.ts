@@ -1,4 +1,7 @@
-import { listEventsResponseSchema } from '@ticketvibe/shared';
+import {
+  listCategoriesResponseSchema,
+  listEventsResponseSchema,
+} from '@ticketvibe/shared';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
@@ -10,6 +13,7 @@ import {
   migrateTestDatabase,
   resetDatabase,
 } from '../../../db/test-helpers.js';
+import { DrizzleCategoriesRepository } from '../../categories/infra/drizzle-categories-repository.js';
 import { DrizzleEventsRepository } from '../infra/drizzle-events-repository.js';
 
 const ALL_EVENTS_BY_DATE = [
@@ -51,7 +55,10 @@ describe('GET /events (postgres integration)', () => {
     testDb = createDb(TEST_DATABASE_URL);
     await migrateTestDatabase(testDb);
     await seedFixtures(testDb);
-    app = buildApp({ eventsRepository: new DrizzleEventsRepository(testDb) });
+    app = buildApp({
+      eventsRepository: new DrizzleEventsRepository(testDb),
+      categoriesRepository: new DrizzleCategoriesRepository(testDb),
+    });
     await app.ready();
   });
 
@@ -103,5 +110,48 @@ describe('GET /events (postgres integration)', () => {
     expect(response.statusCode).toBe(200);
     const body = listEventsResponseSchema.parse(response.json());
     expect(body.events.map((event) => event.slug)).toEqual(ALL_EVENTS_BY_DATE);
+  });
+});
+
+describe('GET /categories (postgres integration)', () => {
+  let app: FastifyInstance;
+  let testDb: Db;
+
+  beforeAll(async () => {
+    await ensureTestDatabase();
+    testDb = createDb(TEST_DATABASE_URL);
+    await migrateTestDatabase(testDb);
+    await seedFixtures(testDb);
+    app = buildApp({
+      eventsRepository: new DrizzleEventsRepository(testDb),
+      categoriesRepository: new DrizzleCategoriesRepository(testDb),
+    });
+    await app.ready();
+  });
+
+  beforeEach(async () => {
+    await resetDatabase(testDb);
+    await seedFixtures(testDb);
+  });
+
+  afterAll(async () => {
+    await app.close();
+    await testDb.$client.end();
+  });
+
+  it('lists the seven seeded categories ordered by name', async () => {
+    const response = await app.inject({ method: 'GET', url: '/categories' });
+
+    expect(response.statusCode).toBe(200);
+    const body = listCategoriesResponseSchema.parse(response.json());
+    expect(body.categories.map((category) => category.slug)).toEqual([
+      'comedy',
+      'danca',
+      'esportes',
+      'festivais',
+      'infantil',
+      'shows',
+      'teatro',
+    ]);
   });
 });
