@@ -8,6 +8,13 @@
       "when": 1791521837897,
       "tag": "0000_red_adam_warlock",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791663878693,
+      "tag": "0001_events_search_vector",
+      "breakpoints": true
     }
   ]
 }
