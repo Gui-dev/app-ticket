@@ -118,4 +118,78 @@ describe('GET /events', () => {
     expect(Array.isArray(body.issues)).toBe(true);
     expect(body.issues.length).toBeGreaterThan(0);
   });
+
+  it('filters by text across title, venue and city', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/events?q=municipal',
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = listEventsResponseSchema.parse(response.json());
+    expect(body.events.map((event) => event.title)).toEqual(['destaque']);
+  });
+
+  it('filters by category slug', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/events?category=teatro',
+    });
+
+    const body = listEventsResponseSchema.parse(response.json());
+    expect(body.events.map((event) => event.title)).toEqual(['destaque']);
+  });
+
+  it('filters by state', async () => {
+    const sp = await app.inject({ method: 'GET', url: '/events?state=SP' });
+    const rj = await app.inject({ method: 'GET', url: '/events?state=rj' });
+
+    expect(
+      listEventsResponseSchema
+        .parse(sp.json())
+        .events.map((event) => event.title),
+    ).toEqual(['em-alta']);
+    expect(
+      listEventsResponseSchema
+        .parse(rj.json())
+        .events.map((event) => event.title),
+    ).toEqual(['destaque']);
+  });
+
+  it('filters by date range (inclusive, UTC days)', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/events?from=2026-06-10&to=2026-06-20',
+    });
+
+    const body = listEventsResponseSchema.parse(response.json());
+    expect(body.events.map((event) => event.title)).toEqual(['comum']);
+  });
+
+  it('combines query and category', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/events?q=show&category=teatro',
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = listEventsResponseSchema.parse(response.json());
+    expect(body.events).toEqual([]);
+  });
+
+  it('rejects an invalid date and an invalid state with 400', async () => {
+    const badDate = await app.inject({
+      method: 'GET',
+      url: '/events?from=01/06/2026',
+    });
+    const badState = await app.inject({
+      method: 'GET',
+      url: '/events?state=XYZ',
+    });
+
+    expect(badDate.statusCode).toBe(400);
+    expect(badDate.json().error).toBe('invalid_query');
+    expect(badState.statusCode).toBe(400);
+    expect(badState.json().error).toBe('invalid_query');
+  });
 });
