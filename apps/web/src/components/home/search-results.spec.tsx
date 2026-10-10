@@ -32,7 +32,28 @@ describe('SearchResults', () => {
     expect(
       screen.getByRole('heading', { name: 'Cyberpunk Electronic Festival' }),
     ).toBeInTheDocument();
-    expect(screen.getByText('1 evento encontrados')).toBeInTheDocument();
+    expect(screen.getByText('1 evento encontrado')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'TicketVibe' }),
+    ).toBeInTheDocument();
+  });
+
+  it('pluralizes the count for multiple events', () => {
+    render(
+      <SearchResults
+        filters={{ q: 'festival' }}
+        categories={[]}
+        result={{
+          ok: true,
+          events: [
+            event,
+            { ...event, id: '1c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f' },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByText('2 eventos encontrados')).toBeInTheDocument();
   });
 
   it('shows an empty state when no event matches', () => {

@@ -21,6 +21,7 @@ export function SearchResults({
 
   return (
     <section aria-labelledby="results-heading" className="flex flex-col gap-6">
+      <h1 className="sr-only">TicketVibe</h1>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 id="results-heading" className="font-heading text-3xl font-bold">
@@ -28,7 +29,7 @@ export function SearchResults({
           </h2>
           <p className="mt-2 text-muted-foreground" aria-live="polite">
             {result.ok
-              ? `${count} ${count === 1 ? 'evento' : 'eventos'} encontrados`
+              ? `${count} ${count === 1 ? 'evento encontrado' : 'eventos encontrados'}`
               : 'Vitrine de eventos'}
           </p>
         </div>
