@@ -1,4 +1,5 @@
-import { asc, eq } from 'drizzle-orm';
+import type { SearchFilters } from '@ticketvibe/shared';
+import { and, asc, eq, gte, lte, type SQL, sql } from 'drizzle-orm';
 
 import type { Db } from '../../../db/client.js';
 import { categories, events, venues } from '../../../db/schema.js';
@@ -29,10 +30,35 @@ interface EventRow {
   };
 }
 
-function buildViewCondition(view: EventView) {
-  if (view === 'featured') return eq(events.featured, true);
-  if (view === 'hot') return eq(events.isHot, true);
-  return undefined;
+function buildConditions(
+  view: EventView,
+  filters: SearchFilters,
+): SQL | undefined {
+  const conditions: SQL[] = [];
+
+  if (view === 'featured') conditions.push(eq(events.featured, true));
+  if (view === 'hot') conditions.push(eq(events.isHot, true));
+  if (filters.category) {
+    conditions.push(eq(categories.slug, filters.category));
+  }
+  if (filters.state) conditions.push(eq(venues.state, filters.state));
+  if (filters.q) {
+    conditions.push(
+      sql`${events.searchVector} @@ websearch_to_tsquery('portuguese', unaccent(${filters.q}))`,
+    );
+  }
+  if (filters.from) {
+    conditions.push(
+      gte(events.startsAt, new Date(`${filters.from}T00:00:00.000Z`)),
+    );
+  }
+  if (filters.to) {
+    conditions.push(
+      lte(events.startsAt, new Date(`${filters.to}T23:59:59.999Z`)),
+    );
+  }
+
+  return conditions.length > 0 ? and(...conditions) : undefined;
 }
 
 function toEventEntity(row: EventRow): EventEntity {
@@ -58,8 +84,10 @@ function toEventEntity(row: EventRow): EventEntity {
 export class DrizzleEventsRepository implements EventsRepository {
   constructor(private readonly db: Db) {}
 
-  async findAll(view: EventView): Promise<EventEntity[]> {
-    const condition = buildViewCondition(view);
+  async findAll(
+    view: EventView,
+    filters: SearchFilters = {},
+  ): Promise<EventEntity[]> {
     const rows = await this.db
       .select({
         events: {
@@ -87,7 +115,7 @@ export class DrizzleEventsRepository implements EventsRepository {
       .from(events)
       .innerJoin(categories, eq(events.categoryId, categories.id))
       .innerJoin(venues, eq(events.venueId, venues.id))
-      .where(condition)
+      .where(buildConditions(view, filters))
       .orderBy(asc(events.startsAt));
 
     return rows.map(toEventEntity);

@@ -119,6 +119,111 @@ describe('GET /events (postgres integration)', () => {
 
     expect(rows[0].missing).toBe(0);
   });
+
+  it('finds an event by accent-insensitive title term', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/events?q=opera',
+    });
+
+    const body = listEventsResponseSchema.parse(response.json());
+    expect(body.events.map((event) => event.slug)).toEqual([
+      'o-fantasma-da-opera',
+    ]);
+  });
+
+  it('finds events by venue name', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/events?q=teatro',
+    });
+
+    const body = listEventsResponseSchema.parse(response.json());
+    expect(body.events.map((event) => event.slug)).toEqual([
+      'o-fantasma-da-opera',
+      'pequeno-principe-musical',
+      'a-hora-e-a-vez',
+    ]);
+  });
+
+  it('matches all terms (AND) and returns nothing when a term is absent', async () => {
+    const both = await app.inject({
+      method: 'GET',
+      url: '/events?q=fantasma%20opera',
+    });
+    const none = await app.inject({
+      method: 'GET',
+      url: '/events?q=fantasma%20cyberpunk',
+    });
+
+    expect(
+      listEventsResponseSchema
+        .parse(both.json())
+        .events.map((event) => event.slug),
+    ).toEqual(['o-fantasma-da-opera']);
+    expect(listEventsResponseSchema.parse(none.json()).events).toEqual([]);
+  });
+
+  it('filters by category', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/events?category=festivais',
+    });
+
+    const body = listEventsResponseSchema.parse(response.json());
+    expect(body.events.map((event) => event.slug)).toEqual([
+      'cyberpunk-electronic-festival',
+      'festival-de-verao',
+    ]);
+  });
+
+  it('filters by state', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/events?state=RJ',
+    });
+
+    const body = listEventsResponseSchema.parse(response.json());
+    expect(body.events.map((event) => event.slug)).toEqual([
+      'sertaneja-rio',
+      'festival-de-verao',
+    ]);
+  });
+
+  it('filters by date range (inclusive, UTC days)', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/events?from=2026-11-01&to=2026-11-30',
+    });
+
+    const body = listEventsResponseSchema.parse(response.json());
+    expect(body.events.map((event) => event.slug)).toEqual([
+      'standup-noite-de-verdades',
+      'corrida-de-rua-sp',
+      'pequeno-principe-musical',
+      'neon-lights-world-tour',
+      'sertaneja-rio',
+    ]);
+  });
+
+  it('combines query and category', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/events?q=stand&category=comedy',
+    });
+
+    const body = listEventsResponseSchema.parse(response.json());
+    expect(body.events.map((event) => event.slug)).toEqual([
+      'standup-noite-de-verdades',
+      'melhor-de-standup-grand-finale',
+    ]);
+  });
+
+  it('returns nothing for an unknown term', async () => {
+    const response = await app.inject({ method: 'GET', url: '/events?q=zzz' });
+
+    expect(listEventsResponseSchema.parse(response.json()).events).toEqual([]);
+  });
 });
 
 describe('GET /categories (postgres integration)', () => {
