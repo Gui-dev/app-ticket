@@ -1,16 +1,12 @@
 import { ChevronDown, Heart, MapPin, Ticket, User } from 'lucide-react';
+import { HeaderSearch } from './header-search';
 import { Button } from './ui/button';
-import { SearchInput } from './ui/search-input';
 
 type HeaderProps = {
   location?: string;
-  searchPlaceholder?: string;
 };
 
-function Header({
-  location = 'São Paulo, SP',
-  searchPlaceholder = 'Buscar shows, teatro, comédia, cidade.',
-}: HeaderProps) {
+function Header({ location = 'São Paulo, SP' }: HeaderProps) {
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-header">
       <div className="mx-auto flex h-20 w-full max-w-7xl items-center gap-2 px-4 sm:gap-4 lg:gap-6 lg:px-8">
@@ -26,10 +22,7 @@ function Header({
             <span className="text-primary">VIBE</span>
           </span>
         </a>
-        <SearchInput
-          wrapperClassName="hidden max-w-md flex-1 md:flex"
-          placeholder={searchPlaceholder}
-        />
+        <HeaderSearch />
         <div className="ml-auto flex items-center gap-3">
           <button
             type="button"
