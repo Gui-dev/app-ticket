@@ -34,13 +34,15 @@ function HighlightsSkeleton() {
 }
 
 async function FeaturedSection() {
-  const [featured] = await fetchEvents('featured');
+  const result = await fetchEvents({ view: 'featured' });
+  const featured = result.ok ? result.events[0] : undefined;
   if (!featured) return <h1 className="sr-only">TicketVibe</h1>;
   return <HeroCard {...toHeroCardProps(featured)} />;
 }
 
 async function HighlightsSection() {
-  const events = await fetchEvents('hot');
+  const result = await fetchEvents({ view: 'hot' });
+  const events = result.ok ? result.events : [];
   return <EventsSection cards={events.map(toEventCardProps)} />;
 }
 

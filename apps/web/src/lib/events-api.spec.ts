@@ -10,7 +10,7 @@ import {
   test,
   vi,
 } from 'vitest';
-import { fetchEvents } from './events-api';
+import { fetchCategories, fetchEvents } from './events-api';
 
 const validEventFixture = {
   id: '7f9c1a2e-3b4d-4e5f-8a9b-0c1d2e3f4a5b',
@@ -27,17 +27,23 @@ const validEventFixture = {
 
 const server = setupServer(
   http.get('http://localhost:3001/events', ({ request }) => {
-    const view = new URL(request.url).searchParams.get('view');
-    if (view === 'featured') {
-      return HttpResponse.json({
-        events: [{ ...validEventFixture, internalFlag: true }],
-      });
+    const params = new URL(request.url).searchParams;
+    if (params.get('view') === 'featured') {
+      return HttpResponse.json({ events: [validEventFixture] });
     }
-    if (view === 'hot') {
-      return HttpResponse.json({ events: [] });
+    if (params.get('q') === 'boom') {
+      return HttpResponse.json({ events: [] }, { status: 500 });
     }
-    return HttpResponse.json({ events: [] }, { status: 404 });
+    return HttpResponse.json({ events: [] });
   }),
+  http.get('http://localhost:3001/categories', () =>
+    HttpResponse.json({
+      categories: [
+        { slug: 'shows', name: 'Shows' },
+        { slug: 'comedy', name: 'Comédia' },
+      ],
+    }),
+  ),
 );
 
 beforeEach(() => {
@@ -50,19 +56,48 @@ afterAll(() => server.close());
 afterEach(() => vi.restoreAllMocks());
 
 describe('fetchEvents', () => {
-  test('parses the featured events payload through the contract', async () => {
-    const result = await fetchEvents('featured');
-    expect(result).toEqual([validEventFixture]);
+  test('parses the payload through the contract and reports success', async () => {
+    const result = await fetchEvents({ view: 'featured' });
+    expect(result).toEqual({ ok: true, events: [validEventFixture] });
   });
 
-  test('returns an empty list for a valid empty hot response', async () => {
-    const result = await fetchEvents('hot');
-    expect(result).toEqual([]);
+  test('returns an empty-but-ok result for a valid empty payload', async () => {
+    const result = await fetchEvents({});
+    expect(result).toEqual({ ok: true, events: [] });
   });
 
-  test('logs the error and returns [] on a 404 response', async () => {
-    const result = await fetchEvents('all');
-    expect(result).toEqual([]);
-    expect(console.error).toHaveBeenCalled();
+  test('reports a failure on a non-2xx response', async () => {
+    const result = await fetchEvents({ q: 'boom' });
+    expect(result.ok).toBe(false);
+    expect(console.error).not.toHaveBeenCalled();
+  });
+
+  test('sends the search filters as query parameters', async () => {
+    const seen: string[] = [];
+    server.use(
+      http.get('http://localhost:3001/events', ({ request }) => {
+        seen.push(new URL(request.url).search);
+        return HttpResponse.json({ events: [] });
+      }),
+    );
+
+    await fetchEvents({ view: 'hot', q: 'teatro', state: 'RJ' });
+
+    expect(seen[0]).toContain('view=hot');
+    expect(seen[0]).toContain('q=teatro');
+    expect(seen[0]).toContain('state=RJ');
+  });
+});
+
+describe('fetchCategories', () => {
+  test('parses the categories payload through the contract', async () => {
+    const result = await fetchCategories();
+    expect(result).toEqual({
+      ok: true,
+      categories: [
+        { slug: 'shows', name: 'Shows' },
+        { slug: 'comedy', name: 'Comédia' },
+      ],
+    });
   });
 });
