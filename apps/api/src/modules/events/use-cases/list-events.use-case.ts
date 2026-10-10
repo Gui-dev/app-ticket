@@ -6,6 +6,7 @@ export class ListEventsUseCase {
   constructor(private readonly eventsRepository: EventsRepository) {}
 
   async execute(query: ListEventsQuery): Promise<EventEntity[]> {
-    return this.eventsRepository.findAll(query.view ?? 'all');
+    const { view = 'all', ...filters } = query;
+    return this.eventsRepository.findAll(view, filters);
   }
 }
