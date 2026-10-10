@@ -4,13 +4,13 @@
 
 **Blocked by:** 01 (Base do monorepo + ambiente local), 03 (Design system: tema e cores do TICKETVIBE)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Schema do banco para eventos, categorias e locais, com migrações
-- [ ] Fixtures seed versionadas no repo (venues, categorias, eventos de exemplo com preços)
-- [ ] Rota REST de listagem de eventos com destaque, validada por Zod do `packages/shared`
-- [ ] Home consumindo a API: hero em destaque + carrossel "Eventos em Alta"
-- [ ] Testes: integração da rota (Postgres real), unitários do caso de uso, componente da home com MSW
+- [x] Schema do banco para eventos, categorias e locais, com migrações
+- [x] Fixtures seed versionadas no repo (venues, categorias, eventos de exemplo com preços)
+- [x] Rota REST de listagem de eventos com destaque, validada por Zod do `packages/shared`
+- [x] Home consumindo a API: hero em destaque + carrossel "Eventos em Alta"
+- [x] Testes: integração da rota (Postgres real), unitários do caso de uso, componente da home com MSW
 
 ## Deferrals do ticket 03 (registrados no code review final do 03)
 
