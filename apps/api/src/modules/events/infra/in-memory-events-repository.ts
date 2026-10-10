@@ -47,7 +47,8 @@ export class InMemoryEventsRepository implements EventsRepository {
     }
 
     const sorted = [...filtered].sort(
-      (a, b) => a.startsAt.getTime() - b.startsAt.getTime(),
+      (a, b) =>
+        a.startsAt.getTime() - b.startsAt.getTime() || a.id.localeCompare(b.id),
     );
 
     return Promise.resolve(sorted);

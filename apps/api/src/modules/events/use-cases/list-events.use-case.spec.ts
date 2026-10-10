@@ -129,6 +129,50 @@ describe('ListEventsUseCase', () => {
     expect(slugsOf(result)).toEqual(['standup']);
   });
 
+  it('breaks ties on the start date deterministically by id', async () => {
+    const sameDate = new Date('2026-10-22T23:00:00.000Z');
+    const tiedEvents: EventEntity[] = [
+      {
+        id: '33333333-3333-4333-8333-333333333333',
+        slug: 'segundo',
+        title: 'Segundo Evento',
+        description: 'Segundo evento com a mesma data de início.',
+        categorySlug: 'shows',
+        categoryName: 'Shows',
+        venueName: 'Teatro Renault',
+        venueCity: 'São Paulo',
+        venueState: 'SP',
+        startsAt: sameDate,
+        priceFromCents: 12000,
+        imageUrl: null,
+        badgeLabel: null,
+        featured: true,
+        isHot: true,
+      },
+      {
+        id: '11111111-1111-4111-8111-111111111111',
+        slug: 'primeiro',
+        title: 'Primeiro Evento',
+        description: 'Primeiro evento com a mesma data de início.',
+        categorySlug: 'shows',
+        categoryName: 'Shows',
+        venueName: 'Teatro Renault',
+        venueCity: 'São Paulo',
+        venueState: 'SP',
+        startsAt: sameDate,
+        priceFromCents: 12000,
+        imageUrl: null,
+        badgeLabel: null,
+        featured: true,
+        isHot: true,
+      },
+    ];
+
+    const result = await createUseCase(tiedEvents).execute({ view: 'all' });
+
+    expect(slugsOf(result)).toEqual(['primeiro', 'segundo']);
+  });
+
   it('forwards view and filters to the repository', async () => {
     const repository = new InMemoryEventsRepository(stubEvents);
     const findAll = vi.spyOn(repository, 'findAll');

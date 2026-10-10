@@ -116,7 +116,7 @@ export class DrizzleEventsRepository implements EventsRepository {
       .innerJoin(categories, eq(events.categoryId, categories.id))
       .innerJoin(venues, eq(events.venueId, venues.id))
       .where(buildConditions(view, filters))
-      .orderBy(asc(events.startsAt));
+      .orderBy(asc(events.startsAt), asc(events.id));
 
     return rows.map(toEventEntity);
   }
