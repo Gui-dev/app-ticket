@@ -33,7 +33,7 @@ const stubEvents: EventEntity[] = [
     venueName: 'Teatro Municipal',
     venueCity: 'Rio de Janeiro',
     venueState: 'RJ',
-    startsAt: new Date('2026-06-01T20:00:00.000Z'),
+    startsAt: new Date('2026-06-10T00:00:00.000Z'),
     priceFromCents: 8000,
     imageUrl: null,
     badgeLabel: 'Destaque',
@@ -50,7 +50,7 @@ const stubEvents: EventEntity[] = [
     venueName: 'Parque Central',
     venueCity: 'Belo Horizonte',
     venueState: 'MG',
-    startsAt: new Date('2026-06-15T20:00:00.000Z'),
+    startsAt: new Date('2026-06-20T23:59:59.999Z'),
     priceFromCents: 15000,
     imageUrl: null,
     badgeLabel: null,
@@ -163,7 +163,10 @@ describe('GET /events', () => {
     });
 
     const body = listEventsResponseSchema.parse(response.json());
-    expect(body.events.map((event) => event.title)).toEqual(['comum']);
+    expect(body.events.map((event) => event.title)).toEqual([
+      'destaque',
+      'comum',
+    ]);
   });
 
   it('combines query and category', async () => {
