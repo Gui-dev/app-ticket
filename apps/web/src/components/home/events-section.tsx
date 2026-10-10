@@ -8,7 +8,13 @@ import { Button } from '@/components/ui/button';
 
 const CARD_STEP_PX = 344;
 
-export function EventsSection({ cards }: { cards: EventCardProps[] }) {
+export function EventsSection({
+  cards,
+  error = false,
+}: {
+  cards: EventCardProps[];
+  error?: boolean;
+}) {
   const rowRef = useRef<HTMLDivElement>(null);
 
   const scrollBy = (direction: 1 | -1) => {
@@ -68,7 +74,9 @@ export function EventsSection({ cards }: { cards: EventCardProps[] }) {
         </div>
       ) : (
         <p className="text-muted-foreground">
-          Nenhum evento em alta no momento.
+          {error
+            ? 'Não foi possível carregar os eventos.'
+            : 'Nenhum evento em alta no momento.'}
         </p>
       )}
     </section>

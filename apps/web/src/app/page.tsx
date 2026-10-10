@@ -1,61 +1,86 @@
 import { Suspense } from 'react';
 
 import { Header } from '@/components/header';
+import { CategoryChips } from '@/components/home/category-chips';
 import { EventsSection } from '@/components/home/events-section';
 import { HeroCard } from '@/components/home/hero-card';
+import { SearchResults } from '@/components/home/search-results';
 import { toEventCardProps, toHeroCardProps } from '@/lib/event-mapper';
-import { fetchEvents } from '@/lib/events-api';
+import { fetchCategories, fetchEvents } from '@/lib/events-api';
+import {
+  hasActiveFilters,
+  parseSearchFilters,
+  type RawSearchParams,
+} from '@/lib/search-params';
 
-function HeroSkeleton() {
+function PageSkeleton() {
   return (
-    <div
-      aria-hidden
-      className="min-h-[26rem] animate-pulse rounded-2xl border border-border bg-card"
-    />
-  );
-}
-
-function HighlightsSkeleton() {
-  return (
-    <div className="flex flex-col gap-6" aria-hidden>
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="flex flex-col gap-2">
-          <div className="h-9 w-72 animate-pulse rounded bg-card" />
-          <div className="h-4 w-64 animate-pulse rounded bg-card" />
-        </div>
-      </div>
-      <div className="flex gap-6 overflow-x-auto pb-2 [scrollbar-width:none]">
-        <div className="h-[26rem] w-80 shrink-0 animate-pulse rounded-xl border border-border bg-card shadow-card" />
-        <div className="h-[26rem] w-80 shrink-0 animate-pulse rounded-xl border border-border bg-card shadow-card" />
-        <div className="h-[26rem] w-80 shrink-0 animate-pulse rounded-xl border border-border bg-card shadow-card" />
-      </div>
+    <div className="flex flex-col gap-12" aria-hidden>
+      <div className="min-h-[26rem] animate-pulse rounded-2xl border border-border bg-card" />
+      <div className="h-10 w-full animate-pulse rounded-full bg-card" />
+      <div className="h-[26rem] w-full animate-pulse rounded-xl border border-border bg-card" />
     </div>
   );
 }
 
-async function FeaturedSection() {
-  const result = await fetchEvents({ view: 'featured' });
-  const featured = result.ok ? result.events[0] : undefined;
-  if (!featured) return <h1 className="sr-only">TicketVibe</h1>;
-  return <HeroCard {...toHeroCardProps(featured)} />;
+async function HomeContent({
+  searchParams,
+}: {
+  searchParams: Promise<RawSearchParams>;
+}) {
+  const filters = parseSearchFilters(await searchParams);
+
+  if (hasActiveFilters(filters)) {
+    const [result, categories] = await Promise.all([
+      fetchEvents(filters),
+      fetchCategories(),
+    ]);
+    return (
+      <SearchResults
+        filters={filters}
+        categories={categories.ok ? categories.categories : []}
+        result={result}
+      />
+    );
+  }
+
+  const [featured, hot, categories] = await Promise.all([
+    fetchEvents({ view: 'featured' }),
+    fetchEvents({ view: 'hot' }),
+    fetchCategories(),
+  ]);
+  const hero = featured.ok ? featured.events[0] : undefined;
+
+  return (
+    <div className="flex flex-col gap-12">
+      {hero ? (
+        <HeroCard {...toHeroCardProps(hero)} />
+      ) : (
+        <h1 className="sr-only">TicketVibe</h1>
+      )}
+      <CategoryChips
+        categories={categories.ok ? categories.categories : []}
+        filters={filters}
+      />
+      <EventsSection
+        cards={hot.ok ? hot.events.map(toEventCardProps) : []}
+        error={!hot.ok}
+      />
+    </div>
+  );
 }
 
-async function HighlightsSection() {
-  const result = await fetchEvents({ view: 'hot' });
-  const events = result.ok ? result.events : [];
-  return <EventsSection cards={events.map(toEventCardProps)} />;
-}
-
-export default function HomePage() {
+export default function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<RawSearchParams>;
+}) {
   return (
     <>
       <Header />
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-12 px-4 py-8 sm:px-6 lg:px-8">
-        <Suspense fallback={<HeroSkeleton />}>
-          <FeaturedSection />
-        </Suspense>
-        <Suspense fallback={<HighlightsSkeleton />}>
-          <HighlightsSection />
+        <Suspense fallback={<PageSkeleton />}>
+          <HomeContent searchParams={searchParams} />
         </Suspense>
       </main>
     </>
