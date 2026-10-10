@@ -5,6 +5,23 @@ import { ListEventsUseCase } from './list-events.use-case';
 
 const stubEvents: EventEntity[] = [
   {
+    id: '33333333-3333-4333-8333-333333333333',
+    slug: 'sertaneja',
+    title: 'Sertaneja Rio',
+    description: 'Show de sertanejo às margens do Rio.',
+    categorySlug: 'shows',
+    categoryName: 'Shows',
+    venueName: 'Vivo Rio',
+    venueCity: 'Rio de Janeiro',
+    venueState: 'RJ',
+    startsAt: new Date('2026-11-28T22:00:00.000Z'),
+    priceFromCents: 22000,
+    imageUrl: null,
+    badgeLabel: null,
+    featured: false,
+    isHot: false,
+  },
+  {
     id: '11111111-1111-4111-8111-111111111111',
     slug: 'fantasma',
     title: 'O Fantasma da Ópera',
@@ -38,23 +55,6 @@ const stubEvents: EventEntity[] = [
     featured: false,
     isHot: true,
   },
-  {
-    id: '33333333-3333-4333-8333-333333333333',
-    slug: 'sertaneja',
-    title: 'Sertaneja Rio',
-    description: 'Show de sertanejo às margens do Rio.',
-    categorySlug: 'shows',
-    categoryName: 'Shows',
-    venueName: 'Vivo Rio',
-    venueCity: 'Rio de Janeiro',
-    venueState: 'RJ',
-    startsAt: new Date('2026-11-28T22:00:00.000Z'),
-    priceFromCents: 22000,
-    imageUrl: null,
-    badgeLabel: null,
-    featured: false,
-    isHot: false,
-  },
 ];
 
 function createUseCase(events: EventEntity[] = stubEvents): ListEventsUseCase {
@@ -70,7 +70,7 @@ describe('ListEventsUseCase', () => {
     const result = await createUseCase().execute({ view: 'all' });
 
     expect(slugsOf(result)).toEqual(['fantasma', 'standup', 'sertaneja']);
-    expect(slugsOf(stubEvents)).toEqual(['fantasma', 'standup', 'sertaneja']);
+    expect(slugsOf(stubEvents)).toEqual(['sertaneja', 'fantasma', 'standup']);
   });
 
   it('treats an empty query as the all view', async () => {
