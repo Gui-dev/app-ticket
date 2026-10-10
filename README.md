@@ -12,6 +12,8 @@ Marketplace de ingressos para eventos — projeto de estudo. Tudo roda local; se
 ```bash
 pnpm install
 pnpm infra:up     # Postgres, Redis, Mailpit (apenas 127.0.0.1)
+pnpm --filter @ticketvibe/api db:migrate   # migrações Drizzle (idempotente)
+pnpm --filter @ticketvibe/api db:seed      # categorias, locais e 12 eventos (idempotente)
 pnpm dev          # web :3000 · api :3001 · worker BullMQ
 ```
 
@@ -19,6 +21,7 @@ Smoke test (com `pnpm dev` rodando):
 
 ```bash
 curl -s http://127.0.0.1:3001/health                            # {"status":"ok"}
+curl -s 'http://127.0.0.1:3001/events?view=featured'            # {"events":[…3 eventos…]}
 curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:3000  # 200
 ```
 
@@ -38,9 +41,12 @@ Com o Redis fora o worker fica em loop de reconexão e não processa (nem sai) �
 | `pnpm dev` | turbo dev — web, api e worker em paralelo |
 | `pnpm build` | build de produção (web; os demais pacotes não têm `build`) |
 | `pnpm typecheck` | tsc de todos os pacotes (builda o web antes para gerar `.next/types`) |
-| `pnpm test` | testes unitários (vitest: shared + api) |
+| `pnpm test` | testes (vitest: shared + api + web; a integração exige `pnpm infra:up`) |
 | `pnpm lint` / `pnpm format` | biome check / biome check --write |
 | `pnpm --filter @ticketvibe/web storybook` | Storybook do design system (catálogo em http://localhost:6006) |
+| `pnpm --filter @ticketvibe/api db:generate` | gera migrações Drizzle a partir do schema |
+| `pnpm --filter @ticketvibe/api db:migrate` | aplica as migrações no Postgres |
+| `pnpm --filter @ticketvibe/api db:seed` | popula categorias, locais e eventos (idempotente) |
 | `pnpm infra:up` | sobe Postgres, Redis e Mailpit |
 | `pnpm infra:down` | derruba os containers **e apaga os volumes** |
 
@@ -65,6 +71,8 @@ Nenhuma é obrigatória. Opcionais:
 |---|---|---|
 | `PORT` | `3001` | api (`apps/api/src/index.ts`) |
 | `REDIS_URL` | `redis://localhost:6379` | worker (`apps/worker/src/index.ts`) |
+| `DATABASE_URL` | `postgres://ticketvibe:ticketvibe@127.0.0.1:5432/ticketvibe` | api (Drizzle client + drizzle-kit) |
+| `API_URL` | `http://localhost:3001` | web (`fetchEvents` no servidor) |
 
 `.env*` é ignorado pelo git; `.env.example` é permitido (exceção no `.gitignore`).
 
@@ -72,7 +80,7 @@ Nenhuma é obrigatória. Opcionais:
 
 ```
 apps/web          Next.js 16 + Tailwind + Shadcn/ui + Storybook :6006 (pt-BR; moeda BRL conforme spec)
-apps/api          Fastify 5 — rota /health compatível com o contrato do shared (validado em app.spec.ts)
+apps/api          Fastify 5 + Drizzle/Postgres — rotas /health e /events validadas pelo shared (unit + integração)
 apps/worker       BullMQ (fila heartbeat) contra o Redis local
 packages/shared   contrato Zod — fonte única web↔api
 compose.yaml      Postgres · Redis · Mailpit

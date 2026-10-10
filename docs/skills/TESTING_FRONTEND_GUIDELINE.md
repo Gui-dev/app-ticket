@@ -2,16 +2,16 @@
 
 A portable convention for unit-testing React components and hooks with Vitest, React Testing Library, and MSW v2, plus E2E testing with Playwright. Copy this file into any React/Next.js application and adapt the sections marked TICKETVIBE (the tooling banner and Project Overrides) to that project.
 
-> **Tooling status (TICKETVIBE):** Vitest is installed (in `packages/shared` and `apps/api` — `apps/web` gets it with its test script). React Testing Library, MSW and Playwright are **not installed yet** — they arrive with the first component/E2E tickets (component tests: ticket 04+, E2E: ticket 05+; see [`docs/TESTING.md`](../TESTING.md)). Sections below describe the conventions to follow when that tooling lands; only the `## Commands (this project)` section lists project commands runnable today.
+> **Tooling status (TICKETVIBE):** Vitest is installed (`packages/shared`, `apps/api` and `apps/web`). React Testing Library and MSW are installed since ticket 04 (`apps/web`); Playwright arrives with E2E (ticket 05+; see [`docs/TESTING.md`](../TESTING.md)). Sections below keep describing the conventions to follow; only the `## Commands (this project)` section lists project commands runnable today.
 
 ## Tech Stack
 
 - **Unit/Component framework:** Vitest (works with Jest — swap `vitest` imports for `jest`).
-- **Component rendering:** React Testing Library (`@testing-library/react`). *(not installed yet)*
+- **Component rendering:** React Testing Library (`@testing-library/react`). *(installed since ticket 04)*
 - **User interactions:** `@testing-library/user-event` (preferred over `fireEvent`). *(not installed yet)*
-- **Network mocking:** MSW v2 (Mock Service Worker) — intercepts `fetch` at the network boundary. *(not installed yet)*
+- **Network mocking:** MSW v2 (Mock Service Worker) — intercepts `fetch` at the network boundary. *(installed since ticket 04)*
 - **E2E framework:** Playwright (`@playwright/test`). *(not installed yet)*
-- **Matchers:** `@testing-library/jest-dom` (DOM assertions like `toBeInTheDocument`). *(not installed yet)*
+- **Matchers:** `@testing-library/jest-dom` (DOM assertions like `toBeInTheDocument`). *(installed since ticket 04)*
 
 ## Principles
 
@@ -370,7 +370,7 @@ test('buyer can open an event page from the home', async ({ page }) => {
 
 ## Coverage Gate
 
-Coverage tooling is not installed yet (it starts with the first component tests, ticket 04+). When it lands, enforce minimum coverage on component and hook paths:
+Coverage tooling is not installed yet (ticket 04 explicitly deferred it — see the deferrals in `issues/05`). When it lands, enforce minimum coverage on component and hook paths:
 
 ```
 thresholds:
@@ -398,7 +398,7 @@ E2E tests cover critical journeys but are not measured by coverage tools — the
 ## Commands (this project)
 
 ```bash
-pnpm test                 # unit suite today = shared + api (apps/web has no test script yet)
+pnpm test                 # unit suite = shared + api + web
 pnpm typecheck            # all packages (turbo; builds web first to generate .next/types)
 pnpm lint                 # biome (covers apps/web via its nested config)
 ```
@@ -467,8 +467,8 @@ describe('<EventCard />', () => {
 ## Project Overrides — TICKETVIBE
 
 - **Test suffix:** `.spec.ts` / `.spec.tsx`, co-located with the source; E2E centralized in `tests/e2e/`.
-- **Commands:** root `pnpm test`, `pnpm typecheck`, `pnpm lint`. `apps/web` has **no `test` script** until RTL + MSW land — never document `test:watch` / `test:coverage` / `test:e2e` before those scripts exist.
-- **Tooling status:** Vitest ✅ (installed) · RTL + MSW ⏳ first component test (ticket 04+) · Playwright ⏳ first E2E (ticket 05+).
+- **Commands:** root `pnpm test`, `pnpm typecheck`, `pnpm lint`. `apps/web` has a `test` script since ticket 04 (`vitest run`) — still never document `test:watch` / `test:coverage` / `test:e2e` before those scripts exist.
+- **Tooling status:** Vitest ✅ · RTL ✅ · MSW ✅ (since ticket 04) · Playwright ⏳ first E2E (ticket 05+).
 - **Routes in examples are illustrative** (`/event/1`); real routes arrive with their tickets (event page: ticket 06, seat map: ticket 10, backoffice: tickets 17+).
 - **Auth/session mocking** (organizer guards, etc.) is deferred until tickets 08–09 define the session source; backoffice guard guidance is added by ticket 17.
 - **MSW handlers** will validate payloads against the Zod schemas in `packages/shared` — that is the web↔api contract seam.

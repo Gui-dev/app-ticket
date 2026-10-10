@@ -13,13 +13,13 @@ How testing works in this repository. Project-specific deviations from the gener
 - Unit tests are co-located: `<source>.spec.ts` next to `<source>.ts`.
 - Unit tests never touch the database, network, filesystem, or a real clock.
 
-## Current state (after ticket 01)
+## Current state (after ticket 04)
 
 | Package | Runner | Command | Status |
 |---|---|---|---|
-| `packages/shared` | Vitest | `pnpm --filter @ticketvibe/shared test` | 2 tests (`healthResponseSchema`) |
-| `apps/api` | Vitest | `pnpm --filter @ticketvibe/api test` | 1 test (`GET /health` via `app.inject`, validated against the shared contract) |
-| `apps/web` | — | no `test` script yet | component tests (RTL + MSW) arrive with the first feature tickets |
+| `packages/shared` | Vitest | `pnpm --filter @ticketvibe/shared test` | 12 tests (2 `healthResponseSchema` + 10 events contract schemas) |
+| `apps/api` | Vitest | `pnpm --filter @ticketvibe/api test` | health (unit) + events module (use case, route, integration vs `ticketvibe_test` — requires `pnpm infra:up`) |
+| `apps/web` | Vitest + RTL + MSW | `pnpm --filter @ticketvibe/web test` | home components (HeroCard, EventsSection), formatters, fetch client |
 | `apps/worker` | — | no `test` script yet | verified live against Redis (see Commands below) |
 
 Existing test layout:
@@ -30,6 +30,12 @@ packages/shared/src/index.spec.ts    # contract tests (TDD: test written first)
 apps/api/src/app.ts                  # buildApp() — Fastify instance (HTTP test seam)
 apps/api/src/app.spec.ts             # GET /health validated against the shared contract
 apps/api/src/index.ts                # composition root (listen) — not unit tested
+apps/api/src/db/{schema,client,fixtures,seed-fixtures}.ts  # Drizzle schema + seed versionado
+apps/api/src/db/test-helpers.ts        # ensure/migrate/reset (guarda: só ticketvibe_test)
+apps/api/src/modules/events/…          # hexagonal live: domain, infra, use-cases, routes
+apps/api/src/modules/events/routes/events.routes.integration.spec.ts  # Postgres real
+apps/web/src/lib/events-api.ts         # fetchEvents + MSW (spec ao lado)
+apps/web/src/components/home/*.spec.tsx # RTL do hero e da seção de destaques
 ```
 
 ## Commands
@@ -39,11 +45,12 @@ Run from the repository root:
 ```bash
 pnpm lint                              # biome check . (all packages, incl. apps/web)
 pnpm typecheck                         # turbo typecheck (builds web first to generate .next/types)
-pnpm test                              # turbo test (shared + api; packages without a test script are skipped)
+pnpm test                              # turbo test (shared + api + web; packages without a test script are skipped)
 pnpm build                             # turbo build (web only today)
 
 pnpm --filter @ticketvibe/shared test  # just the contract tests
 pnpm --filter @ticketvibe/api test     # just the API tests
+pnpm --filter @ticketvibe/web test     # only the web tests
 ```
 
 Worker smoke (requires `pnpm infra:up` first — Redis must be running):
@@ -58,11 +65,11 @@ Expected: `[worker] listening for heartbeat jobs`, `[worker] job processed: N`, 
 
 | Level | Tooling | Status |
 |---|---|---|
-| Unit | Vitest, co-located `.spec.ts` | **live** — `packages/shared`, `apps/api` |
-| Integration (routes + real Postgres) | Vitest against a planned local `ticketvibe_test` database; planned helpers `resetDatabase` / `seedTestData` | **arrives with ticket 04** (first route over the DB) |
+| Unit | Vitest, co-located `.spec.ts` | **live** — `packages/shared`, `apps/api`, `apps/web` |
+| Integration (routes + real Postgres) | Vitest against local `ticketvibe_test`; helpers `ensureTestDatabase` / `migrateTestDatabase` / `resetDatabase` | **live** (requires `pnpm infra:up`; first module: `events`) |
 | E2E | Playwright against the real local stack (web :3000, api :3001, Mailpit API :8025) | **from ticket 05 on** (first E2E acceptance criterion is ticket 05; auth journey at 08, full purchase journey at 13) |
 
-Planned hexagonal layout for API domain modules (from the spec — no module exists yet):
+Hexagonal layout (live since ticket 04 — `modules/events`):
 
 ```
 apps/api/src/modules/<domain>/
@@ -75,7 +82,7 @@ apps/api/src/modules/<domain>/
 
 ## Coverage
 
-- Coverage tooling is **not installed yet**; the gate is expected to start with ticket 04+.
+- Coverage tooling is **not installed yet**; ticket 04 explicitly deferred it (recorded in the ticket 04 deferrals — see `issues/05`).
 - Planned policy (per the testing guidelines in `docs/skills/`; the spec defers coverage guidance to this doc): minimum 80% lines/functions/statements/branches on business-logic paths — `apps/api/src/modules/**/{use-cases,domain}/**` and `apps/web/src/{components,hooks,lib}/**`. Infrastructure and framework glue are covered by integration/E2E instead, not by the unit gate.
 - E2E tests complement unit coverage and are never measured by it.
 

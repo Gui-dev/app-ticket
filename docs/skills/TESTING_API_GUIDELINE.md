@@ -2,7 +2,7 @@
 
 A portable convention for unit-testing backend domain code built with use cases, repository contracts, and in-memory repositories. Copy this file into any application and adapt the "Status" banner, the sections marked TICKETVIBE, and the "Project Overrides" section to that project.
 
-> **Status (TICKETVIBE):** unit testing is live for `packages/shared` and `apps/api`; the hexagonal module layout and the Drizzle/integration layer arrive with ticket 04 (see [`docs/TESTING.md`](../TESTING.md)).
+> **Status (TICKETVIBE):** unit testing is live for `packages/shared` and `apps/api`; the hexagonal module layout, Drizzle repositories and route integration tests are live since ticket 04 (first module: `events` — see [`docs/TESTING.md`](../TESTING.md)).
 
 ## Tech Stack
 
@@ -23,7 +23,7 @@ A portable convention for unit-testing backend domain code built with use cases,
 
 Every `.spec.ts` (or `.test.ts`) file lives **next to the file it tests**, using the same base name:
 
-Planned module example (first module arrives with ticket 04):
+Module example (live since ticket 04 — `modules/events`):
 
 ```
 modules/<domain>/
@@ -171,7 +171,7 @@ Each repository contract has two implementations: a production Drizzle implement
 - **In-memory tests** exercise the in-memory repository directly (fast, no I/O) — **live pattern** as soon as the first module exists.
 - **Drizzle tests** hit the local `ticketvibe_test` database directly (integration, requires `pnpm infra:up`).
 
-*(The Drizzle layer does not exist yet — the first hexagonal module arrives with ticket 04. Until then, only unit tests exist: `packages/shared` contract tests and the `apps/api` health route.)*
+*(The Drizzle layer is live since ticket 04: `modules/events` ships in-memory + Drizzle repositories and `events.routes.integration.spec.ts` runs against `ticketvibe_test`.)*
 
 ## Writing In-Memory Repository Tests
 
@@ -328,7 +328,7 @@ Tests (`create-task.use-case.spec.ts`): see "Writing Use Case Tests" above — s
 
 - **Test suffix:** `.spec.ts`, co-located with the source (unit and integration alike — there is no `tests/integration/` directory).
 - **Commands:** `pnpm --filter @ticketvibe/api test`, `pnpm --filter @ticketvibe/api typecheck`, root `pnpm test` / `pnpm typecheck`. No `test:watch` / `test:coverage` scripts exist — never document them before they are added.
-- **Test database:** integration tests will use (planned) a local `ticketvibe_test` database (Postgres via `pnpm infra:up`); helpers (`resetDatabase`, `seedTestData`) arrive with ticket 04.
+- **Test database:** local `ticketvibe_test` — created/migrated/reset by `apps/api/src/db/test-helpers.ts` (`ensureTestDatabase`, `migrateTestDatabase`, `resetDatabase`; the last one refuses any non-test URL). Requires `pnpm infra:up`.
 - **HTTP test seam:** `buildApp()` in `apps/api/src/app.ts` — tests use Fastify `inject` (see `apps/api/src/app.spec.ts`).
-- **Contract seam:** route tests validate payloads against Zod schemas from `packages/shared` (`healthResponseSchema` is the first one).
-- **Module layout:** hexagonal `modules/<domain>/{domain,infra,use-cases,schemas,routes}` per spec; first module arrives with ticket 04. Better Auth persistence (tickets 08–09) is not part of the first modules.
+- **Contract seam:** route tests validate payloads against Zod schemas from `packages/shared` (`healthResponseSchema` is the first one, alongside `eventSchema` / `listEventsResponseSchema`).
+- **Module layout:** hexagonal `modules/<domain>/{domain,infra,use-cases,schemas,routes}` per spec — live with `modules/events` (table schemas live in `src/db/schema.ts`, shared with the seed). Better Auth persistence (tickets 08–09) is not part of the first modules.
