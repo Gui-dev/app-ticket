@@ -21,3 +21,5 @@
 - **Provider Zod/OpenAPI do Fastify** — F-transversal, fora do escopo de rota do 04.
 - **Coverage tooling** — decisão registrada no 04: não instalar; política vive em docs/TESTING.md.
 - **Sign-off do contraste `--border: #2e2054`** — pendência herdada do 03, ainda sem decisão de design.
+- **Tokenizar o gradiente `.bg-event-gradient`** (globals.css) — os hexes hardcoded (`#2e2054`=`--border`, `#1c1335`=`--card`, `#0a2a1e` sem token) repetem o padrão que o deferral do 03 pediu para eliminar; virar tokens `--gradient-event-*` com `var()` no primeiro toque do 05.
+- **fetch failure vs. lista vazia são indistinguíveis** — `fetchEvents` colapsa todo erro em `[]` (log no console); com a API fora do ar a home renderiza empty state silenciosamente. Registrar a decisão consciente (ex.: resultado discriminado ou estado visual distinto) quando a busca/filtros do 05 tocarem o client.
