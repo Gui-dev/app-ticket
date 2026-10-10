@@ -87,6 +87,35 @@ describe('fetchEvents', () => {
     expect(seen[0]).toContain('q=teatro');
     expect(seen[0]).toContain('state=RJ');
   });
+
+  test('logs and reports a failure when the payload breaks the contract', async () => {
+    server.use(
+      http.get('http://localhost:3001/events', () =>
+        HttpResponse.json({ events: 'nope' }),
+      ),
+    );
+
+    const result = await fetchEvents({});
+
+    expect(result.ok).toBe(false);
+    expect(console.error).toHaveBeenCalled();
+  });
+
+  test('omits the default view and empty filters from the query string', async () => {
+    const seen: string[] = [];
+    server.use(
+      http.get('http://localhost:3001/events', ({ request }) => {
+        seen.push(new URL(request.url).search);
+        return HttpResponse.json({ events: [] });
+      }),
+    );
+
+    await fetchEvents({ view: 'all', q: '', category: undefined });
+
+    expect(seen[0]).not.toContain('view=');
+    expect(seen[0]).not.toContain('q=');
+    expect(seen[0]).not.toContain('category=');
+  });
 });
 
 describe('fetchCategories', () => {
