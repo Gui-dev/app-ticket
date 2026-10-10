@@ -43,3 +43,7 @@ yarn-error.log*
 storybook-static
 .storybook-static
 debug-storybook.log
+
+# playwright
+/test-results/
+/playwright-report/
