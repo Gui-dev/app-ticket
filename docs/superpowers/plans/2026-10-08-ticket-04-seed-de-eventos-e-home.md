@@ -94,9 +94,9 @@
 
 **Files:** `apps/web/src/app/page.tsx` (restore), working tree
 
-- [ ] `git restore apps/web/src/app/page.tsx` (descarta o tinkering de layout do ticket 03 — será reescrito na task 14)
-- [ ] `podman ps --format '{{.Names}}'` → `ticketvibe-postgres`, `ticketvibe-redis`, `ticketvibe-mailpit` (3 containers UP; se `ticketvibe-postgres` não estiver no ar, `podman start ticketvibe-postgres` — nunca `pnpm infra:down`)
-- [ ] `git rev-parse --short HEAD` → `13180d0`
+- [x] `git restore apps/web/src/app/page.tsx` (descarta o tinkering de layout do ticket 03 — será reescrito na task 14)
+- [x] `podman ps --format '{{.Names}}'` → `ticketvibe-postgres`, `ticketvibe-redis`, `ticketvibe-mailpit` (3 containers UP; se `ticketvibe-postgres` não estiver no ar, `podman start ticketvibe-postgres` — nunca `pnpm infra:down`)
+- [x] `git rev-parse --short HEAD` → `13180d0`
 
 **Expected:** working tree limpo; infra de pé; este é o único passo sem commit (é preparação, não altera arquivos versionáveis além do restore).
 
@@ -108,11 +108,11 @@
 
 Ordem TDD: escreva os testes novos primeiro, rode `pnpm --filter @ticketvibe/shared test` (red), depois implemente.
 
-- [ ] Testes novos em `index.spec.ts` (8 expectativas novas):
+- [x] Testes novos em `index.spec.ts` (8 expectativas novas):
   - `eventSchema`: aceita evento válido completo; rejeita `id` fora de UUID; rejeita evento sem `venue`; rejeita `priceFromCents` negativo
   - `listEventsQuerySchema`: aceita objeto vazio (usa default `all`); aceita cada view suportada (`all`, `featured`, `hot`); rejeita `view` desconhecido
   - `listEventsResponseSchema`: rejeita resposta cujo evento viola `eventSchema`
-- [ ] Implementação em `index.ts` (depois do bloco do health):
+- [x] Implementação em `index.ts` (depois do bloco do health):
 
 ```ts
 export const categorySchema = z.object({
@@ -158,7 +158,7 @@ export type EventsView = z.infer<typeof listEventsQuerySchema>['view'];
 
   - `EventsView` fica pronta para o client do web (task 12); o domínio do api mantém seu próprio alias `EventView` (task 6) para não acoplar o domínio ao nome web — as duas uniões são `all | featured | hot`.
 
-- [ ] `pnpm --filter @ticketvibe/shared test` → verde
+- [x] `pnpm --filter @ticketvibe/shared test` → verde
 
 **Commit:** `feat(shared): add event listing contract schemas`
 
@@ -168,12 +168,12 @@ export type EventsView = z.infer<typeof listEventsQuerySchema>['view'];
 
 **Files:** `apps/api/package.json` (Modify), `apps/api/drizzle.config.ts` (Create), `apps/api/src/db/schema.ts` (Create), `apps/api/drizzle/**` (Create, gerado)
 
-- [ ] `pnpm --filter @ticketvibe/api add drizzle-orm@^0.45.4 pg@^8.23.1 && pnpm --filter @ticketvibe/api add -D drizzle-kit@^0.31.11 @types/pg@^8.23.1`
-- [ ] Scripts em `apps/api/package.json`:
+- [x] `pnpm --filter @ticketvibe/api add drizzle-orm@^0.45.4 pg@^8.23.1 && pnpm --filter @ticketvibe/api add -D drizzle-kit@^0.31.11 @types/pg@^8.23.1`
+- [x] Scripts em `apps/api/package.json`:
   - `"db:generate": "drizzle-kit generate"`
   - `"db:migrate": "drizzle-kit migrate"`
   - `"db:seed": "tsx src/db/seed.ts"`
-- [ ] `apps/api/drizzle.config.ts`:
+- [x] `apps/api/drizzle.config.ts`:
 
 ```ts
 import { defineConfig } from 'drizzle-kit';
@@ -190,7 +190,7 @@ export default defineConfig({
 });
 ```
 
-- [ ] `apps/api/src/db/schema.ts`:
+- [x] `apps/api/src/db/schema.ts`:
 
 ```ts
 import {
@@ -236,9 +236,9 @@ export const events = pgTable('events', {
 });
 ```
 
-- [ ] `pnpm --filter @ticketvibe/api db:generate` → `drizzle/0000_*.sql` (3 tabelas) + `drizzle/meta/`
-- [ ] `pnpm --filter @ticketvibe/api db:migrate` → sucesso
-- [ ] Verificação: `podman exec ticketvibe-postgres psql -U ticketvibe -d ticketvibe -c '\dt'` lista `categories`, `venues`, `events`
+- [x] `pnpm --filter @ticketvibe/api db:generate` → `drizzle/0000_*.sql` (3 tabelas) + `drizzle/meta/`
+- [x] `pnpm --filter @ticketvibe/api db:migrate` → sucesso
+- [x] Verificação: `podman exec ticketvibe-postgres psql -U ticketvibe -d ticketvibe -c '\dt'` lista `categories`, `venues`, `events`
 
 **Commit:** `feat(api): add drizzle schema and migrations for events catalog`
 
@@ -250,7 +250,7 @@ export const events = pgTable('events', {
 
 **Ordem:** criar primeiro `client.ts` (o seed depende dele), depois fixtures/seed.
 
-- [ ] `apps/api/src/db/client.ts`:
+- [x] `apps/api/src/db/client.ts`:
 
 ```ts
 import { drizzle } from 'drizzle-orm/node-postgres';
@@ -274,7 +274,7 @@ export function createDb(url = process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL)
 export type Db = ReturnType<typeof createDb>;
 ```
 
-- [ ] `apps/api/src/db/fixtures.ts` — 7 categorias, 5 locais, 12 eventos (ISO com offset explícito):
+- [x] `apps/api/src/db/fixtures.ts` — 7 categorias, 5 locais, 12 eventos (ISO com offset explícito):
 
 | slug | categoria | local | startsAt | priceFromCents | flags | badgeLabel |
 |---|---|---|---|---|---|---|
@@ -295,7 +295,7 @@ export type Db = ReturnType<typeof createDb>;
   - Locais: `teatro-renault` (São Paulo/SP), `allianz-parque` (São Paulo/SP), `parque-olimpico` (São Paulo/SP), `espaco-unimed` (São Paulo/SP), `vivo-rio` (Rio de Janeiro/RJ). Todos `city`/`state` preenchidos; `slug` é chave natural.
   - Descrições curtas em pt-BR (1–2 frases) por evento; `imageUrl: null` em todos (assets são deferral).
   - **Invariante p/ testes:** `featured` em ordem de data = `['o-fantasma-da-opera', 'neon-lights-world-tour', 'cyberpunk-electronic-festival']`; `hot` em ordem de data = `['o-fantasma-da-opera', 'derby-capital', 'standup-noite-de-verdades', 'neon-lights-world-tour', 'sertaneja-rio', 'cyberpunk-electronic-festival']` (6 eventos).
-- [ ] `apps/api/src/db/seed-fixtures.ts` — `seedFixtures(db: Db)`:
+- [x] `apps/api/src/db/seed-fixtures.ts` — `seedFixtures(db: Db)`:
 
 ```ts
 export async function seedFixtures(db: Db): Promise<void> {
@@ -344,7 +344,7 @@ export async function seedFixtures(db: Db): Promise<void> {
 }
 ```
 
-- [ ] `apps/api/src/db/seed.ts`:
+- [x] `apps/api/src/db/seed.ts`:
 
 ```ts
 import { createDb } from './client.js';
@@ -363,9 +363,9 @@ try {
 }
 ```
 
-- [ ] `pnpm --filter @ticketvibe/api db:seed` → mensagem de sucesso
-- [ ] Idempotência: rodar de novo → mesmo sucesso; contagens via `podman exec ticketvibe-postgres psql -U ticketvibe -d ticketvibe -c "SELECT (SELECT count(*) FROM categories), (SELECT count(*) FROM venues), (SELECT count(*) FROM events);"` → `7 | 5 | 12` nas duas execuções
-- [ ] `pnpm lint` → verde
+- [x] `pnpm --filter @ticketvibe/api db:seed` → mensagem de sucesso
+- [x] Idempotência: rodar de novo → mesmo sucesso; contagens via `podman exec ticketvibe-postgres psql -U ticketvibe -d ticketvibe -c "SELECT (SELECT count(*) FROM categories), (SELECT count(*) FROM venues), (SELECT count(*) FROM events);"` → `7 | 5 | 12` nas duas execuções
+- [x] `pnpm lint` → verde
 
 **Commit:** `feat(api): add versioned catalog seed fixtures`
 
@@ -375,8 +375,8 @@ try {
 
 **Files:** `apps/api/src/db/test-helpers.spec.ts` (Create), `apps/api/src/db/test-helpers.ts` (Create)
 
-- [ ] TDD: primeiro `test-helpers.spec.ts` — `assertTestDatabaseUrl('postgres://user:pass@127.0.0.1:5432/ticketvibe')` lança `/Refusing/`; `assertTestDatabaseUrl(TEST_DATABASE_URL)` não lança (2 testes). `pnpm --filter @ticketvibe/api test` → red.
-- [ ] `apps/api/src/db/test-helpers.ts`:
+- [x] TDD: primeiro `test-helpers.spec.ts` — `assertTestDatabaseUrl('postgres://user:pass@127.0.0.1:5432/ticketvibe')` lança `/Refusing/`; `assertTestDatabaseUrl(TEST_DATABASE_URL)` não lança (2 testes). `pnpm --filter @ticketvibe/api test` → red.
+- [x] `apps/api/src/db/test-helpers.ts`:
 
 ```ts
 import { Client } from 'pg';
@@ -393,8 +393,8 @@ const MIGRATIONS_FOLDER = fileURLToPath(new URL('../../drizzle', import.meta.url
   - `resetDatabase(db: Db): Promise<void>` — chama `assertTestDatabaseUrl(db.$client.options.connectionString)`; `await db.execute(sql\`TRUNCATE TABLE events, venues, categories RESTART IDENTITY CASCADE\`)` (importar `sql` de `drizzle-orm`)
   - Import de módulo: `import { fileURLToPath } from 'node:url';` no topo (node prefix)
   - Nota: importar **apenas** `{ TEST_DATABASE_URL, type Db }` de `./client.js` — o Biome acusa import não usado (`createDb` é desnecessário aqui; os specs criam o db)
-- [ ] `pnpm --filter @ticketvibe/api test` → verde (guarda)
-- [ ] Smoke opcional mas recomendado: no `tsx`/repl ou num teste temporário, `await ensureTestDatabase()` + `createDb(TEST_DATABASE_URL)` + `migrateTestDatabase` — deve criar o banco `ticketvibe_test` (`podman exec ... psql -U ticketvibe -l | rg ticketvibe_test`) e as 3 tabelas. Remova o teste temporário antes do commit (o smoke real acontece na task 8).
+- [x] `pnpm --filter @ticketvibe/api test` → verde (guarda)
+- [x] Smoke opcional mas recomendado: no `tsx`/repl ou num teste temporário, `await ensureTestDatabase()` + `createDb(TEST_DATABASE_URL)` + `migrateTestDatabase` — deve criar o banco `ticketvibe_test` (`podman exec ... psql -U ticketvibe -l | rg ticketvibe_test`) e as 3 tabelas. Remova o teste temporário antes do commit (o smoke real acontece na task 8).
 
 **Commit:** `feat(api): add database client and test helpers`
 
@@ -404,8 +404,8 @@ const MIGRATIONS_FOLDER = fileURLToPath(new URL('../../drizzle', import.meta.url
 
 **Files:** `apps/api/src/modules/events/domain/event-entity.ts` (Create), `domain/events-repository.ts` (Create), `infra/in-memory-events-repository.ts` (Create), `use-cases/list-events.use-case.ts` (Create), `use-cases/list-events.use-case.spec.ts` (Create)
 
-- [ ] TDD: escrever primeiro `list-events.use-case.spec.ts` (4 testes) com 3 eventos in-memory: `featured` → só os marcados, ordenados por data; `hot` → só os marcados, ordenados por data; `all` → todos ordenados por data; default (query vazia) → igual a `all`. Ordenação esperada por data, p. ex. `['destaque', 'comum', 'em-alta']` conforme as datas dos stubs. → red.
-- [ ] `domain/event-entity.ts`:
+- [x] TDD: escrever primeiro `list-events.use-case.spec.ts` (4 testes) com 3 eventos in-memory: `featured` → só os marcados, ordenados por data; `hot` → só os marcados, ordenados por data; `all` → todos ordenados por data; default (query vazia) → igual a `all`. Ordenação esperada por data, p. ex. `['destaque', 'comum', 'em-alta']` conforme as datas dos stubs. → red.
+- [x] `domain/event-entity.ts`:
 
 ```ts
 import type { ListEventsQuery } from '@ticketvibe/shared';
@@ -431,9 +431,9 @@ export interface EventEntity {
 }
 ```
 
-- [ ] `domain/events-repository.ts`: `export interface EventsRepository { findAll(view: EventView): Promise<EventEntity[]> }`
-- [ ] `infra/in-memory-events-repository.ts`: classe com `constructor(private readonly items: EventEntity[])`; `findAll(view)` filtra (`all` → nada; `featured` → `featured === true`; `hot` → `isHot === true`) e retorna `[...filtered].sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime())` (cópia — não mutar o array do caller)
-- [ ] `use-cases/list-events.use-case.ts`:
+- [x] `domain/events-repository.ts`: `export interface EventsRepository { findAll(view: EventView): Promise<EventEntity[]> }`
+- [x] `infra/in-memory-events-repository.ts`: classe com `constructor(private readonly items: EventEntity[])`; `findAll(view)` filtra (`all` → nada; `featured` → `featured === true`; `hot` → `isHot === true`) e retorna `[...filtered].sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime())` (cópia — não mutar o array do caller)
+- [x] `use-cases/list-events.use-case.ts`:
 
 ```ts
 export class ListEventsUseCase {
@@ -445,7 +445,7 @@ export class ListEventsUseCase {
 }
 ```
 
-- [ ] `pnpm --filter @ticketvibe/api test` → verde; `pnpm lint` → verde (evite ternário aninhado; Biome reclama)
+- [x] `pnpm --filter @ticketvibe/api test` → verde; `pnpm lint` → verde (evite ternário aninhado; Biome reclama)
 
 **Commit:** `feat(api): add list events use case`
 
@@ -455,13 +455,13 @@ export class ListEventsUseCase {
 
 **Files:** `apps/api/src/modules/events/routes/events.routes.ts` (Create), `events.routes.spec.ts` (Create), `apps/api/src/app.ts` (Modify)
 
-- [ ] TDD: `events.routes.spec.ts` usa `buildApp({ eventsRepository: new InMemoryEventsRepository([...]) })` + `app.inject` (4 testes):
+- [x] TDD: `events.routes.spec.ts` usa `buildApp({ eventsRepository: new InMemoryEventsRepository([...]) })` + `app.inject` (4 testes):
   - `GET /events` → 200, todos os eventos (ordenados por data)
   - `GET /events?view=featured` → 200, só os marcados
   - `GET /events?view=hot` → 200, só os marcados
   - `GET /events?view=bogus` → 400, body com `error: 'invalid_query'` e `issues`
   - → red (rota ainda não existe; `app.ts` ainda não aceita opções)
-- [ ] `routes/events.routes.ts`:
+- [x] `routes/events.routes.ts`:
 
 ```ts
 import type { FastifyInstance } from 'fastify';
@@ -494,8 +494,8 @@ function toEventDto(entity: EventEntity): EventDto {
   - `export async function registerEventRoutes(app: FastifyInstance, eventsRepository: EventsRepository): Promise<void>`:
     - `const useCase = new ListEventsUseCase(eventsRepository);`
     - `app.get('/events', async (request, reply) => {` … `const parsed = listEventsQuerySchema.safeParse(request.query);` se `!parsed.success` → `reply.code(400).send({ error: 'invalid_query', issues: parsed.error.issues })`; senão `const list = await useCase.execute(parsed.data); return { events: list.map(toEventDto) };` `});`
-- [ ] `app.ts`: `buildApp(options: { eventsRepository?: EventsRepository } = {})` — `const eventsRepository = options.eventsRepository ?? new InMemoryEventsRepository([]);` (default provisório; a task 8 troca por Drizzle), `await app.register(registerEventRoutes, eventsRepository)`… na verdade chame `await registerEventRoutes(app, eventsRepository)` direto (o registro é função, não plugin — mantê-lo simples; se preferir plugin, `app.register(async (instance) => { await registerEventRoutes(instance, eventsRepository); })`). Preserve `GET /health` intacto.
-- [ ] `pnpm --filter @ticketvibe/api test` → verde (health + 4 rota + use-case + guarda)
+- [x] `app.ts`: `buildApp(options: { eventsRepository?: EventsRepository } = {})` — `const eventsRepository = options.eventsRepository ?? new InMemoryEventsRepository([]);` (default provisório; a task 8 troca por Drizzle), `await app.register(registerEventRoutes, eventsRepository)`… na verdade chame `await registerEventRoutes(app, eventsRepository)` direto (o registro é função, não plugin — mantê-lo simples; se preferir plugin, `app.register(async (instance) => { await registerEventRoutes(instance, eventsRepository); })`). Preserve `GET /health` intacto.
+- [x] `pnpm --filter @ticketvibe/api test` → verde (health + 4 rota + use-case + guarda)
 
 **Commit:** `feat(api): add GET /events route`
 
@@ -505,7 +505,7 @@ function toEventDto(entity: EventEntity): EventDto {
 
 **Files:** `apps/api/src/modules/events/infra/drizzle-events-repository.ts` (Create), `routes/events.routes.integration.spec.ts` (Create), `apps/api/src/app.ts` (Modify)
 
-- [ ] TDD: `events.routes.integration.spec.ts`:
+- [x] TDD: `events.routes.integration.spec.ts`:
 
 ```ts
 beforeAll(async () => {
@@ -534,7 +534,7 @@ afterAll(async () => {
     - `GET /events?view=hot` → slugs exatos `['o-fantasma-da-opera', 'derby-capital', 'standup-noite-de-verdades', 'neon-lights-world-tour', 'sertaneja-rio', 'cyberpunk-electronic-festival']`
     - após reseed duplo (chamar `seedFixtures` mais uma vez) → continua 12 eventos (idempotência no caminho de teste)
   - → red primeiro (repo Drizzle não existe)
-- [ ] `infra/drizzle-events-repository.ts`:
+- [x] `infra/drizzle-events-repository.ts`:
 
 ```ts
 import { and, asc, eq } from 'drizzle-orm';
@@ -568,10 +568,10 @@ export class DrizzleEventsRepository implements EventsRepository {
 
   - `where(condition)` com `undefined` é aceito pelo Drizzle (sem predicado). Se o lint reclamar, use `condition ? .where(condition) : ...` encadeado.
   - `toEventEntity(row)` mapeia `startsAt: Date` (modo `date` do Drizzle) e `categorySlug: row.categories.slug`, `categoryName: row.categories.name`, `venueName/city/state: row.venues.*`.
-- [ ] `app.ts`: default passa a ser `new DrizzleEventsRepository(createDb())` (importar de `./modules/events/infra/drizzle-events-repository.js` e `createDb` de `./db/client.js`). O `buildApp()` sem args do teste de health continua funcionando (Pool lazy; sem query, sem conexão).
-- [ ] `pnpm --filter @ticketvibe/api test` → verde (integração exige `ticketvibe-postgres` no ar — já está)
-- [ ] Smoke manual: `pnpm --filter @ticketvibe/api dev` em background → `curl -s 'http://127.0.0.1:3001/events?view=featured' | head -c 400` (JSON com os 3 eventos); matar o `tsx watch` (ex.: `pkill -f '[t]sx.*api'` ou `kill <pid>`)
-- [ ] `pnpm lint && pnpm typecheck && pnpm test` (raiz) → todos verdes
+- [x] `app.ts`: default passa a ser `new DrizzleEventsRepository(createDb())` (importar de `./modules/events/infra/drizzle-events-repository.js` e `createDb` de `./db/client.js`). O `buildApp()` sem args do teste de health continua funcionando (Pool lazy; sem query, sem conexão).
+- [x] `pnpm --filter @ticketvibe/api test` → verde (integração exige `ticketvibe-postgres` no ar — já está)
+- [x] Smoke manual: `pnpm --filter @ticketvibe/api dev` em background → `curl -s 'http://127.0.0.1:3001/events?view=featured' | head -c 400` (JSON com os 3 eventos); matar o `tsx watch` (ex.: `pkill -f '[t]sx.*api'` ou `kill <pid>`)
+- [x] `pnpm lint && pnpm typecheck && pnpm test` (raiz) → todos verdes
 
 **Commit:** `feat(api): integrate events route with postgres`
 
@@ -583,10 +583,10 @@ export class DrizzleEventsRepository implements EventsRepository {
 
 **Commit 9a — `chore(web): set up vitest with react testing library`:**
 
-- [ ] `pnpm --filter @ticketvibe/web add @ticketvibe/shared@workspace:*`
-- [ ] `pnpm --filter @ticketvibe/web add -D vitest@^5.0.3 jsdom@^30.1.2 @testing-library/react@^16.3.3 @testing-library/dom@^10.4.2 @testing-library/jest-dom@^7.0.1 msw@^2.15.0`
-- [ ] Script `"test": "vitest run"` em `apps/web/package.json`
-- [ ] `apps/web/vitest.config.ts`:
+- [x] `pnpm --filter @ticketvibe/web add @ticketvibe/shared@workspace:*`
+- [x] `pnpm --filter @ticketvibe/web add -D vitest@^5.0.3 jsdom@^30.1.2 @testing-library/react@^16.3.3 @testing-library/dom@^10.4.2 @testing-library/jest-dom@^7.0.1 msw@^2.15.0`
+- [x] Script `"test": "vitest run"` em `apps/web/package.json`
+- [x] `apps/web/vitest.config.ts`:
 
 ```ts
 import { fileURLToPath } from 'node:url';
@@ -606,7 +606,7 @@ export default defineConfig({
 ```
 
   - Alias idêntico ao `paths { "@/*": ["./src/*"] }` do tsconfig; `jsx: 'automatic'` evita dependência do tsconfig do Next dentro do vitest.
-- [ ] `apps/web/src/test/setup.ts`:
+- [x] `apps/web/src/test/setup.ts`:
 
 ```ts
 import '@testing-library/jest-dom/vitest';
@@ -618,18 +618,18 @@ afterEach(() => {
 });
 ```
 
-- [ ] Smoke `src/components/ui/badge.spec.tsx`: render de `<Badge>TicketVibe</Badge>` → `expect(screen.getByText('TicketVibe')).toBeInTheDocument()` (valida o harness, não a feature)
-- [ ] `pnpm --filter @ticketvibe/web test` → 1 teste verde
+- [x] Smoke `src/components/ui/badge.spec.tsx`: render de `<Badge>TicketVibe</Badge>` → `expect(screen.getByText('TicketVibe')).toBeInTheDocument()` (valida o harness, não a feature)
+- [x] `pnpm --filter @ticketvibe/web test` → 1 teste verde
 
 **Commit 9b — `feat(web): add pt-br date and currency formatters`:**
 
-- [ ] TDD: `src/lib/format.spec.ts` primeiro (5 testes), red → implementar `format.ts` → green:
+- [x] TDD: `src/lib/format.spec.ts` primeiro (5 testes), red → implementar `format.ts` → green:
   - `formatDatePtBR('2026-10-22T20:00:00-03:00')` → `'22 de Outubro, 2026'`
   - fuso: `formatDatePtBR('2026-10-23T02:00:00Z')` → `'22 de Outubro, 2026'` (UTC 02:00 = 23h de 22/10 em São Paulo — valida `timeZone: 'America/Sao_Paulo'`)
   - `formatDatePtBR('2026-12-05T14:00:00-03:00')` → `'05 de Dezembro, 2026'`
   - `formatBRL(12000)` → `'R$ 120,00'`
   - `formatBRL(18990)` → `'R$ 189,90'`
-- [ ] `apps/web/src/lib/format.ts`:
+- [x] `apps/web/src/lib/format.ts`:
 
 ```ts
 const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
@@ -660,7 +660,7 @@ export function formatBRL(cents: number): string {
 ```
 
   - `.replace(/\u00a0/g, ' ')` — o Intl emite NBSP entre "R$" e o número; normaliza para espaço comum (assert de igualdade simples nos testes).
-- [ ] `pnpm --filter @ticketvibe/web test` → verdes
+- [x] `pnpm --filter @ticketvibe/web test` → verdes
 
 ---
 
@@ -668,7 +668,7 @@ export function formatBRL(cents: number): string {
 
 **Files:** `apps/web/src/app/globals.css` (Modify), `apps/web/src/components/event-card.tsx` (Modify), `apps/web/src/components/home/hero-card.tsx` (Create), `hero-card.spec.tsx` (Create)
 
-- [ ] `globals.css`: dentro de `@layer components`, adicionar a utility (mesmo gradiente do fallback do EventCard, agora compartilhado):
+- [x] `globals.css`: dentro de `@layer components`, adicionar a utility (mesmo gradiente do fallback do EventCard, agora compartilhado):
 
 ```css
 .bg-event-gradient {
@@ -682,12 +682,12 @@ export function formatBRL(cents: number): string {
 ```
 
   - `event-card.tsx`: trocar a classe arbitrária `bg-[linear-gradient(135deg,#2e2054_0%,#1c1335_55%,#0a2a1e_100%)]` (linha do fallback, hoje hardcoded no JSX) pela utility `bg-event-gradient` (DRY; gradiente idêntico — sem mudança visual).
-- [ ] TDD: `hero-card.spec.tsx` primeiro (4 testes), red:
+- [x] TDD: `hero-card.spec.tsx` primeiro (4 testes), red:
   1. render com `badgeLabel: 'Espetáculo Internacional'` → pill `'EM DESTAQUE'` (Badge default) **e** o badge customizado aparecem
   2. `h1` com o título exato; sem `badgeLabel` → pill mostra `categoryName`
   3. data (`'22 de Outubro, 2026'`), local (`'Teatro Renault, SP'`), descrição presentes
   4. preço (`'A partir de R$ 120,00'`) e botão `'Garantir Ingressos'` presentes
-- [ ] `apps/web/src/components/home/hero-card.tsx`:
+- [x] `apps/web/src/components/home/hero-card.tsx`:
 
 ```tsx
 import { CalendarDays, MapPin, Ticket } from 'lucide-react';
@@ -762,7 +762,7 @@ export type { HeroCardProps };
 
   - **Não importe `cn`** (não usado — Biome acusa); `img` com `alt=""` + `aria-hidden` (decorativo).
   - Sem controles de carrossel/dots (fora de escopo — API já retorna lista; deferral registrado na task 16).
-- [ ] `pnpm --filter @ticketvibe/web test` → verde; `pnpm build` (web) → verde (gate do buildComponents — o hero ainda não é montado na página, mas o componente precisa compilar)
+- [x] `pnpm --filter @ticketvibe/web test` → verde; `pnpm build` (web) → verde (gate do buildComponents — o hero ainda não é montado na página, mas o componente precisa compilar)
 
 **Commit:** `feat(web): add home hero card`
 
@@ -772,12 +772,12 @@ export type { HeroCardProps };
 
 **Files:** `apps/web/src/components/event-card.tsx` (Modify — export do tipo), `apps/web/src/components/home/events-section.tsx` (Create), `events-section.spec.tsx` (Create)
 
-- [ ] `event-card.tsx`: adicionar `export` ao tipo já declarado — `export type EventCardProps = { ... }` (a task 11 importa esse tipo)
-- [ ] TDD: `events-section.spec.tsx` (3 testes), red — no `beforeEach`, espiar o scroll: `vi.spyOn(Element.prototype, 'scrollBy').mockImplementation(() => {})` (o jsdom não implementa `scrollBy`; `vi.restoreAllMocks()` no `afterEach`):
+- [x] `event-card.tsx`: adicionar `export` ao tipo já declarado — `export type EventCardProps = { ... }` (a task 11 importa esse tipo)
+- [x] TDD: `events-section.spec.tsx` (3 testes), red — no `beforeEach`, espiar o scroll: `vi.spyOn(Element.prototype, 'scrollBy').mockImplementation(() => {})` (o jsdom não implementa `scrollBy`; `vi.restoreAllMocks()` no `afterEach`):
   1. heading `'Eventos em Alta'` + subtítulo `'Os ingressos mais procurados nas últimas 24 horas'`
   2. `fireEvent.click(screen.getByRole('button', { name: 'Rolar para a direita' }))` → `scrollBy` chamado com `{ left: 344, behavior: 'smooth' }`; e a seta esquerda idem com `left: -344`
   3. `cards: []` → mensagem `'Nenhum evento em alta no momento.'` e setas **ausentes**
-- [ ] `apps/web/src/components/home/events-section.tsx`:
+- [x] `apps/web/src/components/home/events-section.tsx`:
 
 ```tsx
 'use client';
@@ -851,7 +851,7 @@ export function EventsSection({ cards }: { cards: EventCardProps[] }) {
 ```
 
   - A prop `className` já existe em `EventCardProps` (desde o ticket 03) e é aplicada via `cn(...)` — nenhum cambio necessário no componente além do export do tipo (passo 1 desta task).
-- [ ] `pnpm --filter @ticketvibe/web test` → verde
+- [x] `pnpm --filter @ticketvibe/web test` → verde
 
 **Commit:** `feat(web): add highlights carousel section`
 
@@ -861,12 +861,12 @@ export function EventsSection({ cards }: { cards: EventCardProps[] }) {
 
 **Files:** `apps/web/src/lib/events-api.ts` (Create), `events-api.spec.ts` (Create)
 
-- [ ] TDD: `events-api.spec.ts` primeiro (3 testes), red — `setupServer` do `msw/node` com `server.listen({ onUnhandledRequest: 'bypass' })`, `afterEach(() => server.close())` (ou `resetHandlers`), `vi.spyOn(console, 'error').mockImplementation(() => {})` + `afterEach(vi.restoreAllMocks)`:
+- [x] TDD: `events-api.spec.ts` primeiro (3 testes), red — `setupServer` do `msw/node` com `server.listen({ onUnhandledRequest: 'bypass' })`, `afterEach(() => server.close())` (ou `resetHandlers`), `vi.spyOn(console, 'error').mockImplementation(() => {})` + `afterEach(vi.restoreAllMocks)`:
   1. handler `http.get('http://localhost:3001/events', ({ request }) => { const view = new URL(request.url).searchParams.get('view'); if (view === 'featured') return HttpResponse.json({ events: [validEventFixture] }); if (view === 'hot') return HttpResponse.json({ events: [] }); return new HttpResponse(null, { status: 404 }); })` → `fetchEvents('featured')` retorna o evento parseado pelo contrato
   2. `fetchEvents('hot')` → `[]` (resposta válida vazia)
   3. handler padrão (fora dos `if`) → 404 → `fetchEvents('all')` lança? **Não** — 404 dispara o `catch` → `console.error` chamado e retorna `[]`. Assert: `expect(result).toEqual([])` + `expect(console.error).toHaveBeenCalled()`
   - Fixture do evento: objeto válido para `listEventsResponseSchema` (pode reutilizar o shape dos specs do shared, com `startsAt: '2026-10-22T23:00:00Z'` etc.)
-- [ ] `apps/web/src/lib/events-api.ts`:
+- [x] `apps/web/src/lib/events-api.ts`:
 
 ```ts
 import { listEventsResponseSchema, type EventDto, type EventsView } from '@ticketvibe/shared';
@@ -892,7 +892,7 @@ export async function fetchEvents(view: EventsView): Promise<EventDto[]> {
 
   - `EventsView` vem do shared (exportada na task 2) — `EventView` do domínio do api é o mesmo literal; manter os dois nomes (web x domínio) é intencional.
   - `cache: 'no-store'` — obrigatório para o conteúdo não ficar stale no RSC (e compatível com `cacheComponents` dentro de Suspense).
-- [ ] `pnpm --filter @ticketvibe/web test` → verde
+- [x] `pnpm --filter @ticketvibe/web test` → verde
 
 **Commit:** `feat(web): add events api client`
 
@@ -902,13 +902,13 @@ export async function fetchEvents(view: EventsView): Promise<EventDto[]> {
 
 **Files:** `apps/web/src/lib/event-mapper.ts` (Create), `event-mapper.spec.ts` (Create)
 
-- [ ] (O `EventCardProps` já é exportado desde a task 11 — nada a fazer no componente.)
-- [ ] TDD: `event-mapper.spec.ts` primeiro (4 testes), red:
+- [x] (O `EventCardProps` já é exportado desde a task 11 — nada a fazer no componente.)
+- [x] TDD: `event-mapper.spec.ts` primeiro (4 testes), red:
   1. `toHeroCardProps(eventoFeatured)` → `{ categoryName: 'Shows', dateLabel: '22 de Outubro, 2026', venueLabel: 'Teatro Renault, SP', priceLabel: 'R$ 120,00', title, description, badgeLabel: 'Espetáculo Internacional', imageSrc: undefined }` (com `imageUrl: null` → `imageSrc: undefined`; com imageUrl → a string)
   2. sem `badgeLabel` → `badgeLabel: undefined` (o hero faz fallback p/ `categoryName`)
   3. `toEventCardProps(evento)` → `{ category: 'Shows', venue: 'Teatro Renault', date: '22 de Outubro, 2026', price: 'R$ 120,00', title, description }`
   4. evento com `startsAt` em UTC véspera → dateLabel do fuso de SP (usa o mesmo fixture do teste de fuso do format)
-- [ ] `apps/web/src/lib/event-mapper.ts`:
+- [x] `apps/web/src/lib/event-mapper.ts`:
 
 ```ts
 import type { EventDto } from '@ticketvibe/shared';
@@ -942,7 +942,7 @@ export function toEventCardProps(event: EventDto): EventCardProps {
 ```
 
   - Valide os nomes reais das props de `EventCardProps` (leia o componente antes; se forem `dateLabel`/`priceLabel`, ajuste o mapper **e** os testes — a regra é: nomes vindos do `EventCard` do ticket 03, formatação pt-BR/BRL, `venueLabel = nome + UF`).
-- [ ] `pnpm --filter @ticketvibe/web test` → verde
+- [x] `pnpm --filter @ticketvibe/web test` → verde
 
 **Commit:** `feat(web): map event dto to view models`
 
@@ -952,7 +952,7 @@ export function toEventCardProps(event: EventDto): EventCardProps {
 
 **Files:** `apps/web/src/app/page.tsx` (Modify — rewrite completo)
 
-- [ ] Reescrever `page.tsx` (server component; `Header` já é server-safe, `EventsSection` é client — compose):
+- [x] Reescrever `page.tsx` (server component; `Header` já é server-safe, `EventsSection` é client — compose):
 
 ```tsx
 import { Suspense } from 'react';
@@ -988,14 +988,14 @@ export default function HomePage() {
 ```
 
   - **Por que Suspense:** `cacheComponents: true` — sem um boundary acima do fetch sem cache, o build falha com "uncached or runtime data during prerendering". Os skeletons cumprem o fallback + UX. Não usar `use cache` (dados frescos).
-- [ ] Gates (a API pode estar fora do ar — o build não deve depender de rede): `pnpm lint && pnpm typecheck && pnpm build` → verdes
-- [ ] Smoke end-to-end local:
+- [x] Gates (a API pode estar fora do ar — o build não deve depender de rede): `pnpm lint && pnpm typecheck && pnpm build` → verdes
+- [x] Smoke end-to-end local:
   1. `pnpm --filter @ticketvibe/api db:seed` (garante dados)
   2. `pnpm --filter @ticketvibe/api dev` (background) e `pnpm --filter @ticketvibe/web dev` (background)
   3. `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000` → `200`
   4. `curl -s http://127.0.0.1:3000 | rg -o 'O Fantasma da Ópera|Eventos em Alta|Garantir Ingressos|Neon Lights World Tour' | sort -u` → 4 linhas (hero + seção renderizam os dados do banco)
   5. Matar os dois dev servers (`pkill -f '[t]sx watch'`, `pkill -f '[n]ext dev'`; confirmar com `pgrep -af 'next dev|tsx'` vazio)
-- [ ] `pnpm --filter @ticketvibe/web test` → verde
+- [x] `pnpm --filter @ticketvibe/web test` → verde
 
 **Commit:** `feat(web): compose home with hero and highlights`
 
@@ -1085,7 +1085,7 @@ apps/web/src/components/home/*.spec.tsx # RTL do hero e da seção de destaques
 5. Linha 470: `apps/web has **no \`test\` script** until RTL + MSW land — never document \`test:watch\` / \`test:coverage\` / \`test:e2e\` before those scripts exist.` → `apps/web has a \`test\` script since ticket 04 (\`vitest run\`) — still never document \`test:watch\` / \`test:coverage\` / \`test:e2e\` before those scripts exist.`
 6. Linha 471 (Tooling status): `Vitest ✅ (installed) · RTL + MSW ⏳ first component test (ticket 04+) · Playwright ⏳ first E2E (ticket 05+).` → `Vitest ✅ · RTL ✅ · MSW ✅ (since ticket 04) · Playwright ⏳ first E2E (ticket 05+).`
 
-- [ ] Verificação: `rg -n "arrives with ticket 04|no \`test\` script yet|after ticket 01" README.md docs/TESTING.md docs/skills/TESTING_*.md` → **zero** matches (todos os "chega no 04" resolvidos); `pnpm lint` verde (biome cobre md? não — apenas garantir árvore saneável)
+- [x] Verificação: `rg -n "arrives with ticket 04|no \`test\` script yet|after ticket 01" README.md docs/TESTING.md docs/skills/TESTING_*.md` → **zero** matches (todos os "chega no 04" resolvidos); `pnpm lint` verde (biome cobre md? não — apenas garantir árvore saneável)
 
 **Commit:** `docs: sync tooling status and commands with ticket 04`
 
@@ -1095,18 +1095,18 @@ apps/web/src/components/home/*.spec.tsx # RTL do hero e da seção de destaques
 
 **Files:** gates (repo todo), `.scratch/ticketvibe/issues/04-seed-de-eventos-e-home.md`, `.scratch/ticketvibe/issues/05-busca-e-filtros-de-eventos.md`, este plano
 
-- [ ] Gates na raiz: `pnpm lint && pnpm typecheck && pnpm test && pnpm build` → todos em 0
-- [ ] Smoke subindo os 3 processos de novo (`db:seed` → api dev → web dev): web `HTTP=200`, `curl -s http://127.0.0.1:3000 | rg -o 'O Fantasma da Ópera|Eventos em Alta' | sort -u` → 2 hits; `curl -s 'http://127.0.0.1:3001/events?view=hot' | rg -o '"slug"' | wc -l` → `6`; matar processos e confirmar `pgrep -af 'next dev|tsx'` vazio
-- [ ] Critérios por asserção de arquivo:
+- [x] Gates na raiz: `pnpm lint && pnpm typecheck && pnpm test && pnpm build` → todos em 0
+- [x] Smoke subindo os 3 processos de novo (`db:seed` → api dev → web dev): web `HTTP=200`, `curl -s http://127.0.0.1:3000 | rg -o 'O Fantasma da Ópera|Eventos em Alta' | sort -u` → 2 hits; `curl -s 'http://127.0.0.1:3001/events?view=hot' | rg -o '"slug"' | wc -l` → `6`; matar processos e confirmar `pgrep -af 'next dev|tsx'` vazio
+- [x] Critérios por asserção de arquivo:
   - `rg -c 'featured: true' apps/api/src/db/fixtures.ts` → `3` e `rg -c 'isHot: true' apps/api/src/db/fixtures.ts` → `6`
   - `rg 'fetchEvents' apps/web/src/app/page.tsx` → hits presentes (chamadas em `FeaturedSection`/`HighlightsSection`)
   - `rg 'listEventsResponseSchema' apps/web/src/lib/events-api.ts` → hit (contrato compartilhado)
   - `rg 'db:seed' README.md` → hit
   - `rg 'ticketvibe_test' apps/api/src/db/test-helpers.ts` → hit
-- [ ] **Fechar o issue 04** (`.scratch/ticketvibe/issues/04-seed-de-eventos-e-home.md`):
+- [x] **Fechar o issue 04** (`.scratch/ticketvibe/issues/04-seed-de-eventos-e-home.md`):
   - `**Status:** ready-for-agent` → `**Status:** done`
   - os 5 checkboxes `- [ ]` → `- [x]` (textos intactos: Schema…/Fixtures seed…/Rota REST…/Home consumindo…/Testes: integração…)
-- [ ] **Deferrals do ticket 04 → issue 05**: anexar ao final de `.scratch/ticketvibe/issues/05-busca-e-filtros-de-eventos.md` a seção:
+- [x] **Deferrals do ticket 04 → issue 05**: anexar ao final de `.scratch/ticketvibe/issues/05-busca-e-filtros-de-eventos.md` a seção:
 
 ```markdown
 ## Deferrals do ticket 04 (registrados no fechamento do 04)
@@ -1120,8 +1120,8 @@ apps/web/src/components/home/*.spec.tsx # RTL do hero e da seção de destaques
 - **Sign-off do contraste `--border: #2e2054`** — pendência herdada do 03, ainda sem decisão de design.
 ```
 
-- [ ] Tickar os checkboxes deste plano: `sed -i 's/^- \[ \]/- [x]/' docs/superpowers/plans/2026-10-08-ticket-04-seed-de-eventos-e-home.md` (após concluir; os steps são `- [ ]` no corpo — se algum `- [ ]` for literal dentro de bloco de código, rever manualmente antes de commitar)
-- [ ] Sweep: `git status` limpo após commits; `pgrep -af 'next dev|tsx|vitest'` sem processos órfãos; `podman ps` com os 3 containers UP; nenhum push (convenção da casa)
+- [x] Tickar os checkboxes deste plano: `sed -i 's/^- \[ \]/- [x]/' docs/superpowers/plans/2026-10-08-ticket-04-seed-de-eventos-e-home.md` (após concluir; os steps são `- [ ]` no corpo — se algum `- [ ]` for literal dentro de bloco de código, rever manualmente antes de commitar)
+- [x] Sweep: `git status` limpo após commits; `pgrep -af 'next dev|tsx|vitest'` sem processos órfãos; `podman ps` com os 3 containers UP; nenhum push (convenção da casa)
 
 **Commits (nesta ordem):**
 
