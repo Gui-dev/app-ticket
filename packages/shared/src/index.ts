@@ -32,7 +32,22 @@ export const eventSchema = z.object({
 
 export type EventDto = z.infer<typeof eventSchema>;
 
-export const listEventsQuerySchema = z.object({
+export const searchFiltersSchema = z.object({
+  q: z.string().trim().min(1).max(120).optional(),
+  category: z.string().trim().min(1).max(60).optional(),
+  state: z
+    .string()
+    .trim()
+    .length(2)
+    .transform((value) => value.toUpperCase())
+    .optional(),
+  from: z.iso.date().optional(),
+  to: z.iso.date().optional(),
+});
+
+export type SearchFilters = z.infer<typeof searchFiltersSchema>;
+
+export const listEventsQuerySchema = searchFiltersSchema.extend({
   view: z.enum(['all', 'featured', 'hot']).optional().default('all'),
 });
 
@@ -45,3 +60,13 @@ export const listEventsResponseSchema = z.object({
 export type ListEventsResponse = z.infer<typeof listEventsResponseSchema>;
 
 export type EventsView = z.infer<typeof listEventsQuerySchema>['view'];
+
+export const listCategoriesResponseSchema = z.object({
+  categories: z.array(categorySchema),
+});
+
+export type ListCategoriesResponse = z.infer<
+  typeof listCategoriesResponseSchema
+>;
+
+export type CategoryDto = z.infer<typeof categorySchema>;

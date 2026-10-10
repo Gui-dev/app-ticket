@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   eventSchema,
   healthResponseSchema,
+  listCategoriesResponseSchema,
   listEventsQuerySchema,
   listEventsResponseSchema,
+  searchFiltersSchema,
 } from './index';
 
 describe('healthResponseSchema', () => {
@@ -72,6 +74,64 @@ describe('listEventsQuerySchema', () => {
 
   it('rejects an unknown view', () => {
     expect(() => listEventsQuerySchema.parse({ view: 'unknown' })).toThrow();
+  });
+
+  it('keeps the search filters alongside the view', () => {
+    expect(
+      listEventsQuerySchema.parse({
+        view: 'hot',
+        q: '  fantasma ',
+        category: 'shows',
+        state: 'sp',
+        from: '2026-11-01',
+        to: '2026-11-30',
+      }),
+    ).toEqual({
+      view: 'hot',
+      q: 'fantasma',
+      category: 'shows',
+      state: 'SP',
+      from: '2026-11-01',
+      to: '2026-11-30',
+    });
+  });
+});
+
+describe('searchFiltersSchema', () => {
+  it('trims the query and uppercases the state', () => {
+    expect(searchFiltersSchema.parse({ q: ' teatro ', state: 'rj' })).toEqual({
+      q: 'teatro',
+      state: 'RJ',
+    });
+  });
+
+  it('accepts an empty object (no filters)', () => {
+    expect(searchFiltersSchema.parse({})).toEqual({});
+  });
+
+  it('rejects an empty query', () => {
+    expect(() => searchFiltersSchema.parse({ q: '   ' })).toThrow();
+  });
+
+  it('rejects a state that is not two letters', () => {
+    expect(() => searchFiltersSchema.parse({ state: 'XYZ' })).toThrow();
+  });
+
+  it('rejects a date that is not ISO yyyy-mm-dd', () => {
+    expect(() => searchFiltersSchema.parse({ from: '01/11/2026' })).toThrow();
+  });
+});
+
+describe('listCategoriesResponseSchema', () => {
+  it('accepts a list of categories', () => {
+    const payload = { categories: [{ slug: 'shows', name: 'Shows' }] };
+    expect(listCategoriesResponseSchema.parse(payload)).toEqual(payload);
+  });
+
+  it('rejects a category without a name', () => {
+    expect(() =>
+      listCategoriesResponseSchema.parse({ categories: [{ slug: 'shows' }] }),
+    ).toThrow();
   });
 });
 
