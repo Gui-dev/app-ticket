@@ -86,6 +86,25 @@ describe('GetEventDetailUseCase', () => {
     ]);
   });
 
+  it('breaks price ties on slug ascending', async () => {
+    const tied: EventDetailEntity[] = [
+      {
+        ...stubEvents[0],
+        sectors: [
+          { slug: 'zona-b', name: 'Zona B', priceFromCents: 15000 },
+          { slug: 'zona-a', name: 'Zona A', priceFromCents: 15000 },
+        ],
+      },
+    ];
+
+    const result = await createUseCase(tied).execute('fantasma');
+
+    expect(result?.sectors.map((sector) => sector.slug)).toEqual([
+      'zona-a',
+      'zona-b',
+    ]);
+  });
+
   it('forwards the slug to the repository', async () => {
     const repository = new InMemoryEventsRepository(stubEvents);
     const findBySlug = vi.spyOn(repository, 'findBySlug');

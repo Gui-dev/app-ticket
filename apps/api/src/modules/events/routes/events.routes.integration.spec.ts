@@ -1,4 +1,5 @@
 import {
+  eventDetailResponseSchema,
   listCategoriesResponseSchema,
   listEventsResponseSchema,
 } from '@ticketvibe/shared';
@@ -266,5 +267,58 @@ describe('GET /categories (postgres integration)', () => {
       'shows',
       'teatro',
     ]);
+  });
+});
+
+describe('GET /events/:slug (postgres integration)', () => {
+  let app: FastifyInstance;
+  let testDb: Db;
+
+  beforeAll(async () => {
+    await ensureTestDatabase();
+    testDb = createDb(TEST_DATABASE_URL);
+    await migrateTestDatabase(testDb);
+    await seedFixtures(testDb);
+    app = buildApp({
+      eventsRepository: new DrizzleEventsRepository(testDb),
+      categoriesRepository: new DrizzleCategoriesRepository(testDb),
+    });
+    await app.ready();
+  });
+
+  beforeEach(async () => {
+    await resetDatabase(testDb);
+    await seedFixtures(testDb);
+  });
+
+  afterAll(async () => {
+    await app.close();
+    await testDb.$client.end();
+  });
+
+  it('returns the event with sectors ordered by price from the database', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/events/o-fantasma-da-opera',
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = eventDetailResponseSchema.parse(response.json());
+    expect(body.event.slug).toBe('o-fantasma-da-opera');
+    expect(body.event.priceFromCents).toBe(12000);
+    expect(body.event.sectors).toEqual([
+      { slug: 'plateia', name: 'Plateia', priceFromCents: 12000 },
+      { slug: 'balcao', name: 'Balcão', priceFromCents: 19000 },
+    ]);
+  });
+
+  it('returns 404 for an unknown slug', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/events/nao-existe',
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({ error: 'event_not_found' });
   });
 });

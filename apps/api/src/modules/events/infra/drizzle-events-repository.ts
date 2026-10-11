@@ -2,8 +2,12 @@ import type { SearchFilters } from '@ticketvibe/shared';
 import { and, asc, eq, gte, lte, type SQL, sql } from 'drizzle-orm';
 
 import type { Db } from '../../../db/client.js';
-import { categories, events, venues } from '../../../db/schema.js';
-import type { EventEntity, EventView } from '../domain/event-entity.js';
+import { categories, events, sectors, venues } from '../../../db/schema.js';
+import type {
+  EventDetailEntity,
+  EventEntity,
+  EventView,
+} from '../domain/event-entity.js';
 import type { EventsRepository } from '../domain/events-repository.js';
 
 interface EventRow {
@@ -119,5 +123,58 @@ export class DrizzleEventsRepository implements EventsRepository {
       .orderBy(asc(events.startsAt), asc(events.id));
 
     return rows.map(toEventEntity);
+  }
+
+  async findBySlug(slug: string): Promise<EventDetailEntity | null> {
+    const [row] = await this.db
+      .select({
+        events: {
+          id: events.id,
+          slug: events.slug,
+          title: events.title,
+          description: events.description,
+          startsAt: events.startsAt,
+          priceFromCents: events.priceFromCents,
+          imageUrl: events.imageUrl,
+          badgeLabel: events.badgeLabel,
+          featured: events.featured,
+          isHot: events.isHot,
+        },
+        categories: {
+          slug: categories.slug,
+          name: categories.name,
+        },
+        venues: {
+          name: venues.name,
+          city: venues.city,
+          state: venues.state,
+        },
+      })
+      .from(events)
+      .innerJoin(categories, eq(events.categoryId, categories.id))
+      .innerJoin(venues, eq(events.venueId, venues.id))
+      .where(eq(events.slug, slug))
+      .limit(1);
+
+    if (!row) return null;
+
+    const sectorRows = await this.db
+      .select({
+        slug: sectors.slug,
+        name: sectors.name,
+        priceFromCents: sectors.priceFromCents,
+      })
+      .from(sectors)
+      .where(eq(sectors.eventId, row.events.id))
+      .orderBy(asc(sectors.priceFromCents), asc(sectors.slug));
+
+    return {
+      ...toEventEntity(row),
+      sectors: sectorRows.map((sector) => ({
+        slug: sector.slug,
+        name: sector.name,
+        priceFromCents: sector.priceFromCents,
+      })),
+    };
   }
 }
