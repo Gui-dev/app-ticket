@@ -51,13 +51,22 @@ describe('EventDetail', () => {
       screen.getByRole('link', { name: 'Escolher ingressos' }),
     ).toHaveAttribute('href', '/events/o-fantasma-da-opera/ingressos');
   });
+
+  test('shows a friendly message when no sectors are published', () => {
+    render(<EventDetail event={{ ...evento, sectors: [] }} />);
+
+    expect(
+      screen.getByText('Setores em divulgação em breve.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('list')).not.toBeInTheDocument();
+  });
 });
 
 describe('EventDetailSkeleton', () => {
-  test('renders skeleton blocks without throwing', () => {
+  test('is aria-hidden so screen readers skip the loading state', () => {
     const { container } = render(<EventDetailSkeleton />);
 
-    expect(container.querySelector('.animate-pulse')).toBeInTheDocument();
+    expect(container.firstChild).toHaveAttribute('aria-hidden', 'true');
   });
 });
 

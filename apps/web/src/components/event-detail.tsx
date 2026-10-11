@@ -6,7 +6,7 @@ import { formatBRL, formatDatePtBR } from '@/lib/format';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 
-type EventDetailProps = {
+export type EventDetailProps = {
   event: EventDetailDto;
 };
 
@@ -52,7 +52,7 @@ function EventDetail({ event }: EventDetailProps) {
                 {formatBRL(event.priceFromCents)}
               </p>
             </div>
-            <Button asChild size="lg" className="shadow-primary">
+            <Button asChild size="lg">
               <Link href={`/events/${event.slug}/ingressos`}>
                 <Ticket className="size-4" aria-hidden="true" />
                 Escolher ingressos
