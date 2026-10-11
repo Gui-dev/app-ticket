@@ -70,3 +70,23 @@ export type ListCategoriesResponse = z.infer<
 >;
 
 export type CategoryDto = z.infer<typeof categorySchema>;
+
+export const sectorSchema = z.object({
+  slug: z.string().min(1),
+  name: z.string().min(1),
+  priceFromCents: z.number().int().min(0),
+});
+
+export type SectorDto = z.infer<typeof sectorSchema>;
+
+export const eventDetailSchema = eventSchema.extend({
+  sectors: z.array(sectorSchema),
+});
+
+export type EventDetailDto = z.infer<typeof eventDetailSchema>;
+
+export const eventDetailResponseSchema = z.object({
+  event: eventDetailSchema,
+});
+
+export type EventDetailResponse = z.infer<typeof eventDetailResponseSchema>;

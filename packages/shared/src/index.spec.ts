@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  eventDetailResponseSchema,
+  eventDetailSchema,
   eventSchema,
   healthResponseSchema,
   listCategoriesResponseSchema,
   listEventsQuerySchema,
   listEventsResponseSchema,
   searchFiltersSchema,
+  sectorSchema,
 } from './index';
 
 describe('healthResponseSchema', () => {
@@ -148,5 +151,51 @@ describe('listEventsResponseSchema', () => {
         events: [{ ...validEvent, priceFromCents: -1 }],
       }),
     ).toThrow();
+  });
+});
+
+const validSector = { slug: 'plateia', name: 'Plateia', priceFromCents: 12000 };
+
+describe('sectorSchema', () => {
+  it('accepts a valid sector', () => {
+    expect(sectorSchema.parse(validSector)).toEqual(validSector);
+  });
+
+  it('rejects a negative priceFromCents', () => {
+    expect(() =>
+      sectorSchema.parse({ ...validSector, priceFromCents: -1 }),
+    ).toThrow();
+  });
+
+  it('rejects an empty name', () => {
+    expect(() => sectorSchema.parse({ ...validSector, name: '' })).toThrow();
+  });
+});
+
+describe('eventDetailSchema', () => {
+  it('accepts an event with sectors', () => {
+    const detail = { ...validEvent, sectors: [validSector] };
+    expect(eventDetailSchema.parse(detail)).toEqual(detail);
+  });
+
+  it('accepts an event with no sectors', () => {
+    const detail = { ...validEvent, sectors: [] };
+    expect(eventDetailSchema.parse(detail)).toEqual(detail);
+  });
+
+  it('rejects a sector that violates the sector contract', () => {
+    expect(() =>
+      eventDetailSchema.parse({
+        ...validEvent,
+        sectors: [{ slug: 'plateia', name: 'Plateia' }],
+      }),
+    ).toThrow();
+  });
+});
+
+describe('eventDetailResponseSchema', () => {
+  it('accepts a wrapped event detail payload', () => {
+    const payload = { event: { ...validEvent, sectors: [validSector] } };
+    expect(eventDetailResponseSchema.parse(payload)).toEqual(payload);
   });
 });
