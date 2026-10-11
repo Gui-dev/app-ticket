@@ -13,13 +13,13 @@ How testing works in this repository. Project-specific deviations from the gener
 - Unit tests are co-located: `<source>.spec.ts` next to `<source>.ts`.
 - Unit tests never touch the database, network, filesystem, or a real clock.
 
-## Current state (after ticket 04)
+## Current state (after ticket 05)
 
 | Package | Runner | Command | Status |
 |---|---|---|---|
-| `packages/shared` | Vitest | `pnpm --filter @ticketvibe/shared test` | 12 tests (2 `healthResponseSchema` + 10 events contract schemas) |
-| `apps/api` | Vitest | `pnpm --filter @ticketvibe/api test` | health (unit) + events module (use case, route, integration vs `ticketvibe_test` — requires `pnpm infra:up`) |
-| `apps/web` | Vitest + RTL + MSW | `pnpm --filter @ticketvibe/web test` | home components (HeroCard, EventsSection), formatters, fetch client |
+| `packages/shared` | Vitest | `pnpm --filter @ticketvibe/shared test` | 20 tests (2 `healthResponseSchema` + 18 events/search contract schemas) |
+| `apps/api` | Vitest | `pnpm --filter @ticketvibe/api test` | health (unit) + events module (use case, route, integration vs `ticketvibe_test` — busca + filtros) + categories module (unit + integration — requires `pnpm infra:up`) |
+| `apps/web` | Vitest + RTL + MSW | `pnpm --filter @ticketvibe/web test` | home (hero, carrossel, busca no header, chips de categoria, resultados), formatters, fetch client |
 | `apps/worker` | — | no `test` script yet | verified live against Redis (see Commands below) |
 
 Existing test layout:
@@ -34,8 +34,10 @@ apps/api/src/db/{schema,client,fixtures,seed-fixtures}.ts  # Drizzle schema + se
 apps/api/src/db/test-helpers.ts        # ensure/migrate/reset (guarda: só ticketvibe_test)
 apps/api/src/modules/events/…          # hexagonal live: domain, infra, use-cases, routes
 apps/api/src/modules/events/routes/events.routes.integration.spec.ts  # Postgres real
+apps/api/src/modules/categories/…      # módulo hexagonal de categorias (unit + integração)
 apps/web/src/lib/events-api.ts         # fetchEvents + MSW (spec ao lado)
 apps/web/src/components/home/*.spec.tsx # RTL do hero e da seção de destaques
+apps/web/tests/e2e/…                   # fluxos E2E (Playwright) — home, busca, filtros
 ```
 
 ## Commands
@@ -51,6 +53,7 @@ pnpm build                             # turbo build (web only today)
 pnpm --filter @ticketvibe/shared test  # just the contract tests
 pnpm --filter @ticketvibe/api test     # just the API tests
 pnpm --filter @ticketvibe/web test     # only the web tests
+pnpm --filter @ticketvibe/web test:e2e  # E2E (Playwright) — exige pnpm infra:up
 ```
 
 Worker smoke (requires `pnpm infra:up` first — Redis must be running):
@@ -67,7 +70,7 @@ Expected: `[worker] listening for heartbeat jobs`, `[worker] job processed: N`, 
 |---|---|---|
 | Unit | Vitest, co-located `.spec.ts` | **live** — `packages/shared`, `apps/api`, `apps/web` |
 | Integration (routes + real Postgres) | Vitest against local `ticketvibe_test`; helpers `ensureTestDatabase` / `migrateTestDatabase` / `resetDatabase` | **live** (requires `pnpm infra:up`; first module: `events`) |
-| E2E | Playwright against the real local stack (web :3000, api :3001, Mailpit API :8025) | **from ticket 05 on** (first E2E acceptance criterion is ticket 05; auth journey at 08, full purchase journey at 13) |
+| E2E | Playwright against the real local stack (web :3000, api :3001, Mailpit API :8025) | **live** (Playwright/Chromium; primeiro fluxo: home + busca + filtros) (auth journey at 08, full purchase journey at 13) |
 
 Hexagonal layout (live since ticket 04 — `modules/events`):
 
@@ -82,7 +85,7 @@ apps/api/src/modules/<domain>/
 
 ## Coverage
 
-- Coverage tooling is **not installed yet**; ticket 04 explicitly deferred it (recorded in the ticket 04 deferrals — see `issues/05`).
+- Coverage tooling is **not installed yet**; tickets 04/05 explicitly deferred it (recorded in the ticket deferrals — see `issues/06`).
 - Planned policy (per the testing guidelines in `docs/skills/`; the spec defers coverage guidance to this doc): minimum 80% lines/functions/statements/branches on business-logic paths — `apps/api/src/modules/**/{use-cases,domain}/**` and `apps/web/src/{components,hooks,lib}/**`. Infrastructure and framework glue are covered by integration/E2E instead, not by the unit gate.
 - E2E tests complement unit coverage and are never measured by it.
 
