@@ -43,7 +43,7 @@ Com o Redis fora o worker fica em loop de reconexão e não processa (nem sai) �
 | `pnpm dev` | turbo dev — web, api e worker em paralelo |
 | `pnpm build` | build de produção (web; os demais pacotes não têm `build`) |
 | `pnpm typecheck` | tsc de todos os pacotes (builda o web antes para gerar `.next/types`) |
-| `pnpm test` | testes (vitest: shared + api + web; a integração exige `pnpm infra:up`) |
+| `pnpm test` | testes (vitest: shared + api + web; a integração — eventos, categorias e busca — exige `pnpm infra:up`) |
 | `pnpm lint` / `pnpm format` | biome check / biome check --write |
 | `pnpm --filter @ticketvibe/web storybook` | Storybook do design system (catálogo em http://localhost:6006) |
 | `pnpm --filter @ticketvibe/api db:generate` | gera migrações Drizzle a partir do schema |

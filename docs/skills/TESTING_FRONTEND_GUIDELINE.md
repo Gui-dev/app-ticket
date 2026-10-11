@@ -2,7 +2,7 @@
 
 A portable convention for unit-testing React components and hooks with Vitest, React Testing Library, and MSW v2, plus E2E testing with Playwright. Copy this file into any React/Next.js application and adapt the sections marked TICKETVIBE (the tooling banner and Project Overrides) to that project.
 
-> **Tooling status (TICKETVIBE):** Vitest is installed (`packages/shared`, `apps/api` and `apps/web`). React Testing Library, MSW and Playwright are installed since tickets 04–05 (`apps/web`); see [`docs/TESTING.md`](../TESTING.md)). Sections below keep describing the conventions to follow; only the `## Commands (this project)` section lists project commands runnable today.
+> **Tooling status (TICKETVIBE):** Vitest is installed (`packages/shared`, `apps/api` and `apps/web`). React Testing Library, MSW and Playwright are installed since tickets 04–05 (`apps/web`); see [`docs/TESTING.md`](../TESTING.md). Sections below keep describing the conventions to follow; only the `## Commands (this project)` section lists project commands runnable today.
 
 ## Tech Stack
 

@@ -2,7 +2,7 @@
 
 A portable convention for unit-testing backend domain code built with use cases, repository contracts, and in-memory repositories. Copy this file into any application and adapt the "Status" banner, the sections marked TICKETVIBE, and the "Project Overrides" section to that project.
 
-> **Status (TICKETVIBE):** unit testing is live for `packages/shared` and `apps/api`; the hexagonal module layout, Drizzle repositories and route integration tests are live since ticket 04 (first modules: `events` and `categories`, with full-text search + filters — see [`docs/TESTING.md`](../TESTING.md)).
+> **Status (TICKETVIBE):** unit testing is live for `packages/shared` and `apps/api`; the hexagonal module layout, Drizzle repositories and route integration tests are live since tickets 04–05 (first modules: `events` and `categories`, with full-text search + filters — see [`docs/TESTING.md`](../TESTING.md)).
 
 ## Tech Stack
 

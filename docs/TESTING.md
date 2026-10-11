@@ -36,7 +36,7 @@ apps/api/src/modules/events/…          # hexagonal live: domain, infra, use-ca
 apps/api/src/modules/events/routes/events.routes.integration.spec.ts  # Postgres real
 apps/api/src/modules/categories/…      # módulo hexagonal de categorias (unit + integração)
 apps/web/src/lib/events-api.ts         # fetchEvents + MSW (spec ao lado)
-apps/web/src/components/home/*.spec.tsx # RTL do hero e da seção de destaques
+apps/web/src/components/home/*.spec.tsx # RTL do hero, destaques, chips e resultados
 apps/web/tests/e2e/…                   # fluxos E2E (Playwright) — home, busca, filtros
 ```
 
@@ -69,10 +69,10 @@ Expected: `[worker] listening for heartbeat jobs`, `[worker] job processed: N`, 
 | Level | Tooling | Status |
 |---|---|---|
 | Unit | Vitest, co-located `.spec.ts` | **live** — `packages/shared`, `apps/api`, `apps/web` |
-| Integration (routes + real Postgres) | Vitest against local `ticketvibe_test`; helpers `ensureTestDatabase` / `migrateTestDatabase` / `resetDatabase` | **live** (requires `pnpm infra:up`; first module: `events`) |
+| Integration (routes + real Postgres) | Vitest against local `ticketvibe_test`; helpers `ensureTestDatabase` / `migrateTestDatabase` / `resetDatabase` | **live** (requires `pnpm infra:up`; first modules: `events` and `categories`) |
 | E2E | Playwright against the real local stack (web :3000, api :3001, Mailpit API :8025) | **live** (Playwright/Chromium; primeiro fluxo: home + busca + filtros) (auth journey at 08, full purchase journey at 13) |
 
-Hexagonal layout (live since ticket 04 — `modules/events`):
+Hexagonal layout (live since tickets 04–05 — `modules/events` and `modules/categories`):
 
 ```
 apps/api/src/modules/<domain>/
