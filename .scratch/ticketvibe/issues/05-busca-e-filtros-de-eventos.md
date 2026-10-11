@@ -4,13 +4,13 @@
 
 **Blocked by:** 04 (Seed de eventos + home)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Full-text search no Postgres (tsvector/pg_trgm) cobrindo artista, evento, local e cidade
-- [ ] Endpoint REST de busca com parâmetros de filtro (categoria, data, localização), schema Zod compartilhado
-- [ ] UI de busca no cabeçalho e chips de categoria com estado selecionado (visual dos mockups)
-- [ ] Combinação busca + filtros aplicada sobre os mesmos resultados
-- [ ] Testes: integração das consultas de busca, unitários dos filtros, componente com MSW, E2E de busca+filtro
+- [x] Full-text search no Postgres (tsvector/pg_trgm) cobrindo artista, evento, local e cidade
+- [x] Endpoint REST de busca com parâmetros de filtro (categoria, data, localização), schema Zod compartilhado
+- [x] UI de busca no cabeçalho e chips de categoria com estado selecionado (visual dos mockups)
+- [x] Combinação busca + filtros aplicada sobre os mesmos resultados
+- [x] Testes: integração das consultas de busca, unitários dos filtros, componente com MSW, E2E de busca+filtro
 
 ## Deferrals do ticket 04 (registrados no fechamento do 04)
 

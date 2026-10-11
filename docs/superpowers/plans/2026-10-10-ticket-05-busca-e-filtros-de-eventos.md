@@ -83,7 +83,7 @@ Fastify 5 · Drizzle ORM 0.45 + drizzle-kit 0.31 · Postgres 16 (`unaccent`) · 
 
 **Files:** `packages/shared/src/index.ts`, `packages/shared/src/index.spec.ts`
 
-- [ ] **Step 1: Escreva os testes que falham** em `index.spec.ts`. Substitua o bloco `describe('listEventsQuerySchema', ...)` por:
+- [x] **Step 1: Escreva os testes que falham** em `index.spec.ts`. Substitua o bloco `describe('listEventsQuerySchema', ...)` por:
 
 ```ts
 describe('listEventsQuerySchema', () => {
@@ -174,7 +174,7 @@ import {
 } from './index';
 ```
 
-- [ ] **Step 2: Rode e veja falhar**
+- [x] **Step 2: Rode e veja falhar**
 
 ```bash
 pnpm --filter @ticketvibe/shared test
@@ -182,7 +182,7 @@ pnpm --filter @ticketvibe/shared test
 
 Expected: falha (`searchFiltersSchema`/`listCategoriesResponseSchema` não existem; estado não uppercased).
 
-- [ ] **Step 3: Implemente** em `index.ts`. Substitua o bloco `listEventsQuerySchema` (linhas 35–39) por:
+- [x] **Step 3: Implemente** em `index.ts`. Substitua o bloco `listEventsQuerySchema` (linhas 35–39) por:
 
 ```ts
 export const searchFiltersSchema = z.object({
@@ -221,7 +221,7 @@ export type ListCategoriesResponse = z.infer<
 export type CategoryDto = z.infer<typeof categorySchema>;
 ```
 
-- [ ] **Step 4: Rode e veja passar**
+- [x] **Step 4: Rode e veja passar**
 
 ```bash
 pnpm --filter @ticketvibe/shared test && pnpm --filter @ticketvibe/shared typecheck
@@ -229,7 +229,7 @@ pnpm --filter @ticketvibe/shared test && pnpm --filter @ticketvibe/shared typech
 
 Expected: todos os testes do shared passam (12 anteriores + 11 novos).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/shared/src
@@ -242,7 +242,7 @@ git commit -m "feat(shared): add search filters and categories contracts"
 
 **Files:** `apps/api/src/modules/events/domain/events-repository.ts`, `.../infra/in-memory-events-repository.ts`, `.../use-cases/list-events.use-case.ts`, `.../use-cases/list-events.use-case.spec.ts`
 
-- [ ] **Step 1: Escreva os testes que falham** — substitua `list-events.use-case.spec.ts` por completo:
+- [x] **Step 1: Escreva os testes que falham** — substitua `list-events.use-case.spec.ts` por completo:
 
 ```ts
 import { describe, expect, it, vi } from 'vitest';
@@ -394,7 +394,7 @@ describe('ListEventsUseCase', () => {
 });
 ```
 
-- [ ] **Step 2: Rode e veja falhar**
+- [x] **Step 2: Rode e veja falhar**
 
 ```bash
 pnpm --filter @ticketvibe/api test list-events.use-case
@@ -402,7 +402,7 @@ pnpm --filter @ticketvibe/api test list-events.use-case
 
 Expected: falha (assinatura de `findAll`/`execute` ainda não aceita filtros).
 
-- [ ] **Step 3: Implemente.** `domain/events-repository.ts`:
+- [x] **Step 3: Implemente.** `domain/events-repository.ts`:
 
 ```ts
 import type { SearchFilters } from '@ticketvibe/shared';
@@ -490,7 +490,7 @@ export class InMemoryEventsRepository implements EventsRepository {
 }
 ```
 
-- [ ] **Step 4: Rode e veja passar**
+- [x] **Step 4: Rode e veja passar**
 
 ```bash
 pnpm --filter @ticketvibe/api test list-events.use-case && pnpm --filter @ticketvibe/api typecheck
@@ -498,7 +498,7 @@ pnpm --filter @ticketvibe/api test list-events.use-case && pnpm --filter @ticket
 
 Expected: passa.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/api/src/modules/events
@@ -509,7 +509,7 @@ git commit -m "feat(api): filter events in the listing use case"
 
 **Files:** `apps/api/src/modules/events/routes/events.routes.spec.ts` (a rota **não** muda; `parsed.data` já flui para o use case)
 
-- [ ] **Step 1: Escreva os testes que falham.** Acrescente ao `describe('GET /events', ...)`, antes do fechamento:
+- [x] **Step 1: Escreva os testes que falham.** Acrescente ao `describe('GET /events', ...)`, antes do fechamento:
 
 ```ts
   it('filters by text across title, venue and city', async () => {
@@ -587,7 +587,7 @@ git commit -m "feat(api): filter events in the listing use case"
   });
 ```
 
-- [ ] **Step 2: Rode e veja passar (a rota já suporta)**
+- [x] **Step 2: Rode e veja passar (a rota já suporta)**
 
 ```bash
 pnpm --filter @ticketvibe/api test events.routes.spec
@@ -595,7 +595,7 @@ pnpm --filter @ticketvibe/api test events.routes.spec
 
 Expected: passa — os filtros já são parseados pelo `listEventsQuerySchema` (task 1) e aplicados pelo use case (task 2).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/api/src/modules/events/routes/events.routes.spec.ts
@@ -608,7 +608,7 @@ git commit -m "feat(api): parse search filters on the events route"
 
 **Files:** `apps/api/src/modules/categories/**` (novo), `apps/api/src/app.ts`, `apps/api/src/modules/events/routes/events.routes.integration.spec.ts`
 
-- [ ] **Step 1: Escreva os testes que falham.** Crie `apps/api/src/modules/categories/use-cases/list-categories.use-case.spec.ts`:
+- [x] **Step 1: Escreva os testes que falham.** Crie `apps/api/src/modules/categories/use-cases/list-categories.use-case.spec.ts`:
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -679,7 +679,7 @@ describe('GET /categories', () => {
 });
 ```
 
-- [ ] **Step 2: Rode e veja falhar** (o módulo não existe)
+- [x] **Step 2: Rode e veja falhar** (o módulo não existe)
 
 ```bash
 pnpm --filter @ticketvibe/api test categories
@@ -687,7 +687,7 @@ pnpm --filter @ticketvibe/api test categories
 
 Expected: falha de import/módulo.
 
-- [ ] **Step 3: Implemente.** Crie os arquivos:
+- [x] **Step 3: Implemente.** Crie os arquivos:
 
 `apps/api/src/modules/categories/domain/category-entity.ts`:
 
@@ -898,7 +898,7 @@ describe('GET /categories (postgres integration)', () => {
 });
 ```
 
-- [ ] **Step 4: Rode e veja passar**
+- [x] **Step 4: Rode e veja passar**
 
 ```bash
 pnpm --filter @ticketvibe/api test categories && pnpm --filter @ticketvibe/api typecheck
@@ -907,7 +907,7 @@ pnpm --filter @ticketvibe/api test events.routes.integration
 
 Expected: passa (a integração exige `pnpm infra:up`).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/api/src/modules/categories apps/api/src/app.ts apps/api/src/modules/events/routes/events.routes.integration.spec.ts
@@ -920,7 +920,7 @@ git commit -m "feat(api): add categories listing route"
 
 **Files:** `apps/api/src/db/schema.ts`, `apps/api/drizzle/0001_*.sql`, `apps/api/drizzle/meta/**`
 
-- [ ] **Step 1: Edite `schema.ts`.** Troque o import de `drizzle-orm/pg-core`, adicione o `customType` e a coluna + índice:
+- [x] **Step 1: Edite `schema.ts`.** Troque o import de `drizzle-orm/pg-core`, adicione o `customType` e a coluna + índice:
 
 ```ts
 import {
@@ -972,7 +972,7 @@ export const events = pgTable(
 );
 ```
 
-- [ ] **Step 2: Gere a migração**
+- [x] **Step 2: Gere a migração**
 
 ```bash
 pnpm --filter @ticketvibe/api db:generate
@@ -981,7 +981,7 @@ ls apps/api/drizzle
 
 Expected: cria `apps/api/drizzle/0001_<palavras>.sql` e atualiza `meta/_journal.json` + `meta/0001_snapshot.json`.
 
-- [ ] **Step 3: Renomeie e complete a migração.** Renomeie o arquivo gerado para `0001_events_search_vector.sql` e ajuste o `tag` no `meta/_journal.json` para `0001_events_search_vector`. Conteúdo final do SQL:
+- [x] **Step 3: Renomeie e complete a migração.** Renomeie o arquivo gerado para `0001_events_search_vector.sql` e ajuste o `tag` no `meta/_journal.json` para `0001_events_search_vector`. Conteúdo final do SQL:
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS "unaccent";--> statement-breakpoint
@@ -999,7 +999,7 @@ CREATE INDEX "events_search_vector_idx" ON "events" USING gin ("search_vector");
 
 > Se o gerador emitir as linhas de `ALTER TABLE`/`CREATE INDEX` com formatação ligeiramente diferente, preserve as linhas geradas e apenas **prefixe** o `CREATE EXTENSION` e **insira** o `UPDATE` de backfill antes do `CREATE INDEX`.
 
-- [ ] **Step 4: Aplique a migração e valide a coluna**
+- [x] **Step 4: Aplique a migração e valide a coluna**
 
 ```bash
 pnpm --filter @ticketvibe/api db:migrate
@@ -1008,7 +1008,7 @@ pnpm --filter @ticketvibe/api exec tsx -e "import {Pool} from 'pg'; const p=new 
 
 Expected: `[ { column_name: 'search_vector', data_type: 'tsvector' } ]`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/api/src/db/schema.ts apps/api/drizzle
@@ -1019,7 +1019,7 @@ git commit -m "feat(api): add tsvector search column and index"
 
 **Files:** `apps/api/src/db/seed-fixtures.ts`, `apps/api/src/modules/events/routes/events.routes.integration.spec.ts`
 
-- [ ] **Step 1: Escreva o teste que falha.** Adicione ao `describe('GET /events (postgres integration)')`:
+- [x] **Step 1: Escreva o teste que falha.** Adicione ao `describe('GET /events (postgres integration)')`:
 
 ```ts
   it('stores a search vector for every seeded event', async () => {
@@ -1031,7 +1031,7 @@ git commit -m "feat(api): add tsvector search column and index"
   });
 ```
 
-- [ ] **Step 2: Rode e veja falhar**
+- [x] **Step 2: Rode e veja falhar**
 
 ```bash
 pnpm --filter @ticketvibe/api test events.routes.integration
@@ -1039,7 +1039,7 @@ pnpm --filter @ticketvibe/api test events.routes.integration
 
 Expected: falha (`missing` = 12; o seed ainda não grava o vetor).
 
-- [ ] **Step 3: Implemente.** Substitua `seed-fixtures.ts` por completo:
+- [x] **Step 3: Implemente.** Substitua `seed-fixtures.ts` por completo:
 
 ```ts
 import { sql } from 'drizzle-orm';
@@ -1097,7 +1097,7 @@ export async function seedFixtures(db: Db): Promise<void> {
 }
 ```
 
-- [ ] **Step 4: Rode e veja passar**
+- [x] **Step 4: Rode e veja passar**
 
 ```bash
 pnpm --filter @ticketvibe/api test events.routes.integration && pnpm --filter @ticketvibe/api typecheck
@@ -1105,7 +1105,7 @@ pnpm --filter @ticketvibe/api test events.routes.integration && pnpm --filter @t
 
 Expected: passa (`missing` = 0).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/api/src/db/seed-fixtures.ts apps/api/src/modules/events/routes/events.routes.integration.spec.ts
@@ -1118,7 +1118,7 @@ git commit -m "feat(api): keep the search vector in the seed fixtures"
 
 **Files:** `apps/api/src/modules/events/infra/drizzle-events-repository.ts`, `apps/api/src/modules/events/routes/events.routes.integration.spec.ts`
 
-- [ ] **Step 1: Escreva os testes que falham.** Adicione ao `describe('GET /events (postgres integration)')`:
+- [x] **Step 1: Escreva os testes que falham.** Adicione ao `describe('GET /events (postgres integration)')`:
 
 ```ts
   it('finds an event by accent-insensitive title term', async () => {
@@ -1224,7 +1224,7 @@ git commit -m "feat(api): keep the search vector in the seed fixtures"
   });
 ```
 
-- [ ] **Step 2: Rode e veja falhar** (o repositório ignora filtros)
+- [x] **Step 2: Rode e veja falhar** (o repositório ignora filtros)
 
 ```bash
 pnpm --filter @ticketvibe/api test events.routes.integration
@@ -1232,7 +1232,7 @@ pnpm --filter @ticketvibe/api test events.routes.integration
 
 Expected: falha (retorna os 12 eventos).
 
-- [ ] **Step 3: Implemente.** Substitua `drizzle-events-repository.ts` por completo:
+- [x] **Step 3: Implemente.** Substitua `drizzle-events-repository.ts` por completo:
 
 ```ts
 import type { SearchFilters } from '@ticketvibe/shared';
@@ -1360,7 +1360,7 @@ export class DrizzleEventsRepository implements EventsRepository {
 }
 ```
 
-- [ ] **Step 4: Rode e veja passar** (exige `pnpm infra:up`)
+- [x] **Step 4: Rode e veja passar** (exige `pnpm infra:up`)
 
 ```bash
 pnpm --filter @ticketvibe/api test && pnpm --filter @ticketvibe/api typecheck
@@ -1368,7 +1368,7 @@ pnpm --filter @ticketvibe/api test && pnpm --filter @ticketvibe/api typecheck
 
 Expected: toda a suíte da api passa (incl. os 8 testes de busca/filtro).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/api/src/modules/events/infra/drizzle-events-repository.ts apps/api/src/modules/events/routes/events.routes.integration.spec.ts
@@ -1381,7 +1381,7 @@ git commit -m "feat(api): search events with postgres full text"
 
 **Files:** `apps/web/src/lib/events-api.ts`, `apps/web/src/lib/events-api.spec.ts`, `apps/web/src/app/page.tsx` (chamadas mínimas)
 
-- [ ] **Step 1: Escreva os testes que falham.** Substitua `events-api.spec.ts` por completo:
+- [x] **Step 1: Escreva os testes que falham.** Substitua `events-api.spec.ts` por completo:
 
 ```ts
 import { HttpResponse, http } from 'msw';
@@ -1489,7 +1489,7 @@ describe('fetchCategories', () => {
 });
 ```
 
-- [ ] **Step 2: Rode e veja falhar**
+- [x] **Step 2: Rode e veja falhar**
 
 ```bash
 pnpm --filter @ticketvibe/web test events-api
@@ -1497,7 +1497,7 @@ pnpm --filter @ticketvibe/web test events-api
 
 Expected: falha (assinatura antiga `fetchEvents(view)` retorna array).
 
-- [ ] **Step 3: Implemente.** Substitua `events-api.ts` por completo:
+- [x] **Step 3: Implemente.** Substitua `events-api.ts` por completo:
 
 ```ts
 import 'server-only';
@@ -1587,7 +1587,7 @@ async function HighlightsSection() {
 }
 ```
 
-- [ ] **Step 4: Rode e veja passar**
+- [x] **Step 4: Rode e veja passar**
 
 ```bash
 pnpm --filter @ticketvibe/web test events-api && pnpm --filter @ticketvibe/web typecheck
@@ -1595,7 +1595,7 @@ pnpm --filter @ticketvibe/web test events-api && pnpm --filter @ticketvibe/web t
 
 Expected: passa.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/src/lib/events-api.ts apps/web/src/lib/events-api.spec.ts apps/web/src/app/page.tsx
@@ -1606,7 +1606,7 @@ git commit -m "feat(web): extend the events client with search filters"
 
 **Files:** `apps/web/src/lib/search-params.ts` (+ spec), `apps/web/src/components/header-search.tsx` (+ spec), `apps/web/src/components/header.tsx`
 
-- [ ] **Step 1: Escreva os testes que falham.** Crie `apps/web/src/lib/search-params.spec.ts`:
+- [x] **Step 1: Escreva os testes que falham.** Crie `apps/web/src/lib/search-params.spec.ts`:
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -1704,7 +1704,7 @@ describe('HeaderSearch', () => {
 });
 ```
 
-- [ ] **Step 2: Rode e veja falhar**
+- [x] **Step 2: Rode e veja falhar**
 
 ```bash
 pnpm --filter @ticketvibe/web test search-params header-search
@@ -1712,7 +1712,7 @@ pnpm --filter @ticketvibe/web test search-params header-search
 
 Expected: falha de módulo inexistente.
 
-- [ ] **Step 3: Implemente.** Crie `apps/web/src/lib/search-params.ts`:
+- [x] **Step 3: Implemente.** Crie `apps/web/src/lib/search-params.ts`:
 
 ```ts
 import { type SearchFilters, searchFiltersSchema } from '@ticketvibe/shared';
@@ -1879,7 +1879,7 @@ function Header({ location = 'São Paulo, SP' }: HeaderProps) {
 export { Header };
 ```
 
-- [ ] **Step 4: Rode e veja passar**
+- [x] **Step 4: Rode e veja passar**
 
 ```bash
 pnpm --filter @ticketvibe/web test && pnpm --filter @ticketvibe/web typecheck
@@ -1887,7 +1887,7 @@ pnpm --filter @ticketvibe/web test && pnpm --filter @ticketvibe/web typecheck
 
 Expected: passa (o `page.tsx` continua funcionando; `<Header />` sem props).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/src/lib/search-params.ts apps/web/src/lib/search-params.spec.ts apps/web/src/components/header-search.tsx apps/web/src/components/header-search.spec.tsx apps/web/src/components/header.tsx
@@ -1900,7 +1900,7 @@ git commit -m "feat(web): add the header search field"
 
 **Files:** `apps/web/src/lib/category-icons.ts` (novo), `apps/web/src/components/home/category-chips.tsx` (+ spec)
 
-- [ ] **Step 1: Escreva o teste que falha.** Crie `apps/web/src/components/home/category-chips.spec.tsx`:
+- [x] **Step 1: Escreva o teste que falha.** Crie `apps/web/src/components/home/category-chips.spec.tsx`:
 
 ```tsx
 import { fireEvent, render, screen } from '@testing-library/react';
@@ -1958,7 +1958,7 @@ describe('CategoryChips', () => {
 });
 ```
 
-- [ ] **Step 2: Rode e veja falhar**
+- [x] **Step 2: Rode e veja falhar**
 
 ```bash
 pnpm --filter @ticketvibe/web test category-chips
@@ -1966,7 +1966,7 @@ pnpm --filter @ticketvibe/web test category-chips
 
 Expected: falha de módulo inexistente.
 
-- [ ] **Step 3: Implemente.** Crie `apps/web/src/lib/category-icons.ts`:
+- [x] **Step 3: Implemente.** Crie `apps/web/src/lib/category-icons.ts`:
 
 ```ts
 import {
@@ -2043,7 +2043,7 @@ export function CategoryChips({ categories, filters }: CategoryChipsProps) {
 }
 ```
 
-- [ ] **Step 4: Rode e veja passar**
+- [x] **Step 4: Rode e veja passar**
 
 ```bash
 pnpm --filter @ticketvibe/web test category-chips && pnpm --filter @ticketvibe/web typecheck
@@ -2051,7 +2051,7 @@ pnpm --filter @ticketvibe/web test category-chips && pnpm --filter @ticketvibe/w
 
 Expected: passa.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/src/lib/category-icons.ts apps/web/src/components/home/category-chips.tsx apps/web/src/components/home/category-chips.spec.tsx
@@ -2064,7 +2064,7 @@ git commit -m "feat(web): add the category chips row"
 
 **Files:** `apps/web/src/components/home/events-section.tsx` (estado de erro), `apps/web/src/components/home/search-results.tsx` (+ spec), `apps/web/src/app/page.tsx`
 
-- [ ] **Step 1: Escreva o teste que falha.** Crie `apps/web/src/components/home/search-results.spec.tsx`:
+- [x] **Step 1: Escreva o teste que falha.** Crie `apps/web/src/components/home/search-results.spec.tsx`:
 
 ```tsx
 import { render, screen } from '@testing-library/react';
@@ -2130,7 +2130,7 @@ describe('SearchResults', () => {
 });
 ```
 
-- [ ] **Step 2: Rode e veja falhar**
+- [x] **Step 2: Rode e veja falhar**
 
 ```bash
 pnpm --filter @ticketvibe/web test search-results
@@ -2138,7 +2138,7 @@ pnpm --filter @ticketvibe/web test search-results
 
 Expected: falha de módulo inexistente.
 
-- [ ] **Step 3: Implemente.** Edite `events-section.tsx`: adicione a prop opcional `error` e a mensagem distinta. A assinatura fica:
+- [x] **Step 3: Implemente.** Edite `events-section.tsx`: adicione a prop opcional `error` e a mensagem distinta. A assinatura fica:
 
 ```tsx
 export function EventsSection({
@@ -2320,7 +2320,7 @@ export default function HomePage({
 }
 ```
 
-- [ ] **Step 4: Rode e veja passar**
+- [x] **Step 4: Rode e veja passar**
 
 ```bash
 pnpm --filter @ticketvibe/web test && pnpm --filter @ticketvibe/web typecheck
@@ -2329,7 +2329,7 @@ pnpm --filter @ticketvibe/web build
 
 Expected: testes e typecheck passam; o build do Next conclui (a página usa `searchParams` dentro de Suspense).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/src/components/home/events-section.tsx apps/web/src/components/home/search-results.tsx apps/web/src/components/home/search-results.spec.tsx apps/web/src/app/page.tsx
@@ -2342,7 +2342,7 @@ git commit -m "feat(web): compose search results on the home"
 
 **Files:** `apps/web/src/app/globals.css`
 
-- [ ] **Step 1: Adicione os tokens em `:root`** (dentro do bloco `:root`, após `--radius: 1rem;`):
+- [x] **Step 1: Adicione os tokens em `:root`** (dentro do bloco `:root`, após `--radius: 1rem;`):
 
 ```css
   --gradient-brand-from: #00ff87;
@@ -2352,7 +2352,7 @@ git commit -m "feat(web): compose search results on the home"
   --gradient-event-to: #0a2a1e;
 ```
 
-- [ ] **Step 2: Use os tokens nos componentes** — substitua o bloco `@layer components`:
+- [x] **Step 2: Use os tokens nos componentes** — substitua o bloco `@layer components`:
 
 ```css
 @layer components {
@@ -2374,7 +2374,7 @@ git commit -m "feat(web): compose search results on the home"
 }
 ```
 
-- [ ] **Step 3: Verifique que o build e os testes seguem verdes**
+- [x] **Step 3: Verifique que o build e os testes seguem verdes**
 
 ```bash
 pnpm --filter @ticketvibe/web test && pnpm --filter @ticketvibe/web build
@@ -2382,7 +2382,7 @@ pnpm --filter @ticketvibe/web test && pnpm --filter @ticketvibe/web build
 
 Expected: passa (mudança puramente visual).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/web/src/app/globals.css
@@ -2393,7 +2393,7 @@ git commit -m "style(web): tokenize the event gradient"
 
 **Files:** `apps/web/package.json`, `apps/web/playwright.config.ts`, `apps/web/tests/e2e/global-setup.ts`, `apps/web/tests/e2e/home.spec.ts`, `apps/web/.gitignore`
 
-- [ ] **Step 1: Instale o Playwright e o Chromium**
+- [x] **Step 1: Instale o Playwright e o Chromium**
 
 ```bash
 pnpm --filter @ticketvibe/web add -D @playwright/test
@@ -2402,7 +2402,7 @@ pnpm --filter @ticketvibe/web exec playwright install chromium
 
 Expected: `@playwright/test` em `devDependencies`; Chromium baixado. Se o download for bloqueado pelo ambiente, **pare e reporte BLOCKED** (não invente).
 
-- [ ] **Step 2: Adicione o script e ignore os artefatos.** Em `apps/web/package.json`, dentro de `scripts`, adicione:
+- [x] **Step 2: Adicione o script e ignore os artefatos.** Em `apps/web/package.json`, dentro de `scripts`, adicione:
 
 ```json
     "test:e2e": "playwright test",
@@ -2415,7 +2415,7 @@ Em `apps/web/.gitignore`, acrescente ao fim:
 /playwright-report/
 ```
 
-- [ ] **Step 3: Escreva o smoke test que falha.** Crie `apps/web/tests/e2e/global-setup.ts`:
+- [x] **Step 3: Escreva o smoke test que falha.** Crie `apps/web/tests/e2e/global-setup.ts`:
 
 ```ts
 import { execSync } from 'node:child_process';
@@ -2475,7 +2475,7 @@ test('home exibe o destaque e os eventos em alta', async ({ page }) => {
 });
 ```
 
-- [ ] **Step 4: Rode o smoke (exige `pnpm infra:up` e migrações aplicadas)**
+- [x] **Step 4: Rode o smoke (exige `pnpm infra:up` e migrações aplicadas)**
 
 ```bash
 pnpm --filter @ticketvibe/web test:e2e
@@ -2483,7 +2483,7 @@ pnpm --filter @ticketvibe/web test:e2e
 
 Expected: 1 passed. (A primeira execução compila a home no Next — pode levar alguns segundos.)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/package.json apps/web/pnpm-lock.yaml pnpm-lock.yaml apps/web/playwright.config.ts apps/web/tests/e2e/global-setup.ts apps/web/tests/e2e/home.spec.ts apps/web/.gitignore
@@ -2498,7 +2498,7 @@ git commit -m "test(e2e): set up playwright with chromium"
 
 **Files:** `apps/web/tests/e2e/search.spec.ts`
 
-- [ ] **Step 1: Escreva o teste que falha.** Crie `apps/web/tests/e2e/search.spec.ts`:
+- [x] **Step 1: Escreva o teste que falha.** Crie `apps/web/tests/e2e/search.spec.ts`:
 
 ```ts
 import { expect, test } from '@playwright/test';
@@ -2560,7 +2560,7 @@ test('limpar filtros volta para a home', async ({ page }) => {
 });
 ```
 
-- [ ] **Step 2: Rode e veja passar** (exige `pnpm infra:up`)
+- [x] **Step 2: Rode e veja passar** (exige `pnpm infra:up`)
 
 ```bash
 pnpm --filter @ticketvibe/web test:e2e
@@ -2568,7 +2568,7 @@ pnpm --filter @ticketvibe/web test:e2e
 
 Expected: 6 passed (1 smoke + 5 novos).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/web/tests/e2e/search.spec.ts
@@ -2581,14 +2581,14 @@ git commit -m "test(e2e): cover search and filter flows"
 
 **Files:** `README.md`, `docs/TESTING.md`, `docs/skills/TESTING_API_GUIDELINE.md`, `docs/skills/TESTING_FRONTEND_GUIDELINE.md`
 
-- [ ] **Step 1: `README.md` — smoke.** Ache o bloco de smoke e acrescente uma linha após a do `/events?view=featured`:
+- [x] **Step 1: `README.md` — smoke.** Ache o bloco de smoke e acrescente uma linha após a do `/events?view=featured`:
 
 ```bash
 curl -s 'http://127.0.0.1:3001/events?q=teatro'            # busca full-text: {"events":[…3 eventos…]}
 curl -s 'http://127.0.0.1:3001/categories'                 # {"categories":[…7…]}
 ```
 
-- [ ] **Step 2: `README.md` — scripts.** Na tabela de scripts, acrescente:
+- [x] **Step 2: `README.md` — scripts.** Na tabela de scripts, acrescente:
 
 ```markdown
 | `pnpm --filter @ticketvibe/web test:e2e` | testes E2E (Playwright/Chromium; sobe api+web e semeia o banco) |
@@ -2596,13 +2596,13 @@ curl -s 'http://127.0.0.1:3001/categories'                 # {"categories":[…7
 
 E na linha do `pnpm test`, mantenha o texto mas note que a integração cobre também categorias/busca.
 
-- [ ] **Step 3: `README.md` — estrutura.** Troque a descrição do `apps/api`:
+- [x] **Step 3: `README.md` — estrutura.** Troque a descrição do `apps/api`:
 
 ```markdown
 apps/api          Fastify 5 + Drizzle/Postgres — rotas /health, /events (busca full-text + filtros) e /categories validadas pelo shared
 ```
 
-- [ ] **Step 4: `docs/TESTING.md`.** Aplique:
+- [x] **Step 4: `docs/TESTING.md`.** Aplique:
   - `## Current state (after ticket 04)` → `## Current state (after ticket 05)`.
   - Linha do `packages/shared`: atualize a contagem de testes com o número real que o runner relatar (12 → 23).
   - Linha do `apps/api`: → `health (unit) + events module (use case, route, integration vs ticketvibe_test — busca + filtros) + categories module (unit + integration — requires pnpm infra:up)`.
@@ -2621,7 +2621,7 @@ apps/api          Fastify 5 + Drizzle/Postgres — rotas /health, /events (busca
   - Na tabela "Three levels", a linha E2E: `**from ticket 05 on**` → `**live** (Playwright/Chromium; primeiro fluxo: home + busca + filtros)`.
   - No "Coverage": `ticket 04 explicitly deferred it (recorded in the ticket 04 deferrals — see issues/05)` → `tickets 04/05 explicitly deferred it (recorded in the ticket deferrals — see issues/06)`.
 
-- [ ] **Step 5: `docs/skills/TESTING_FRONTEND_GUIDELINE.md`.** Aplique:
+- [x] **Step 5: `docs/skills/TESTING_FRONTEND_GUIDELINE.md`.** Aplique:
   - No banner (linha 5): `React Testing Library and MSW are installed since ticket 04 (apps/web); Playwright arrives with E2E (ticket 05+; ...)` → `React Testing Library, MSW and Playwright are installed since tickets 04–05 (apps/web); ...`.
   - Na lista Tech Stack, `**E2E framework:** Playwright (@playwright/test). *(not installed yet)*` → `*(installed since ticket 05)*`.
   - Em `## Commands (this project)`, acrescente abaixo de `pnpm lint`:
@@ -2634,12 +2634,12 @@ apps/api          Fastify 5 + Drizzle/Postgres — rotas /health, /events (busca
   - `**Tooling status:** Vitest ✅ · RTL ✅ · MSW ✅ (since ticket 04) · Playwright ⏳ first E2E (ticket 05+)` → `**Tooling status:** Vitest ✅ · RTL ✅ · MSW ✅ (since ticket 04) · Playwright ✅ (since ticket 05)`.
   - No "Coverage Gate": `(ticket 04 explicitly deferred it — see the deferrals in issues/05)` → `(tickets 04/05 explicitly deferred it — see the deferrals in issues/06)`.
 
-- [ ] **Step 6: `docs/skills/TESTING_API_GUIDELINE.md`.** Aplique:
+- [x] **Step 6: `docs/skills/TESTING_API_GUIDELINE.md`.** Aplique:
   - No banner (linha 5): `the hexagonal module layout, Drizzle repositories and route integration tests are live since ticket 04 (first module: events — ...)` → `... live since ticket 04 (first modules: events and categories, with full-text search + filters — ...)`.
   - No bullet "Contract seam": `healthResponseSchema is the first one, alongside eventSchema / listEventsResponseSchema` → `healthResponseSchema is the first one, alongside eventSchema, listEventsQuerySchema (search filters) and listCategoriesResponseSchema`.
   - No bullet "Module layout": `live with modules/events` → `live with modules/events and modules/categories`.
 
-- [ ] **Step 7: Rode o lint e valide os docs** (sem código novo, apenas formatação de markdown)
+- [x] **Step 7: Rode o lint e valide os docs** (sem código novo, apenas formatação de markdown)
 
 ```bash
 pnpm lint
@@ -2647,7 +2647,7 @@ pnpm lint
 
 Expected: 0 erros.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add README.md docs/TESTING.md docs/skills/TESTING_API_GUIDELINE.md docs/skills/TESTING_FRONTEND_GUIDELINE.md
@@ -2660,7 +2660,7 @@ git commit -m "docs: sync tooling status and commands with ticket 05"
 
 **Files:** `.scratch/ticketvibe/issues/05-busca-e-filtros-de-eventos.md`, `.scratch/ticketvibe/issues/06-pagina-de-evento.md`, este plano
 
-- [ ] **Step 1: Confirme que a suíte inteira está verde** (com `pnpm infra:up`)
+- [x] **Step 1: Confirme que a suíte inteira está verde** (com `pnpm infra:up`)
 
 ```bash
 pnpm lint && pnpm typecheck && pnpm test && pnpm --filter @ticketvibe/web test:e2e
@@ -2668,11 +2668,11 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm --filter @ticketvibe/web test:e
 
 Expected: tudo passa.
 
-- [ ] **Step 2: Marque os 5 critérios do issue 05 e mude o status.** Edite `.scratch/ticketvibe/issues/05-busca-e-filtros-de-eventos.md`:
+- [x] **Step 2: Marque os 5 critérios do issue 05 e mude o status.** Edite `.scratch/ticketvibe/issues/05-busca-e-filtros-de-eventos.md`:
   - Marque as 5 caixas `[ ]` → `[x]`.
   - Troque `**Status:** ready-for-agent` → `**Status:** done`.
 
-- [ ] **Step 3: Registre os deferrals do 05 no issue 06.** Ache o fim de `.scratch/ticketvibe/issues/06-pagina-de-evento.md` (ou um título existente) e acrescente:
+- [x] **Step 3: Registre os deferrals do 05 no issue 06.** Ache o fim de `.scratch/ticketvibe/issues/06-pagina-de-evento.md` (ou um título existente) e acrescente:
 
 ```markdown
 ## Deferrals do ticket 05 (registrados no fechamento do 05)
@@ -2687,9 +2687,9 @@ Expected: tudo passa.
 - **Entidade artista** — a busca cobre título/descrição/local/cidade; "artista" como campo próprio não existe no modelo (fica para quando os eventos tiverem lineup).
 ```
 
-- [ ] **Step 4: Marque os passos executados neste plano.** Neste arquivo, troque todos os `- [ ]` por `- [x]` (o plano vira o registro do que foi feito).
+- [x] **Step 4: Marque os passos executados neste plano.** Neste arquivo, troque todos os `- [ ]` por `- [x]` (o plano vira o registro do que foi feito).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add .scratch/ticketvibe/issues/05-busca-e-filtros-de-eventos.md .scratch/ticketvibe/issues/06-pagina-de-evento.md docs/superpowers/plans/2026-10-10-ticket-05-busca-e-filtros-de-eventos.md

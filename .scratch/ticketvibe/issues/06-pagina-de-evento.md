@@ -11,3 +11,14 @@
 - [ ] CTA que leva à escolha de ingressos (pode apontar para a próxima fase até lá existir)
 - [ ] Estados de carregamento e de evento inexistente tratados
 - [ ] Testes: integração da rota, componente com MSW, E2E de navegação home → evento
+
+## Deferrals do ticket 05 (registrados no fechamento do 05)
+
+- **Busca fuzzy `pg_trgm`** — `q=standup` não acha `stand-up` (lexemas diferem); hoje só substring/stemming (`q=stand` acha). Habilita proximidade/typo. UI de **data** (`from`/`to`) e **localização** (`state`) no header — a API já aceita, os mockups não mostram; UI fica para 06/07.
+- **Carrossel do hero (dots/controles)** — herdado do 04; segue para 06/07.
+- **`Header` no `layout.tsx`** — segue só na home; `not-found.tsx` claro ainda aberto.
+- **Provider Zod/OpenAPI do Fastify** — F-transversal.
+- **Coverage tooling** — não instalado; política em docs/TESTING.md.
+- **Sign-off do contraste `--border: #2e2054`** — herdado do 03, sem decisão de design.
+- **Trigger do `search_vector`** — hoje é mantido apenas pelo seed; um trigger de banco (ou escrita no write path) será necessário quando eventos passarem a ser criados/editados (tickets 17+).
+- **Entidade artista** — a busca cobre título/descrição/local/cidade; "artista" como campo próprio não existe no modelo (fica para quando os eventos tiverem lineup).
