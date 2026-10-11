@@ -57,9 +57,12 @@ export async function fetchEventBySlug(
   slug: string,
 ): Promise<EventDetailDto | null> {
   try {
-    const response = await fetch(`${API_URL}/events/${slug}`, {
-      cache: 'no-store',
-    });
+    const response = await fetch(
+      `${API_URL}/events/${encodeURIComponent(slug)}`,
+      {
+        cache: 'no-store',
+      },
+    );
     if (response.status === 404) {
       return null;
     }

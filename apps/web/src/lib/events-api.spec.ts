@@ -164,7 +164,24 @@ describe('fetchEventBySlug', () => {
       ),
     );
 
-    await expect(fetchEventBySlug('algo')).rejects.toThrow();
+    await expect(fetchEventBySlug('algo')).rejects.toThrow(
+      'Unexpected status 500',
+    );
+  });
+
+  test('logs and rethrows when the payload breaks the contract', async () => {
+    server.use(
+      http.get('http://localhost:3001/events/:slug', () =>
+        HttpResponse.json({
+          event: { ...validEventDetailFixture, priceFromCents: '12000' },
+        }),
+      ),
+    );
+
+    await expect(fetchEventBySlug('o-fantasma-da-opera')).rejects.toThrow(
+      'priceFromCents',
+    );
+    expect(console.error).toHaveBeenCalled();
   });
 });
 
