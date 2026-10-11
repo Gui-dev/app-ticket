@@ -2,10 +2,10 @@ import { listEventsResponseSchema } from '@ticketvibe/shared';
 import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../../../app.js';
-import type { EventEntity } from '../domain/event-entity.js';
+import type { EventDetailEntity } from '../domain/event-entity.js';
 import { InMemoryEventsRepository } from '../infra/in-memory-events-repository.js';
 
-const stubEvents: EventEntity[] = [
+const stubEvents: EventDetailEntity[] = [
   {
     id: '5755f491-f642-4f21-981d-c28cce72d4f4',
     slug: 'em-alta',
@@ -22,6 +22,7 @@ const stubEvents: EventEntity[] = [
     badgeLabel: 'Últimos ingressos',
     featured: false,
     isHot: true,
+    sectors: [],
   },
   {
     id: 'e1b947d9-7be5-4896-bbf2-f433416b18dc',
@@ -39,6 +40,7 @@ const stubEvents: EventEntity[] = [
     badgeLabel: 'Destaque',
     featured: true,
     isHot: false,
+    sectors: [],
   },
   {
     id: '37b8aba4-c962-4d58-bbbc-91e97f33abea',
@@ -56,6 +58,10 @@ const stubEvents: EventEntity[] = [
     badgeLabel: null,
     featured: false,
     isHot: false,
+    sectors: [
+      { slug: 'pista', name: 'Pista', priceFromCents: 15000 },
+      { slug: 'camarote', name: 'Camarote', priceFromCents: 21000 },
+    ],
   },
 ];
 

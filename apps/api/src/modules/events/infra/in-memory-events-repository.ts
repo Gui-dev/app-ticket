@@ -1,5 +1,9 @@
 import type { SearchFilters } from '@ticketvibe/shared';
-import type { EventEntity, EventView } from '../domain/event-entity';
+import type {
+  EventDetailEntity,
+  EventEntity,
+  EventView,
+} from '../domain/event-entity';
 import type { EventsRepository } from '../domain/events-repository';
 
 function matchesQuery(event: EventEntity, query: string): boolean {
@@ -13,7 +17,7 @@ function matchesQuery(event: EventEntity, query: string): boolean {
 }
 
 export class InMemoryEventsRepository implements EventsRepository {
-  constructor(private readonly items: EventEntity[]) {}
+  constructor(private readonly items: EventDetailEntity[]) {}
 
   findAll(
     view: EventView,
@@ -52,5 +56,19 @@ export class InMemoryEventsRepository implements EventsRepository {
     );
 
     return Promise.resolve(sorted);
+  }
+
+  findBySlug(slug: string): Promise<EventDetailEntity | null> {
+    const item = this.items.find((entry) => entry.slug === slug);
+    if (!item) {
+      return Promise.resolve(null);
+    }
+    return Promise.resolve({
+      ...item,
+      sectors: [...item.sectors].sort(
+        (a, b) =>
+          a.priceFromCents - b.priceFromCents || a.slug.localeCompare(b.slug),
+      ),
+    });
   }
 }

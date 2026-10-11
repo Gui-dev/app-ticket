@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { EventEntity } from '../domain/event-entity';
+import type { EventDetailEntity, EventEntity } from '../domain/event-entity';
 import { InMemoryEventsRepository } from '../infra/in-memory-events-repository';
 import { ListEventsUseCase } from './list-events.use-case';
 
-const stubEvents: EventEntity[] = [
+const stubEvents: EventDetailEntity[] = [
   {
     id: '33333333-3333-4333-8333-333333333333',
     slug: 'sertaneja',
@@ -20,6 +20,7 @@ const stubEvents: EventEntity[] = [
     badgeLabel: null,
     featured: false,
     isHot: false,
+    sectors: [],
   },
   {
     id: '11111111-1111-4111-8111-111111111111',
@@ -37,6 +38,7 @@ const stubEvents: EventEntity[] = [
     badgeLabel: null,
     featured: true,
     isHot: true,
+    sectors: [],
   },
   {
     id: '22222222-2222-4222-8222-222222222222',
@@ -54,10 +56,13 @@ const stubEvents: EventEntity[] = [
     badgeLabel: null,
     featured: false,
     isHot: true,
+    sectors: [],
   },
 ];
 
-function createUseCase(events: EventEntity[] = stubEvents): ListEventsUseCase {
+function createUseCase(
+  events: EventDetailEntity[] = stubEvents,
+): ListEventsUseCase {
   return new ListEventsUseCase(new InMemoryEventsRepository(events));
 }
 
@@ -131,7 +136,7 @@ describe('ListEventsUseCase', () => {
 
   it('breaks ties on the start date deterministically by id', async () => {
     const sameDate = new Date('2026-10-22T23:00:00.000Z');
-    const tiedEvents: EventEntity[] = [
+    const tiedEvents: EventDetailEntity[] = [
       {
         id: '33333333-3333-4333-8333-333333333333',
         slug: 'segundo',
@@ -148,6 +153,7 @@ describe('ListEventsUseCase', () => {
         badgeLabel: null,
         featured: true,
         isHot: true,
+        sectors: [],
       },
       {
         id: '11111111-1111-4111-8111-111111111111',
@@ -165,6 +171,7 @@ describe('ListEventsUseCase', () => {
         badgeLabel: null,
         featured: true,
         isHot: true,
+        sectors: [],
       },
     ];
 

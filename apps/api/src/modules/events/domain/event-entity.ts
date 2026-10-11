@@ -19,3 +19,13 @@ export interface EventEntity {
   featured: boolean;
   isHot: boolean;
 }
+
+export interface SectorEntity {
+  slug: string;
+  name: string;
+  priceFromCents: number;
+}
+
+export interface EventDetailEntity extends EventEntity {
+  sectors: SectorEntity[];
+}
