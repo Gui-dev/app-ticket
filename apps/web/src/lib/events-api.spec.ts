@@ -10,7 +10,7 @@ import {
   test,
   vi,
 } from 'vitest';
-import { fetchCategories, fetchEvents } from './events-api';
+import { fetchCategories, fetchEventBySlug, fetchEvents } from './events-api';
 
 const validEventFixture = {
   id: '7f9c1a2e-3b4d-4e5f-8a9b-0c1d2e3f4a5b',
@@ -23,6 +23,16 @@ const validEventFixture = {
   priceFromCents: 8000,
   imageUrl: 'https://example.com/image.jpg',
   badgeLabel: 'Popular',
+};
+
+const validEventDetailFixture = {
+  ...validEventFixture,
+  slug: 'o-fantasma-da-opera',
+  title: 'O Fantasma da Ópera',
+  sectors: [
+    { slug: 'plateia', name: 'Plateia', priceFromCents: 12000 },
+    { slug: 'camarote', name: 'Camarote', priceFromCents: 25000 },
+  ],
 };
 
 const server = setupServer(
@@ -115,6 +125,46 @@ describe('fetchEvents', () => {
     expect(seen[0]).not.toContain('view=');
     expect(seen[0]).not.toContain('q=');
     expect(seen[0]).not.toContain('category=');
+  });
+});
+
+describe('fetchEventBySlug', () => {
+  test('parses the detail payload through the contract', async () => {
+    server.use(
+      http.get('http://localhost:3001/events/:slug', () =>
+        HttpResponse.json({ event: validEventDetailFixture }),
+      ),
+    );
+
+    const result = await fetchEventBySlug('o-fantasma-da-opera');
+
+    expect(result).not.toBeNull();
+    expect(result?.slug).toBe('o-fantasma-da-opera');
+    expect(result?.sectors[0].priceFromCents).toBe(12000);
+    expect(result?.sectors).toHaveLength(2);
+  });
+
+  test('returns null without logging when the event does not exist', async () => {
+    server.use(
+      http.get('http://localhost:3001/events/:slug', () =>
+        HttpResponse.json({ error: 'event_not_found' }, { status: 404 }),
+      ),
+    );
+
+    const result = await fetchEventBySlug('desconhecido');
+
+    expect(result).toBeNull();
+    expect(console.error).not.toHaveBeenCalled();
+  });
+
+  test('propagates the failure on a server error', async () => {
+    server.use(
+      http.get('http://localhost:3001/events/:slug', () =>
+        HttpResponse.json({ error: 'internal' }, { status: 500 }),
+      ),
+    );
+
+    await expect(fetchEventBySlug('algo')).rejects.toThrow();
   });
 });
 

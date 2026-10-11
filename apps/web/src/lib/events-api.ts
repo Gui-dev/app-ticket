@@ -2,7 +2,9 @@ import 'server-only';
 
 import {
   type CategoryDto,
+  type EventDetailDto,
   type EventDto,
+  eventDetailResponseSchema,
   type ListEventsQuery,
   listCategoriesResponseSchema,
   listEventsResponseSchema,
@@ -10,7 +12,7 @@ import {
 
 const API_URL = process.env.API_URL ?? 'http://localhost:3001';
 
-export type { EventDto };
+export type { EventDetailDto, EventDto };
 
 export type FetchEventsResult =
   | { ok: true; events: EventDto[] }
@@ -48,6 +50,27 @@ export async function fetchEvents(
   } catch (error) {
     console.error('Failed to fetch events:', error);
     return { ok: false, error: 'request_failed' };
+  }
+}
+
+export async function fetchEventBySlug(
+  slug: string,
+): Promise<EventDetailDto | null> {
+  try {
+    const response = await fetch(`${API_URL}/events/${slug}`, {
+      cache: 'no-store',
+    });
+    if (response.status === 404) {
+      return null;
+    }
+    if (!response.ok) {
+      throw new Error(`Unexpected status ${response.status}`);
+    }
+    const payload = eventDetailResponseSchema.parse(await response.json());
+    return payload.event;
+  } catch (error) {
+    console.error('Failed to fetch event:', error);
+    throw error;
   }
 }
 
