@@ -6,6 +6,7 @@ import {
   pgTable,
   text,
   timestamp,
+  unique,
   uuid,
 } from 'drizzle-orm/pg-core';
 
@@ -55,5 +56,21 @@ export const events = pgTable(
   },
   (table) => [
     index('events_search_vector_idx').using('gin', table.searchVector),
+  ],
+);
+
+export const sectors = pgTable(
+  'sectors',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    eventId: uuid('event_id')
+      .notNull()
+      .references(() => events.id),
+    slug: text('slug').notNull(),
+    name: text('name').notNull(),
+    priceFromCents: integer('price_from_cents').notNull(),
+  },
+  (table) => [
+    unique('sectors_event_id_slug_unique').on(table.eventId, table.slug),
   ],
 );

@@ -15,6 +15,13 @@
       "when": 1791663878693,
       "tag": "0001_events_search_vector",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791737630001,
+      "tag": "0002_organic_firestar",
+      "breakpoints": true
     }
   ]
 }
