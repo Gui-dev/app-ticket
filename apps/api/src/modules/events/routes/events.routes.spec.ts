@@ -1,4 +1,7 @@
-import { listEventsResponseSchema } from '@ticketvibe/shared';
+import {
+  eventDetailResponseSchema,
+  listEventsResponseSchema,
+} from '@ticketvibe/shared';
 import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../../../app.js';
@@ -200,5 +203,41 @@ describe('GET /events', () => {
     expect(badDate.json().error).toBe('invalid_query');
     expect(badState.statusCode).toBe(400);
     expect(badState.json().error).toBe('invalid_query');
+  });
+});
+
+describe('GET /events/:slug', () => {
+  let app: FastifyInstance;
+
+  beforeEach(() => {
+    app = buildApp({
+      eventsRepository: new InMemoryEventsRepository(stubEvents),
+    });
+  });
+
+  afterEach(async () => {
+    await app.close();
+  });
+
+  it('returns the event detail with its sectors', async () => {
+    const response = await app.inject({ method: 'GET', url: '/events/comum' });
+
+    expect(response.statusCode).toBe(200);
+    const body = eventDetailResponseSchema.parse(response.json());
+    expect(body.event.slug).toBe('comum');
+    expect(body.event.sectors).toEqual([
+      { slug: 'pista', name: 'Pista', priceFromCents: 15000 },
+      { slug: 'camarote', name: 'Camarote', priceFromCents: 21000 },
+    ]);
+  });
+
+  it('returns 404 for an unknown slug', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/events/desconhecido',
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({ error: 'event_not_found' });
   });
 });

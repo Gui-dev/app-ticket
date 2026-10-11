@@ -1,8 +1,13 @@
-import { type EventDto, listEventsQuerySchema } from '@ticketvibe/shared';
+import {
+  type EventDetailDto,
+  type EventDto,
+  listEventsQuerySchema,
+} from '@ticketvibe/shared';
 import type { FastifyInstance } from 'fastify';
 
-import type { EventEntity } from '../domain/event-entity.js';
+import type { EventDetailEntity, EventEntity } from '../domain/event-entity.js';
 import type { EventsRepository } from '../domain/events-repository.js';
+import { GetEventDetailUseCase } from '../use-cases/get-event-detail.use-case.js';
 import { ListEventsUseCase } from '../use-cases/list-events.use-case.js';
 
 function toEventDto(entity: EventEntity): EventDto {
@@ -24,11 +29,23 @@ function toEventDto(entity: EventEntity): EventDto {
   };
 }
 
+function toEventDetailDto(entity: EventDetailEntity): EventDetailDto {
+  return {
+    ...toEventDto(entity),
+    sectors: entity.sectors.map((sector) => ({
+      slug: sector.slug,
+      name: sector.name,
+      priceFromCents: sector.priceFromCents,
+    })),
+  };
+}
+
 export function registerEventRoutes(
   app: FastifyInstance,
   eventsRepository: EventsRepository,
 ): void {
-  const useCase = new ListEventsUseCase(eventsRepository);
+  const listUseCase = new ListEventsUseCase(eventsRepository);
+  const detailUseCase = new GetEventDetailUseCase(eventsRepository);
 
   app.get('/events', async (request, reply) => {
     const parsed = listEventsQuerySchema.safeParse(request.query);
@@ -38,7 +55,18 @@ export function registerEventRoutes(
         issues: parsed.error.issues,
       });
     }
-    const list = await useCase.execute(parsed.data);
+    const list = await listUseCase.execute(parsed.data);
     return { events: list.map(toEventDto) };
   });
+
+  app.get<{ Params: { slug: string } }>(
+    '/events/:slug',
+    async (request, reply) => {
+      const event = await detailUseCase.execute(request.params.slug);
+      if (!event) {
+        return reply.code(404).send({ error: 'event_not_found' });
+      }
+      return { event: toEventDetailDto(event) };
+    },
+  );
 }
