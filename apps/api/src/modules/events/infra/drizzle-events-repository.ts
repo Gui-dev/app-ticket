@@ -34,6 +34,30 @@ interface EventRow {
   };
 }
 
+const eventSelect = {
+  events: {
+    id: events.id,
+    slug: events.slug,
+    title: events.title,
+    description: events.description,
+    startsAt: events.startsAt,
+    priceFromCents: events.priceFromCents,
+    imageUrl: events.imageUrl,
+    badgeLabel: events.badgeLabel,
+    featured: events.featured,
+    isHot: events.isHot,
+  },
+  categories: {
+    slug: categories.slug,
+    name: categories.name,
+  },
+  venues: {
+    name: venues.name,
+    city: venues.city,
+    state: venues.state,
+  },
+};
+
 function buildConditions(
   view: EventView,
   filters: SearchFilters,
@@ -93,29 +117,7 @@ export class DrizzleEventsRepository implements EventsRepository {
     filters: SearchFilters = {},
   ): Promise<EventEntity[]> {
     const rows = await this.db
-      .select({
-        events: {
-          id: events.id,
-          slug: events.slug,
-          title: events.title,
-          description: events.description,
-          startsAt: events.startsAt,
-          priceFromCents: events.priceFromCents,
-          imageUrl: events.imageUrl,
-          badgeLabel: events.badgeLabel,
-          featured: events.featured,
-          isHot: events.isHot,
-        },
-        categories: {
-          slug: categories.slug,
-          name: categories.name,
-        },
-        venues: {
-          name: venues.name,
-          city: venues.city,
-          state: venues.state,
-        },
-      })
+      .select(eventSelect)
       .from(events)
       .innerJoin(categories, eq(events.categoryId, categories.id))
       .innerJoin(venues, eq(events.venueId, venues.id))
@@ -127,29 +129,7 @@ export class DrizzleEventsRepository implements EventsRepository {
 
   async findBySlug(slug: string): Promise<EventDetailEntity | null> {
     const [row] = await this.db
-      .select({
-        events: {
-          id: events.id,
-          slug: events.slug,
-          title: events.title,
-          description: events.description,
-          startsAt: events.startsAt,
-          priceFromCents: events.priceFromCents,
-          imageUrl: events.imageUrl,
-          badgeLabel: events.badgeLabel,
-          featured: events.featured,
-          isHot: events.isHot,
-        },
-        categories: {
-          slug: categories.slug,
-          name: categories.name,
-        },
-        venues: {
-          name: venues.name,
-          city: venues.city,
-          state: venues.state,
-        },
-      })
+      .select(eventSelect)
       .from(events)
       .innerJoin(categories, eq(events.categoryId, categories.id))
       .innerJoin(venues, eq(events.venueId, venues.id))

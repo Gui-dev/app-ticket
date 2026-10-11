@@ -297,6 +297,16 @@ describe('GET /events/:slug (postgres integration)', () => {
   });
 
   it('returns the event with sectors ordered by price from the database', async () => {
+    const { rows } = await testDb.$client.query<{ id: string }>(
+      'select id from events where slug = $1',
+      ['o-fantasma-da-opera'],
+    );
+    await testDb.$client.query(
+      'insert into sectors (event_id, slug, name, price_from_cents) values ($1, $2, $3, $4)',
+      [rows[0].id, 'antecamara', 'Antecâmara', 12000],
+    );
+    await testDb.$client.query('analyze sectors');
+
     const response = await app.inject({
       method: 'GET',
       url: '/events/o-fantasma-da-opera',
@@ -307,6 +317,7 @@ describe('GET /events/:slug (postgres integration)', () => {
     expect(body.event.slug).toBe('o-fantasma-da-opera');
     expect(body.event.priceFromCents).toBe(12000);
     expect(body.event.sectors).toEqual([
+      { slug: 'antecamara', name: 'Antecâmara', priceFromCents: 12000 },
       { slug: 'plateia', name: 'Plateia', priceFromCents: 12000 },
       { slug: 'balcao', name: 'Balcão', priceFromCents: 19000 },
     ]);
