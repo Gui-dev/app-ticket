@@ -24,6 +24,13 @@ export interface EventFixture {
   isHot: boolean;
 }
 
+export interface SectorFixture {
+  eventSlug: string;
+  slug: string;
+  name: string;
+  priceFromCents: number;
+}
+
 export const categoryFixtures: CategoryFixture[] = [
   { slug: 'shows', name: 'Shows' },
   { slug: 'esportes', name: 'Esportes' },
@@ -230,5 +237,152 @@ export const eventFixtures: EventFixture[] = [
     badgeLabel: null,
     featured: false,
     isHot: false,
+  },
+];
+
+export const sectorFixtures: SectorFixture[] = [
+  {
+    eventSlug: 'o-fantasma-da-opera',
+    slug: 'plateia',
+    name: 'Plateia',
+    priceFromCents: 12000,
+  },
+  {
+    eventSlug: 'o-fantasma-da-opera',
+    slug: 'balcao',
+    name: 'Balcão',
+    priceFromCents: 19000,
+  },
+  {
+    eventSlug: 'derby-capital',
+    slug: 'arquibancada',
+    name: 'Arquibancada',
+    priceFromCents: 25000,
+  },
+  {
+    eventSlug: 'derby-capital',
+    slug: 'camarote',
+    name: 'Camarote',
+    priceFromCents: 45000,
+  },
+  {
+    eventSlug: 'corpo-em-movimento',
+    slug: 'plateia',
+    name: 'Plateia',
+    priceFromCents: 15000,
+  },
+  {
+    eventSlug: 'corpo-em-movimento',
+    slug: 'mezanino',
+    name: 'Mezanino',
+    priceFromCents: 22000,
+  },
+  {
+    eventSlug: 'standup-noite-de-verdades',
+    slug: 'pista',
+    name: 'Pista',
+    priceFromCents: 9000,
+  },
+  {
+    eventSlug: 'standup-noite-de-verdades',
+    slug: 'camarote',
+    name: 'Camarote',
+    priceFromCents: 16000,
+  },
+  {
+    eventSlug: 'corrida-de-rua-sp',
+    slug: 'km5',
+    name: 'Corrida 5km',
+    priceFromCents: 5000,
+  },
+  {
+    eventSlug: 'corrida-de-rua-sp',
+    slug: 'km10',
+    name: 'Corrida 10km',
+    priceFromCents: 9000,
+  },
+  {
+    eventSlug: 'pequeno-principe-musical',
+    slug: 'plateia',
+    name: 'Plateia',
+    priceFromCents: 7000,
+  },
+  {
+    eventSlug: 'pequeno-principe-musical',
+    slug: 'camarote',
+    name: 'Camarote',
+    priceFromCents: 12000,
+  },
+  {
+    eventSlug: 'neon-lights-world-tour',
+    slug: 'pista',
+    name: 'Pista',
+    priceFromCents: 18000,
+  },
+  {
+    eventSlug: 'neon-lights-world-tour',
+    slug: 'camarote',
+    name: 'Camarote',
+    priceFromCents: 32000,
+  },
+  {
+    eventSlug: 'sertaneja-rio',
+    slug: 'pista',
+    name: 'Pista',
+    priceFromCents: 22000,
+  },
+  {
+    eventSlug: 'sertaneja-rio',
+    slug: 'camarote',
+    name: 'Camarote',
+    priceFromCents: 38000,
+  },
+  {
+    eventSlug: 'cyberpunk-electronic-festival',
+    slug: 'pista',
+    name: 'Pista',
+    priceFromCents: 29000,
+  },
+  {
+    eventSlug: 'cyberpunk-electronic-festival',
+    slug: 'frontstage',
+    name: 'Frontstage',
+    priceFromCents: 48000,
+  },
+  {
+    eventSlug: 'melhor-de-standup-grand-finale',
+    slug: 'pista',
+    name: 'Pista',
+    priceFromCents: 11000,
+  },
+  {
+    eventSlug: 'melhor-de-standup-grand-finale',
+    slug: 'camarote',
+    name: 'Camarote',
+    priceFromCents: 18000,
+  },
+  {
+    eventSlug: 'a-hora-e-a-vez',
+    slug: 'plateia',
+    name: 'Plateia',
+    priceFromCents: 14000,
+  },
+  {
+    eventSlug: 'a-hora-e-a-vez',
+    slug: 'balcao',
+    name: 'Balcão',
+    priceFromCents: 21000,
+  },
+  {
+    eventSlug: 'festival-de-verao',
+    slug: 'pista',
+    name: 'Pista',
+    priceFromCents: 32000,
+  },
+  {
+    eventSlug: 'festival-de-verao',
+    slug: 'camarote',
+    name: 'Camarote',
+    priceFromCents: 52000,
   },
 ];
