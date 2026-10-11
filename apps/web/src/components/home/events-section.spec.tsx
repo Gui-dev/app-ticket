@@ -10,6 +10,7 @@ const cards: EventCardProps[] = [
     date: '15 de Novembro, 2026',
     venue: 'Autódromo de Interlagos, SP',
     price: 'R$ 350,00',
+    href: '/events/rock-fest-2026',
   },
   {
     category: 'Show',
@@ -17,6 +18,7 @@ const cards: EventCardProps[] = [
     date: '2 de Dezembro, 2026',
     venue: 'Espaço das Artes, RJ',
     price: 'R$ 220,00',
+    href: '/events/turne-acustica',
   },
 ];
 

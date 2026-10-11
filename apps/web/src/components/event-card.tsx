@@ -1,6 +1,7 @@
 import { cn } from 'cn';
 import { CalendarDays, Heart, MapPin, Ticket } from 'lucide-react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 
@@ -10,6 +11,7 @@ export type EventCardProps = {
   date: string;
   venue: string;
   price: string;
+  href: string;
   badgeLabel?: string;
   imageSrc?: string;
   className?: string;
@@ -21,6 +23,7 @@ function EventCard({
   date,
   venue,
   price,
+  href,
   badgeLabel,
   imageSrc,
   className,
@@ -82,11 +85,12 @@ function EventCard({
             <p className="text-xl font-bold text-primary">{price}</p>
           </div>
           <Button
+            asChild
             variant="outline"
             size="sm"
             className="border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary"
           >
-            Ver Ingressos
+            <Link href={href}>Ver Ingressos</Link>
           </Button>
         </div>
       </div>

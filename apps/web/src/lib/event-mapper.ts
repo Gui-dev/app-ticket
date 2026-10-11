@@ -27,5 +27,6 @@ export function toEventCardProps(event: EventDto): EventCardProps {
     title: event.title,
     badgeLabel: event.badgeLabel ?? undefined,
     imageSrc: event.imageUrl ?? undefined,
+    href: `/events/${event.slug}`,
   };
 }

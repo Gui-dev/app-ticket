@@ -55,6 +55,7 @@ describe('toEventCardProps', () => {
       title: 'Espetáculo Internacional',
       badgeLabel: 'Espetáculo Internacional',
       imageSrc: undefined,
+      href: '/events/espetaculo-internacional-sp',
     });
   });
 

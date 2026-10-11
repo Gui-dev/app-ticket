@@ -18,6 +18,7 @@ export const Default: Story = {
     date: '22 de Outubro, 2026',
     venue: 'Teatro Renault',
     price: 'R$ 120,00',
+    href: '/events/o-fantasma-da-opera',
     badgeLabel: 'Clássico',
   },
 };
