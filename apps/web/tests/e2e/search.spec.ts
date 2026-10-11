@@ -27,15 +27,18 @@ test('chip de categoria filtra os resultados', async ({ page }) => {
 });
 
 test('combina busca e categoria', async ({ page }) => {
-  await page.goto('/?q=stand');
+  await page.goto('/?q=festival');
 
-  await expect(page.locator('article')).toHaveCount(2);
+  await expect(page.locator('article')).toHaveCount(3);
 
   await page.getByRole('button', { name: 'Comédia' }).click();
 
-  await expect(page).toHaveURL(/q=stand/);
+  await expect(page).toHaveURL(/q=festival/);
   await expect(page).toHaveURL(/category=comedy/);
-  await expect(page.locator('article')).toHaveCount(2);
+  await expect(page.locator('article')).toHaveCount(1);
+  await expect(
+    page.getByRole('heading', { name: 'Melhor de Stand-up: Grand Finale' }),
+  ).toBeVisible();
 });
 
 test('mostra estado vazio quando nada corresponde', async ({ page }) => {
@@ -50,7 +53,7 @@ test('limpar filtros volta para a home', async ({ page }) => {
 
   await page.getByRole('link', { name: 'Limpar filtros' }).click();
 
-  await expect(page).toHaveURL('http://127.0.0.1:3000/');
+  await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole('heading', { level: 1 })).toContainText(
     'O Fantasma da Ópera',
   );
