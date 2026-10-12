@@ -54,7 +54,7 @@ function skeletonPulses(container: HTMLElement) {
 }
 
 describe('SearchTransitionProvider', () => {
-  it('shares isPending with every consumer inside the provider', async () => {
+  it('shares isPending with consumers', async () => {
     const gate = deferred();
     const observed: boolean[] = [];
 
@@ -115,6 +115,8 @@ describe('ResultsRegion', () => {
     fireEvent.click(screen.getByRole('button', { name: 'search' }));
 
     expect(screen.queryByText('results content')).not.toBeInTheDocument();
+    const status = screen.getByRole('status');
+    expect(status).toHaveAttribute('aria-busy', 'true');
     const pulses = skeletonPulses(container);
     expect(pulses).toHaveLength(3);
     expect(pulses[0]).toHaveClass('min-h-[26rem]');
@@ -126,6 +128,7 @@ describe('ResultsRegion', () => {
     });
 
     expect(screen.getByText('results content')).toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
     expect(skeletonPulses(container)).toHaveLength(0);
   });
 

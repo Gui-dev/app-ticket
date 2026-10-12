@@ -47,9 +47,14 @@ export function useSearchTransition(): SearchTransitionApi {
 }
 
 export function ResultsRegion({ children }: { children: ReactNode }) {
-  const { isPending } = use(SearchTransitionContext);
+  const { isPending } = useSearchTransition();
   if (isPending) {
-    return <PageSkeleton />;
+    return (
+      <div role="status" aria-busy="true">
+        <span className="sr-only">Carregando resultados…</span>
+        <PageSkeleton />
+      </div>
+    );
   }
   return <>{children}</>;
 }
