@@ -1,6 +1,8 @@
 import type { Preview } from '@storybook/nextjs-vite';
+import { NuqsAdapter } from 'nuqs/adapters/react';
 import { inter, poppins } from '../src/app/fonts';
 import '../src/app/globals.css';
+import { SearchTransitionProvider } from '../src/components/search-transition';
 
 const preview: Preview = {
   parameters: {
@@ -21,7 +23,11 @@ const preview: Preview = {
       <div
         className={`${inter.variable} ${poppins.variable} dark min-h-screen bg-background font-sans text-foreground`}
       >
-        <Story />
+        <NuqsAdapter>
+          <SearchTransitionProvider>
+            <Story />
+          </SearchTransitionProvider>
+        </NuqsAdapter>
       </div>
     ),
   ],

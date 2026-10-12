@@ -6,6 +6,7 @@ import { EventsSection } from '@/components/home/events-section';
 import { HeroCard } from '@/components/home/hero-card';
 import { PageSkeleton } from '@/components/home/page-skeleton';
 import { SearchResults } from '@/components/home/search-results';
+import { ResultsRegion } from '@/components/search-transition';
 import { toEventCardProps, toHeroCardProps } from '@/lib/event-mapper';
 import { fetchCategories, fetchEvents } from '@/lib/events-api';
 import {
@@ -70,9 +71,11 @@ export default function HomePage({
     <>
       <Header />
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-12 px-4 py-8 sm:px-6 lg:px-8">
-        <Suspense fallback={<PageSkeleton />}>
-          <HomeContent searchParams={searchParams} />
-        </Suspense>
+        <ResultsRegion>
+          <Suspense fallback={<PageSkeleton />}>
+            <HomeContent searchParams={searchParams} />
+          </Suspense>
+        </ResultsRegion>
       </main>
     </>
   );

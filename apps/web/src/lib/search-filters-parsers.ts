@@ -35,10 +35,10 @@ export function searchFiltersParsers(
 ) {
   const options = { ...BASE_OPTIONS, startTransition };
   return {
-    q: parseAsTrimmedString.withOptions(options),
-    category: parseAsString.withOptions(options),
-    state: parseAsUf.withOptions(options),
-    from: parseAsString.withOptions(options),
-    to: parseAsString.withOptions(options),
+    q: parseAsTrimmedString.withDefault('').withOptions(options),
+    category: parseAsString.withDefault('').withOptions(options),
+    state: parseAsUf.withDefault('').withOptions(options),
+    from: parseAsString.withDefault('').withOptions(options),
+    to: parseAsString.withDefault('').withOptions(options),
   };
 }

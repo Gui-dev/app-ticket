@@ -13,6 +13,7 @@ describe('searchFiltersParsers', () => {
   it('normalizes q by trimming and clears it on default', () => {
     const { result } = renderWith('q=%20fanta%20');
     expect(result.current.q.parse('  fanta ')).toBe('fanta');
+    expect(result.current.q.defaultValue).toBe('');
     expect(result.current.q.clearOnDefault).toBe(true);
     expect(result.current.q.shallow).toBe(false);
   });
@@ -30,6 +31,7 @@ describe('searchFiltersParsers', () => {
       expect(parser.history).toBe('replace');
       expect(parser.shallow).toBe(false);
       expect(parser.clearOnDefault).toBe(true);
+      expect(parser.defaultValue).toBe('');
     }
   });
 });
