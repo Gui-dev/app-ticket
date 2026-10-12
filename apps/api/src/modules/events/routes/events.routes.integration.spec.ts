@@ -373,6 +373,21 @@ describe('GET /events/suggest (integration)', () => {
     expect(body.locations).toEqual([{ city: 'São Paulo', state: 'SP' }]);
   });
 
+  it('ranks content matches above venue-only matches', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/events/suggest?q=teatro',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.events.map((event: { slug: string }) => event.slug)).toEqual([
+      'o-fantasma-da-opera',
+      'a-hora-e-a-vez',
+      'pequeno-principe-musical',
+    ]);
+  });
+
   it('matches city text in venue content for event titles', async () => {
     const res = await app.inject({
       method: 'GET',
@@ -403,11 +418,7 @@ describe('GET /events/suggest (integration)', () => {
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.locations).toEqual([]);
-    expect(
-      body.events.every(
-        (event: { venueName: string }) => event.venueName !== 'Vivo Rio',
-      ),
-    ).toBe(true);
+    expect(body.events).toEqual([]);
   });
 
   it('returns empty results for an unknown term', async () => {
