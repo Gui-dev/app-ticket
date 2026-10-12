@@ -111,6 +111,8 @@ function SearchSuggestions({
   if (!open && status !== 'loading') return null;
 
   const loading = status === 'loading';
+  if (!loading && items.length === 0) return null;
+
   const eventItems = items.filter(
     (item): item is Extract<SuggestionItem, { kind: 'event' }> =>
       item.kind === 'event',
@@ -128,19 +130,22 @@ function SearchSuggestions({
       role="listbox"
       aria-label="Sugestões de busca"
       aria-busy={loading}
-      className="absolute top-full left-0 right-0 z-40 mt-1 max-h-80 overflow-y-auto rounded-md border border-border bg-card py-1 shadow-lg"
+      className="absolute top-full left-0 right-0 z-40 mt-1 max-h-80 overflow-y-auto rounded-md border border-border bg-card py-1 shadow-card"
     >
-      {loading
-        ? SKELETON_IDS.map((id) => (
+      {loading ? (
+        <>
+          <span className="sr-only">Carregando sugestões…</span>
+          {SKELETON_IDS.map((id) => (
             <div
               key={id}
               data-testid="suggestion-skeleton"
               className="mx-3 my-2 h-10 animate-pulse rounded bg-secondary"
             />
-          ))
-        : null}
+          ))}
+        </>
+      ) : null}
       {!loading && eventItems.length > 0 ? (
-        <fieldset className="border-0 p-0">
+        <fieldset className="min-w-0 border-0 p-0">
           <legend className="sr-only">Eventos</legend>
           {eventItems.map((item) => (
             <EventOption
@@ -153,7 +158,7 @@ function SearchSuggestions({
         </fieldset>
       ) : null}
       {!loading && locationItems.length > 0 ? (
-        <fieldset className="border-0 p-0">
+        <fieldset className="min-w-0 border-0 p-0">
           <legend className="sr-only">Locais</legend>
           {locationItems.map((item) => (
             <LocationOption
@@ -165,11 +170,6 @@ function SearchSuggestions({
             />
           ))}
         </fieldset>
-      ) : null}
-      {!loading && open && status === 'empty' ? (
-        <p className="px-3 py-2 text-sm text-muted-foreground">
-          Nenhum resultado
-        </p>
       ) : null}
     </div>
   );

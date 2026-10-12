@@ -49,14 +49,14 @@ describe('SearchSuggestions', () => {
   it('renders a listbox with groups and options', () => {
     renderPanel();
     const listbox = screen.getByRole('listbox');
-    expect(listbox.getAttribute('aria-label')).toBe('Sugestões de busca');
+    expect(listbox).toHaveAttribute('aria-label', 'Sugestões de busca');
     expect(screen.getByRole('group', { name: 'Eventos' })).toBeDefined();
     expect(screen.getByRole('group', { name: 'Locais' })).toBeDefined();
     const options = screen.getAllByRole('option');
     expect(options).toHaveLength(2);
-    expect(options[0].id).toBe('search-suggestion-option-0');
-    expect(options[0].getAttribute('aria-selected')).toBe('true');
-    expect(options[1].getAttribute('aria-selected')).toBe('false');
+    expect(options[0]).toHaveAttribute('id', 'search-suggestion-option-0');
+    expect(options[0]).toHaveAttribute('aria-selected', 'true');
+    expect(options[1]).toHaveAttribute('aria-selected', 'false');
   });
 
   it('renders event details with formatted date and price', () => {
@@ -72,14 +72,15 @@ describe('SearchSuggestions', () => {
     expect(screen.getByText('São Paulo, SP')).toBeDefined();
   });
 
-  it('selects on mouse down without a click handler', () => {
+  it('selects on mouse down but not on click', () => {
     const onSelect = vi.fn();
     renderPanel({ onSelect });
     const options = screen.getAllByRole('option');
     fireEvent.mouseDown(options[1]);
     expect(onSelect).toHaveBeenCalledTimes(1);
     expect(onSelect.mock.calls[0][0].kind).toBe('location');
-    expect((options[1] as HTMLElement).onclick).toBeNull();
+    fireEvent.click(options[1]);
+    expect(onSelect).toHaveBeenCalledTimes(1);
   });
 
   it('highlights the query in the event title', () => {
@@ -97,8 +98,18 @@ describe('SearchSuggestions', () => {
     ).toBeGreaterThanOrEqual(3);
   });
 
-  it('shows the empty message when open with empty status', () => {
+  it('shows skeletons while loading before the panel is open', () => {
+    renderPanel({ status: 'loading', items: [], open: false });
+    const listbox = screen.getByRole('listbox');
+    expect(listbox).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByText('Carregando sugestões…')).toBeInTheDocument();
+    expect(
+      document.querySelectorAll('[data-testid="suggestion-skeleton"]').length,
+    ).toBeGreaterThanOrEqual(3);
+  });
+
+  it('renders nothing when empty even if a consumer passes open', () => {
     renderPanel({ status: 'empty', items: [] });
-    expect(screen.getByText('Nenhum resultado')).toBeDefined();
+    expect(screen.queryByRole('listbox')).toBeNull();
   });
 });
