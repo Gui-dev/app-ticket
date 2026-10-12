@@ -46,6 +46,13 @@ function createUseCase(): SuggestEventsUseCase {
   return new SuggestEventsUseCase(new InMemoryEventsRepository(stubEvents));
 }
 
+function makeStub(
+  overrides: Partial<EventDetailEntity> &
+    Pick<EventDetailEntity, 'id' | 'slug'>,
+): EventDetailEntity {
+  return { ...stubEvents[0], ...overrides };
+}
+
 describe('SuggestEventsUseCase', () => {
   it('returns matching events and city suggestions', async () => {
     const result = await createUseCase().execute('rio');
@@ -66,5 +73,41 @@ describe('SuggestEventsUseCase', () => {
       events: [],
       locations: [],
     });
+  });
+
+  it('dedupes locations by city and state and limits results to five', async () => {
+    const saoPauloEvents = Array.from({ length: 6 }, (_, index) =>
+      makeStub({
+        id: `00000000-0000-4000-8000-00000000000${index}`,
+        slug: `sp-${index}`,
+        title: `Show SP ${index}`,
+        description: 'Show na casa.',
+        venueName: 'Casa SP',
+        venueCity: 'São Paulo',
+        venueState: 'SP',
+        startsAt: new Date(Date.UTC(2026, 9, 1 + index, 21)),
+      }),
+    );
+    const campinasEvent = makeStub({
+      id: '00000000-0000-4000-8000-000000000009',
+      slug: 'campinas-1',
+      title: 'Show SP Campinas',
+      description: 'Show na casa.',
+      venueName: 'Casa SP',
+      venueCity: 'Campinas',
+      venueState: 'SP',
+      startsAt: new Date(Date.UTC(2026, 9, 7, 21)),
+    });
+    const useCase = new SuggestEventsUseCase(
+      new InMemoryEventsRepository([...saoPauloEvents, campinasEvent]),
+    );
+
+    const result = await useCase.execute('sp');
+
+    expect(result.events).toHaveLength(5);
+    expect(result.locations).toEqual([
+      { city: 'Campinas', state: 'SP' },
+      { city: 'São Paulo', state: 'SP' },
+    ]);
   });
 });
