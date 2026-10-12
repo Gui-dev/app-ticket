@@ -1,11 +1,10 @@
 'use client';
 
 import type { CategoryDto, SearchFilters } from '@ticketvibe/shared';
-import { useRouter } from 'next/navigation';
 
 import { Chip } from '@/components/ui/chip';
 import { categoryIcon } from '@/lib/category-icons';
-import { buildSearchPath } from '@/lib/search-params';
+import { useSearchFilters } from '@/lib/use-search-filters';
 
 type CategoryChipsProps = {
   categories: CategoryDto[];
@@ -13,13 +12,12 @@ type CategoryChipsProps = {
 };
 
 export function CategoryChips({ categories, filters }: CategoryChipsProps) {
-  const router = useRouter();
+  const { setFilters } = useSearchFilters();
 
   if (categories.length === 0) return null;
 
   function toggle(slug: string) {
-    const category = filters.category === slug ? undefined : slug;
-    router.replace(buildSearchPath({ ...filters, category }));
+    setFilters({ category: filters.category === slug ? null : slug });
   }
 
   return (

@@ -1,30 +1,30 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { SearchFilters } from '@ticketvibe/shared';
+import {
+  type UrlUpdateEvent,
+  withNuqsTestingAdapter,
+} from 'nuqs/adapters/testing';
+import { describe, expect, it, vi } from 'vitest';
 import { CategoryChips } from './category-chips';
-
-const { replace } = vi.hoisted(() => ({ replace: vi.fn() }));
-
-vi.mock('next/navigation', () => ({
-  useRouter: () => ({ replace }),
-}));
 
 const categories = [
   { slug: 'shows', name: 'Shows' },
   { slug: 'teatro', name: 'Teatro' },
 ];
 
-describe('CategoryChips', () => {
-  beforeEach(() => {
-    replace.mockReset();
+function renderChips(
+  filters: SearchFilters,
+  searchParams = '',
+  onUrlUpdate?: (event: UrlUpdateEvent) => void,
+) {
+  return render(<CategoryChips categories={categories} filters={filters} />, {
+    wrapper: withNuqsTestingAdapter({ searchParams, onUrlUpdate }),
   });
+}
 
+describe('CategoryChips', () => {
   it('marks the selected category chip as pressed', () => {
-    render(
-      <CategoryChips
-        categories={categories}
-        filters={{ category: 'teatro' }}
-      />,
-    );
+    renderChips({ category: 'teatro' }, 'category=teatro');
 
     expect(screen.getByRole('button', { name: 'Teatro' })).toHaveAttribute(
       'aria-pressed',
@@ -36,21 +36,26 @@ describe('CategoryChips', () => {
     );
   });
 
-  it('navigates with the chosen category on click', () => {
-    render(<CategoryChips categories={categories} filters={{}} />);
+  it('writes the clicked category into the URL with replace', async () => {
+    const onUrlUpdate = vi.fn();
+    renderChips({}, '', onUrlUpdate);
 
     fireEvent.click(screen.getByRole('button', { name: 'Shows' }));
 
-    expect(replace).toHaveBeenCalledWith('/?category=shows');
+    await waitFor(() => expect(onUrlUpdate).toHaveBeenCalledTimes(1));
+    const event = onUrlUpdate.mock.calls[0][0] as UrlUpdateEvent;
+    expect(event.queryString).toContain('category=shows');
+    expect(event.options.history).toBe('replace');
   });
 
-  it('toggles the category off when it is already selected', () => {
-    render(
-      <CategoryChips categories={categories} filters={{ category: 'shows' }} />,
-    );
+  it('toggles the category off when it is already selected', async () => {
+    const onUrlUpdate = vi.fn();
+    renderChips({ category: 'shows' }, 'category=shows', onUrlUpdate);
 
     fireEvent.click(screen.getByRole('button', { name: 'Shows' }));
 
-    expect(replace).toHaveBeenCalledWith('/');
+    await waitFor(() => expect(onUrlUpdate).toHaveBeenCalledTimes(1));
+    const event = onUrlUpdate.mock.calls[0][0] as UrlUpdateEvent;
+    expect(event.queryString).not.toContain('category=shows');
   });
 });
