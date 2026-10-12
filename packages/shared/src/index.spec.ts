@@ -9,6 +9,8 @@ import {
   listEventsResponseSchema,
   searchFiltersSchema,
   sectorSchema,
+  suggestQuerySchema,
+  suggestResponseSchema,
 } from './index';
 
 describe('healthResponseSchema', () => {
@@ -197,5 +199,70 @@ describe('eventDetailResponseSchema', () => {
   it('accepts a wrapped event detail payload', () => {
     const payload = { event: { ...validEvent, sectors: [validSector] } };
     expect(eventDetailResponseSchema.parse(payload)).toEqual(payload);
+  });
+});
+
+describe('suggestQuerySchema', () => {
+  it('trims and accepts a query with at least two characters', () => {
+    expect(suggestQuerySchema.parse({ q: '  fanta ' })).toEqual({ q: 'fanta' });
+  });
+
+  it('rejects queries shorter than two characters', () => {
+    expect(() => suggestQuerySchema.parse({ q: 'a' })).toThrow();
+    expect(() => suggestQuerySchema.parse({ q: ' ' })).toThrow();
+  });
+
+  it('rejects a missing query', () => {
+    expect(() => suggestQuerySchema.parse({})).toThrow();
+  });
+});
+
+const validSuggestResponse = {
+  events: [
+    {
+      slug: 'o-fantasma-da-opera',
+      title: 'O Fantasma da Ópera',
+      startsAt: '2026-10-22T23:00:00.000Z',
+      venueName: 'Teatro Renault',
+      venueCity: 'São Paulo',
+      venueState: 'SP',
+      priceFromCents: 12000,
+    },
+  ],
+  locations: [{ city: 'São Paulo', state: 'SP' }],
+};
+
+describe('suggestResponseSchema', () => {
+  it('accepts a valid payload', () => {
+    expect(suggestResponseSchema.parse(validSuggestResponse)).toEqual(
+      validSuggestResponse,
+    );
+  });
+
+  it('accepts empty results', () => {
+    expect(suggestResponseSchema.parse({ events: [], locations: [] })).toEqual({
+      events: [],
+      locations: [],
+    });
+  });
+
+  it('rejects a location with a state shorter than two letters', () => {
+    expect(() =>
+      suggestResponseSchema.parse({
+        ...validSuggestResponse,
+        locations: [{ city: 'São Paulo', state: 'S' }],
+      }),
+    ).toThrow();
+  });
+
+  it('rejects an event item without priceFromCents', () => {
+    const { priceFromCents: _omitted, ...incomplete } =
+      validSuggestResponse.events[0];
+    expect(() =>
+      suggestResponseSchema.parse({
+        ...validSuggestResponse,
+        events: [incomplete],
+      }),
+    ).toThrow();
   });
 });
