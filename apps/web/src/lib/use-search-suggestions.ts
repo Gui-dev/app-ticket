@@ -46,6 +46,7 @@ export function useSearchSuggestions({
 
   const onSelectRef = useRef(onSelect);
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const dismissedRef = useRef(false);
 
   useEffect(() => {
     onSelectRef.current = onSelect;
@@ -53,6 +54,7 @@ export function useSearchSuggestions({
 
   useEffect(() => {
     const trimmed = query.trim();
+    dismissedRef.current = false;
     if (trimmed.length < MIN_QUERY_LENGTH) {
       setStatus('idle');
       setData(null);
@@ -77,8 +79,10 @@ export function useSearchSuggestions({
           payload.events.length > 0 || payload.locations.length > 0;
         setData(payload);
         setStatus(hasResults ? 'ready' : 'empty');
-        setOpen(hasResults);
-        setActiveIndex(hasResults ? 0 : -1);
+        if (!dismissedRef.current) {
+          setOpen(hasResults);
+          setActiveIndex(hasResults ? 0 : -1);
+        }
       } catch {
         if (controller.signal.aborted) return;
         setData(null);
@@ -117,6 +121,7 @@ export function useSearchSuggestions({
   }, []);
 
   const close = useCallback(() => {
+    dismissedRef.current = true;
     setOpen(false);
     setActiveIndex(-1);
   }, []);
@@ -153,6 +158,7 @@ export function useSearchSuggestions({
     return () => document.removeEventListener('pointerdown', onPointerDown);
   }, [open, close]);
 
+  /** Returns true when the event was consumed (suppress native form submit). */
   const handleKeyDown = useCallback(
     (event: SuggestionKeyDownEvent): boolean => {
       switch (event.key) {
@@ -164,7 +170,7 @@ export function useSearchSuggestions({
           return false;
         }
         case 'ArrowDown': {
-          if (items.length === 0) return false;
+          if (status !== 'ready' || items.length === 0) return false;
           event.preventDefault();
           setOpen(true);
           setActiveIndex((current) =>
@@ -173,7 +179,7 @@ export function useSearchSuggestions({
           return true;
         }
         case 'ArrowUp': {
-          if (items.length === 0) return false;
+          if (!open || status !== 'ready' || items.length === 0) return false;
           event.preventDefault();
           setActiveIndex((current) =>
             current <= 0 ? items.length - 1 : current - 1,
@@ -181,7 +187,12 @@ export function useSearchSuggestions({
           return true;
         }
         case 'Enter': {
-          if (open && activeIndex >= 0 && items[activeIndex]) {
+          if (
+            open &&
+            status === 'ready' &&
+            activeIndex >= 0 &&
+            items[activeIndex]
+          ) {
             event.preventDefault();
             selectIndex(activeIndex);
             return true;
@@ -192,11 +203,13 @@ export function useSearchSuggestions({
           return false;
       }
     },
-    [open, close, items, activeIndex, selectIndex],
+    [open, close, items, activeIndex, selectIndex, status],
   );
 
   const activeDescendant =
-    open && activeIndex >= 0 ? suggestionOptionId(activeIndex) : undefined;
+    open && status === 'ready' && activeIndex >= 0
+      ? suggestionOptionId(activeIndex)
+      : undefined;
 
   return {
     query,

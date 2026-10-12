@@ -202,6 +202,11 @@ describe('useSearchSuggestions', () => {
     });
     expect(result.current.open).toBe(false);
 
+    const upClosed = keyDownWith(result, 'ArrowUp');
+    expect(upClosed.wasHandled()).toBe(false);
+    expect(upClosed.preventDefault).not.toHaveBeenCalled();
+    expect(result.current.activeIndex).toBe(-1);
+
     const reopenDown = keyDownWith(result, 'ArrowDown');
     expect(reopenDown.wasHandled()).toBe(true);
     expect(result.current.open).toBe(true);
@@ -267,6 +272,58 @@ describe('useSearchSuggestions', () => {
     expect(result.current.activeIndex).toBe(-1);
   });
 
+  it('keeps the panel dismissed when a later fetch resolves after close', async () => {
+    const { result } = await renderReady();
+    expect(result.current.open).toBe(true);
+
+    act(() => {
+      result.current.setQuery('fantas');
+    });
+    expect(result.current.status).toBe('loading');
+
+    const escapeKey = keyDownWith(result, 'Escape');
+    expect(escapeKey.preventDefault).toHaveBeenCalled();
+    expect(result.current.open).toBe(false);
+
+    await waitFor(() => expect(result.current.status).toBe('ready'), {
+      timeout: 3000,
+    });
+    expect(result.current.open).toBe(false);
+    expect(result.current.items).toHaveLength(2);
+    expect(result.current.activeDescendant).toBeUndefined();
+
+    act(() => {
+      result.current.reopen();
+    });
+    expect(result.current.open).toBe(true);
+  });
+
+  it('ignores keyboard interaction and the active descendant while reloading', async () => {
+    const { result, onSelect } = await renderReady();
+    expect(result.current.activeIndex).toBe(0);
+
+    act(() => {
+      result.current.setQuery('fantas');
+    });
+    expect(result.current.status).toBe('loading');
+    expect(result.current.items).toHaveLength(2);
+    expect(result.current.activeDescendant).toBeUndefined();
+
+    const enter = keyDownWith(result, 'Enter');
+    expect(enter.wasHandled()).toBe(false);
+    expect(enter.preventDefault).not.toHaveBeenCalled();
+    expect(onSelect).not.toHaveBeenCalled();
+
+    const down = keyDownWith(result, 'ArrowDown');
+    expect(down.wasHandled()).toBe(false);
+    expect(down.preventDefault).not.toHaveBeenCalled();
+    expect(result.current.activeIndex).toBe(0);
+
+    const up = keyDownWith(result, 'ArrowUp');
+    expect(up.wasHandled()).toBe(false);
+    expect(result.current.activeIndex).toBe(0);
+  });
+
   it('debounces rapid query changes into a single request for the latest query', async () => {
     let calls = 0;
     let lastQuery = '';
@@ -325,6 +382,7 @@ describe('useSearchSuggestions', () => {
   });
 
   it('aborts the in-flight request on unmount without errors', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     server.use(
       http.get(SUGGEST_URL, async () => {
         await delay(400);
@@ -347,6 +405,7 @@ describe('useSearchSuggestions', () => {
     unmount();
 
     await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(errorSpy).not.toHaveBeenCalled();
   });
 });
 
