@@ -1,7 +1,20 @@
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 import { GET } from './route';
+
+vi.hoisted(() => {
+  process.env.API_URL = 'http://localhost:3001';
+});
 
 const server = setupServer();
 
@@ -13,7 +26,13 @@ function url(q: string) {
 
 describe('GET /api/suggest', () => {
   beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
-  afterEach(() => server.resetHandlers());
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+  afterEach(() => {
+    server.resetHandlers();
+    vi.restoreAllMocks();
+  });
   afterAll(() => server.close());
 
   it('returns 400 when q is missing', async () => {
@@ -58,6 +77,23 @@ describe('GET /api/suggest', () => {
     const res = await GET(url('fanta'));
     expect(res.status).toBe(502);
     expect((await res.json()).error).toBe('upstream_error');
+    expect(console.error).toHaveBeenCalledWith(
+      'Suggest upstream responded with status 500',
+    );
+  });
+
+  it('returns 502 when the upstream request rejects', async () => {
+    server.use(
+      http.get('http://localhost:3001/events/suggest', () =>
+        HttpResponse.error(),
+      ),
+    );
+
+    const res = await GET(url('fanta'));
+
+    expect(res.status).toBe(502);
+    expect((await res.json()).error).toBe('upstream_error');
+    expect(console.error).toHaveBeenCalled();
   });
 
   it('returns 502 when the upstream payload violates the schema', async () => {
@@ -68,6 +104,9 @@ describe('GET /api/suggest', () => {
     );
 
     const res = await GET(url('fanta'));
+
     expect(res.status).toBe(502);
+    expect((await res.json()).error).toBe('upstream_error');
+    expect(console.error).toHaveBeenCalled();
   });
 });

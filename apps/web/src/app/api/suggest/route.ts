@@ -17,20 +17,23 @@ export async function GET(request: Request): Promise<Response> {
   try {
     upstream = await fetch(
       `${API_URL}/events/suggest?q=${encodeURIComponent(parsed.data.q)}`,
-      { cache: 'no-store' },
+      { cache: 'no-store', signal: AbortSignal.timeout(3000) },
     );
-  } catch {
+  } catch (error) {
+    console.error('Failed to fetch suggest results:', error);
     return Response.json({ error: 'upstream_error' }, { status: 502 });
   }
 
   if (!upstream.ok) {
+    console.error(`Suggest upstream responded with status ${upstream.status}`);
     return Response.json({ error: 'upstream_error' }, { status: 502 });
   }
 
   try {
     const payload = suggestResponseSchema.parse(await upstream.json());
     return Response.json(payload);
-  } catch {
+  } catch (error) {
+    console.error('Suggest upstream payload broke the contract:', error);
     return Response.json({ error: 'upstream_error' }, { status: 502 });
   }
 }
