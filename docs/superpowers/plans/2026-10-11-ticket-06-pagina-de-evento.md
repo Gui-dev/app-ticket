@@ -93,7 +93,7 @@ Fastify 5 · Drizzle ORM 0.45 + drizzle-kit 0.31 · Postgres 16 (`unaccent`) · 
 - Modify: `packages/shared/src/index.ts`
 - Test: `packages/shared/src/index.spec.ts`
 
-- [ ] **Step 1: Escrever os testes falhando**
+- [x] **Step 1: Escrever os testes falhando**
 
 Em `packages/shared/src/index.spec.ts`, adicione `sectorSchema`, `eventDetailSchema` e `eventDetailResponseSchema` ao import existente de `./index` (o arquivo já importa os demais schemas do mesmo barrel) e acrescente estes blocos ao final do arquivo (o fixture `validEvent` já existe na linha 23):
 
@@ -145,12 +145,12 @@ describe('eventDetailResponseSchema', () => {
 });
 ```
 
-- [ ] **Step 2: Rodar para verificar a falha**
+- [x] **Step 2: Rodar para verificar a falha**
 
 Run: `pnpm --filter @ticketvibe/shared test`
 Expected: FAIL — `ReferenceError: sectorSchema is not defined` (ou erro de import).
 
-- [ ] **Step 3: Implementar os schemas**
+- [x] **Step 3: Implementar os schemas**
 
 Em `packages/shared/src/index.ts`, acrescente ao final do arquivo:
 
@@ -176,12 +176,12 @@ export const eventDetailResponseSchema = z.object({
 export type EventDetailResponse = z.infer<typeof eventDetailResponseSchema>;
 ```
 
-- [ ] **Step 4: Rodar para verificar a passagem**
+- [x] **Step 4: Rodar para verificar a passagem**
 
 Run: `pnpm --filter @ticketvibe/shared test`
 Expected: PASS — 27 testes (20 existentes + 7 novos).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/shared/src/index.ts packages/shared/src/index.spec.ts
@@ -196,7 +196,7 @@ git commit -m "feat(shared): add event detail contract with sectors"
 - Modify: `apps/api/src/db/schema.ts`
 - Create: `apps/api/drizzle/0002_*.sql`, `apps/api/drizzle/meta/*` (gerados)
 
-- [ ] **Step 1: Adicionar a tabela no schema Drizzle**
+- [x] **Step 1: Adicionar a tabela no schema Drizzle**
 
 Em `apps/api/src/db/schema.ts`, adicione `unique` ao import do `drizzle-orm/pg-core` (linha 1–10, ordem alfabética: `boolean, customType, index, integer, pgTable, text, timestamp, unique, uuid`) e acrescente após a tabela `events`:
 
@@ -218,7 +218,7 @@ export const sectors = pgTable(
 );
 ```
 
-- [ ] **Step 2: Gerar a migração**
+- [x] **Step 2: Gerar a migração**
 
 Run: `pnpm --filter @ticketvibe/api db:generate`
 Expected: drizzle-kit cria `apps/api/drizzle/0002_<nome-aleatorio>.sql` + snapshot em `meta/` + entrada `idx: 2` no `_journal.json`, com `CREATE TABLE "sectors" ...`.
@@ -226,7 +226,7 @@ Expected: drizzle-kit cria `apps/api/drizzle/0002_<nome-aleatorio>.sql` + snapsh
 Run: `ls apps/api/drizzle/0002_*.sql && cat apps/api/drizzle/0002_*.sql`
 Expected: SQL contendo `CREATE TABLE "sectors"` com `event_id` FK para `events` e `UNIQUE("event_id","slug")`.
 
-- [ ] **Step 3: Aplicar no DB dev**
+- [x] **Step 3: Aplicar no DB dev**
 
 Run: `pnpm --filter @ticketvibe/api db:migrate`
 Expected: saída indicando aplicação da migração 0002 sem erro.
@@ -234,7 +234,7 @@ Expected: saída indicando aplicação da migração 0002 sem erro.
 Run: `podman exec ticketvibe-postgres psql -U ticketvibe -d ticketvibe -c '\d sectors'`
 Expected: tabela com colunas `id`, `event_id`, `slug`, `name`, `price_from_cents`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/api/src/db/schema.ts apps/api/drizzle/
@@ -250,7 +250,7 @@ git commit -m "feat(api): add sectors table with migration"
 - Modify: `apps/api/src/db/seed-fixtures.ts`
 - Modify: `apps/api/src/db/seed.ts`
 
-- [ ] **Step 1: Definir `sectorFixtures`**
+- [x] **Step 1: Definir `sectorFixtures`**
 
 Em `apps/api/src/db/fixtures.ts`, acrescente após a interface `EventFixture` e após a lista `eventFixtures`:
 
@@ -414,7 +414,7 @@ export const sectorFixtures: SectorFixture[] = [
 
 Invariante: em cada evento, o menor `priceFromCents` de setor é exatamente o `priceFromCents` do evento.
 
-- [ ] **Step 2: Gravar setores no seed**
+- [x] **Step 2: Gravar setores no seed**
 
 Em `apps/api/src/db/seed-fixtures.ts`, substitua o arquivo inteiro por:
 
@@ -501,7 +501,7 @@ export async function seedFixtures(db: Db): Promise<void> {
 }
 ```
 
-- [ ] **Step 3: Atualizar o log do seed**
+- [x] **Step 3: Atualizar o log do seed**
 
 Em `apps/api/src/db/seed.ts`, substitua a linha do `console.log` por:
 
@@ -509,7 +509,7 @@ Em `apps/api/src/db/seed.ts`, substitua a linha do `console.log` por:
   console.log('Seed completed: 7 categories, 5 venues, 12 events, 24 sectors.');
 ```
 
-- [ ] **Step 4: Rodar seed e a suíte de integração**
+- [x] **Step 4: Rodar seed e a suíte de integração**
 
 Run: `pnpm --filter @ticketvibe/api db:seed`
 Expected: `Seed completed: 7 categories, 5 venues, 12 events, 24 sectors.` (idempotente: rodar de novo zera e reinsere).
@@ -517,7 +517,7 @@ Expected: `Seed completed: 7 categories, 5 venues, 12 events, 24 sectors.` (idem
 Run: `pnpm --filter @ticketvibe/api test`
 Expected: PASS — todos os testes (a integração "keeps 12 events when fixtures are seeded again without reset" agora exercita o delete de setores em duplicidade).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/api/src/db/fixtures.ts apps/api/src/db/seed-fixtures.ts apps/api/src/db/seed.ts
@@ -537,7 +537,7 @@ git commit -m "feat(api): seed sectors for every event"
 - Modify: `apps/api/src/modules/events/use-cases/list-events.use-case.spec.ts`
 - Modify: `apps/api/src/modules/events/routes/events.routes.spec.ts`
 
-- [ ] **Step 1: Escrever o spec do use case (falhando)**
+- [x] **Step 1: Escrever o spec do use case (falhando)**
 
 Crie `apps/api/src/modules/events/use-cases/get-event-detail.use-case.spec.ts`:
 
@@ -641,12 +641,12 @@ describe('GetEventDetailUseCase', () => {
 });
 ```
 
-- [ ] **Step 2: Rodar para verificar a falha**
+- [x] **Step 2: Rodar para verificar a falha**
 
 Run: `pnpm --filter @ticketvibe/api test -- --run src/modules/events/use-cases/get-event-detail.use-case.spec.ts`
 Expected: FAIL — o arquivo de implementação `get-event-detail.use-case.ts` não existe (erro de resolução de módulo).
 
-- [ ] **Step 3: Implementar domínio, contrato, in-memory e use case**
+- [x] **Step 3: Implementar domínio, contrato, in-memory e use case**
 
 Em `apps/api/src/modules/events/domain/event-entity.ts`, acrescente ao final:
 
@@ -721,7 +721,7 @@ export class GetEventDetailUseCase {
 }
 ```
 
-- [ ] **Step 4: Corrigir os stubs existentes quebrados pelo novo tipo**
+- [x] **Step 4: Corrigir os stubs existentes quebrados pelo novo tipo**
 
 Em `apps/api/src/modules/events/use-cases/list-events.use-case.spec.ts`:
 - troque o import `import type { EventEntity } from '../domain/event-entity';` por `import type { EventDetailEntity } from '../domain/event-entity';`;
@@ -742,12 +742,12 @@ Em `apps/api/src/modules/events/routes/events.routes.spec.ts`:
     ],
 ```
 
-- [ ] **Step 5: Rodar a suíte de api**
+- [x] **Step 5: Rodar a suíte de api**
 
 Run: `pnpm --filter @ticketvibe/api test`
 Expected: PASS — todos (4 novos do use case; os existentes continuam verdes com os stubs atualizados).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/api/src/modules/events/
@@ -762,7 +762,7 @@ git commit -m "feat(api): add get event detail use case"
 - Modify: `apps/api/src/modules/events/routes/events.routes.ts`
 - Test: `apps/api/src/modules/events/routes/events.routes.spec.ts`
 
-- [ ] **Step 1: Escrever os testes falhando**
+- [x] **Step 1: Escrever os testes falhando**
 
 Em `apps/api/src/modules/events/routes/events.routes.spec.ts`, adicione `eventDetailResponseSchema` ao import do shared (linha 1) e acrescente o describe ao final do arquivo:
 
@@ -804,12 +804,12 @@ describe('GET /events/:slug', () => {
 });
 ```
 
-- [ ] **Step 2: Rodar para verificar a falha**
+- [x] **Step 2: Rodar para verificar a falha**
 
 Run: `pnpm --filter @ticketvibe/api test -- --run src/modules/events/routes/events.routes.spec.ts`
 Expected: FAIL — o primeiro teste recebe o 404 genérico do Fastify (a rota ainda não existe).
 
-- [ ] **Step 3: Implementar a rota**
+- [x] **Step 3: Implementar a rota**
 
 Em `apps/api/src/modules/events/routes/events.routes.ts`, troque o import do shared/domínio e o corpo (mantendo `toEventDto` intacto):
 
@@ -881,12 +881,12 @@ export function registerEventRoutes(
 }
 ```
 
-- [ ] **Step 4: Rodar para verificar a passagem**
+- [x] **Step 4: Rodar para verificar a passagem**
 
 Run: `pnpm --filter @ticketvibe/api test -- --run src/modules/events/routes/events.routes.spec.ts`
 Expected: PASS — 11 testes do arquivo (9 existentes + 2 novos).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/api/src/modules/events/routes/
@@ -901,7 +901,7 @@ git commit -m "feat(api): add GET /events/:slug route"
 - Modify: `apps/api/src/modules/events/infra/drizzle-events-repository.ts`
 - Test: `apps/api/src/modules/events/routes/events.routes.integration.spec.ts`
 
-- [ ] **Step 1: Escrever os testes de integração falhando**
+- [x] **Step 1: Escrever os testes de integração falhando**
 
 Em `apps/api/src/modules/events/routes/events.routes.integration.spec.ts`, adicione `eventDetailResponseSchema` ao import do shared (linha 1–4) e acrescente o describe ao final do arquivo (após o describe de `GET /categories`):
 
@@ -960,12 +960,12 @@ describe('GET /events/:slug (postgres integration)', () => {
 });
 ```
 
-- [ ] **Step 2: Rodar para verificar a falha**
+- [x] **Step 2: Rodar para verificar a falha**
 
 Run: `pnpm --filter @ticketvibe/api test -- --run src/modules/events/routes/events.routes.integration.spec.ts`
 Expected: FAIL — o Drizzle repo não implementa `findBySlug` (TypeError → 500) no teste 200; o teste 404 passa por acaso.
 
-- [ ] **Step 3: Implementar `findBySlug` no Drizzle**
+- [x] **Step 3: Implementar `findBySlug` no Drizzle**
 
 Em `apps/api/src/modules/events/infra/drizzle-events-repository.ts`, adicione `sectors` ao import do schema (linha 5) e extraia a forma do select logo abaixo do `EventRow`:
 
@@ -1036,12 +1036,12 @@ import type {
 } from '../domain/event-entity.js';
 ```
 
-- [ ] **Step 4: Rodar para verificar a passagem**
+- [x] **Step 4: Rodar para verificar a passagem**
 
 Run: `pnpm --filter @ticketvibe/api test`
 Expected: PASS — suíte completa (a integração agora cobre o detalhe com setores vindos do Postgres).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/api/src/modules/events/
@@ -1072,7 +1072,7 @@ git commit -m "feat(api): implement drizzle findBySlug"
 - Create: `apps/web/src/components/event-detail.tsx`
 - Test: `apps/web/src/components/event-detail.spec.tsx`
 
-- [ ] **Step 1: Escrever os testes falhando**
+- [x] **Step 1: Escrever os testes falhando**
 
 Crie `apps/web/src/components/event-detail.spec.tsx`:
 
@@ -1159,12 +1159,12 @@ describe('EventDetailError', () => {
 });
 ```
 
-- [ ] **Step 2: Rodar para verificar a falha**
+- [x] **Step 2: Rodar para verificar a falha**
 
 Run: `pnpm --filter @ticketvibe/web test -- src/components/event-detail.spec.tsx`
 Expected: FAIL — módulo `./event-detail` não encontrado.
 
-- [ ] **Step 3: Implementar os componentes**
+- [x] **Step 3: Implementar os componentes**
 
 Crie `apps/web/src/components/event-detail.tsx`:
 
@@ -1304,12 +1304,12 @@ function EventDetailError() {
 export { EventDetail, EventDetailError, EventDetailSkeleton };
 ```
 
-- [ ] **Step 4: Rodar para verificar a passagem**
+- [x] **Step 4: Rodar para verificar a passagem**
 
 Run: `pnpm --filter @ticketvibe/web test -- src/components/event-detail.spec.tsx`
 Expected: PASS — 4 testes.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/src/components/event-detail.tsx apps/web/src/components/event-detail.spec.tsx
@@ -1326,7 +1326,7 @@ git commit -m "feat(web): add event detail components"
 - Modify: `apps/web/src/components/event-card.tsx`
 - Modify: `apps/web/src/components/event-card.stories.tsx`
 
-- [ ] **Step 1: Atualizar o spec do mapper (falhando)**
+- [x] **Step 1: Atualizar o spec do mapper (falhando)**
 
 Em `apps/web/src/lib/event-mapper.spec.ts`, no teste `maps the event dto to event card props`, acrescente a propriedade `href` ao objeto esperado do `toStrictEqual`:
 
@@ -1343,12 +1343,12 @@ Em `apps/web/src/lib/event-mapper.spec.ts`, no teste `maps the event dto to even
     });
 ```
 
-- [ ] **Step 2: Rodar para verificar a falha**
+- [x] **Step 2: Rodar para verificar a falha**
 
 Run: `pnpm --filter @ticketvibe/web test -- src/lib/event-mapper.spec.ts`
 Expected: FAIL — `href` não está no objeto retornado.
 
-- [ ] **Step 3: Implementar mapper, card e stories**
+- [x] **Step 3: Implementar mapper, card e stories**
 
 Em `apps/web/src/lib/event-mapper.ts`, acrescente `href` ao retorno de `toEventCardProps`:
 
@@ -1378,12 +1378,12 @@ Em `apps/web/src/components/event-card.stories.tsx`, acrescente `href` aos args 
     href: '/events/o-fantasma-da-opera',
 ```
 
-- [ ] **Step 4: Rodar a suíte de componentes**
+- [x] **Step 4: Rodar a suíte de componentes**
 
 Run: `pnpm --filter @ticketvibe/web test`
 Expected: PASS — todos os testes do web (50 no total: 42 do ticket 05 + 4 do Task 7 + 4 do Task 8; o mapper atualiza asserts sem adicionar casos, e nenhum spec existente asserta o CTA como botão).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/src/lib/event-mapper.ts apps/web/src/lib/event-mapper.spec.ts apps/web/src/components/event-card.tsx apps/web/src/components/event-card.stories.tsx
@@ -1398,7 +1398,7 @@ git commit -m "feat(web): link event cards to event page"
 >
 > **`loading.tsx` (skeleton) — adiado para o follow-up do `proxy.ts`:** verificou-se que criar `app/events/[slug]/loading.tsx` com `<EventDetailSkeleton />` **quebra o contrato de 404**: o `loading.tsx` é uma fronteira Suspense implícita acima da página, o shell (com o skeleton) é flusheado com **200** antes do `notFound()` resolver, e o dev passa a responder 200 para slug inexistente — reprovando o E2E da Task 11 (`response.status === 404`) e o smoke do plano. Até `notFound()` em `generateMetadata` não sobrevive ao flush do shell de loading. **Deferrado com o follow-up abaixo:** com o check de existência no `proxy.ts` retornando 404 *antes* do stream, o `loading.tsx` pode ser adicionado com segurança (slug ausente nem chega a flushear).
 >
-> **Caveat de produção — follow-up ticket:** em `next start` (PPR/cacheComponents) um slug ausente responde **200** + UI de not-found streamada + `noindex` (o shell estático flushea com 200 e o status não muda mais; a rota bloqueante devolve 404 real no dev, onde rodam smoke e E2E — por isso não bloqueia hoje). Além disso, mesmo no dev o `<body>` do 404 **não é server-rendered** (só o flight payload; o copy aparece após hydration — no-JS vê página em branco). Follow-up: check de existência do slug no `proxy.ts` (ou middleware) antes do render, devolvendo 404 real **com body server-rendered** — as docs da própria Next apontam o Proxy como o caminho. Esse mesmo ticket habilita o `loading.tsx`.
+> **Caveat de produção — follow-up ticket:** em `next start` (PPR/cacheComponents) um slug ausente responde **200** + UI de not-found streamada + `noindex` (o shell estático flushea com 200 e o status não muda mais; a rota bloqueante devolve 404 real no dev, onde rodam smoke e E2E — por isso não bloqueia hoje). Além disso, mesmo no dev o `<body>` do 404 **não é server-rendered** (só o flight payload; o copy aparece após hydration — no-JS vê página em branco). Follow-up: check de existência do slug no `proxy.ts` (ou middleware) antes do render, devolvendo 404 real **com body server-rendered** — as docs da própria Next apontam o Proxy como o caminho. Esse mesmo ticket habilita o `loading.tsx`. **Atenção ao proxy:** a asserção `response.status() === 404` do E2E da Task 11 (`tests/e2e/event.spec.ts:21`) só é válida contra o **dev server** (onde a rota bloqueante devolve 404 real) — se o Playwright passar a apontar para um build de produção antes do proxy, essa asserção reprova; revisar junto no mesmo follow-up.
 >
 > **Arquivos concluídos:**
 > - `apps/web/src/app/events/[slug]/page.tsx` — rota bloqueante (`instant = false`); `Header` + `<main>`; fetch com `try/catch` (throw → `<EventDetailError />`); `notFound()` fora do `try`.
@@ -1554,7 +1554,7 @@ git commit -m "feat(web): add event page with 404 handling"
 **Files:**
 - Create: `apps/web/tests/e2e/event.spec.ts`
 
-- [ ] **Step 1: Escrever os testes E2E**
+- [x] **Step 1: Escrever os testes E2E**
 
 Crie `apps/web/tests/e2e/event.spec.ts`:
 
@@ -1594,12 +1594,12 @@ test('página de evento inexistente responde 404', async ({ page }) => {
 
 Nota: o primeiro "Ver Ingressos" visível é o card de `o-fantasma-da-opera` (primeiro do carrossel de "Em Alta", ordenado por data).
 
-- [ ] **Step 2: Rodar o E2E**
+- [x] **Step 2: Rodar o E2E**
 
 Run: `pnpm --filter @ticketvibe/web test:e2e`
 Expected: 8 passed (6 existentes + 2 novos). O `globalSetup` re-semeia o banco (incluindo setores).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/web/tests/e2e/event.spec.ts
@@ -1614,7 +1614,7 @@ git commit -m "test(e2e): cover event page navigation"
 - Modify: `README.md`
 - Modify: `docs/TESTING.md`
 
-- [ ] **Step 1: Atualizar o README**
+- [x] **Step 1: Atualizar o README**
 
 Em `README.md`:
 - linha 16, comentário do seed: `# categorias, locais e 12 eventos (idempotente)` → `# categorias, locais, 12 eventos com setores (idempotente)`;
@@ -1627,7 +1627,7 @@ curl -s 'http://127.0.0.1:3001/events/o-fantasma-da-opera'    # detalhe + setore
 - linha 46, tabela `pnpm test`: `(vitest: shared + api + web; a integração — eventos, categorias e busca — exige pnpm infra:up)` → `(vitest: shared + api + web; a integração — eventos, categorias, busca e detalhe — exige pnpm infra:up)`;
 - linha 86: `rotas /health, /events (busca full-text + filtros) e /categories` → `rotas /health, /events (busca full-text + filtros + detalhe) e /categories`.
 
-- [ ] **Step 2: Atualizar o TESTING.md**
+- [x] **Step 2: Atualizar o TESTING.md**
 
 Em `docs/TESTING.md`:
 - linha 21 (linha do `apps/api`): `busca + filtros` → `busca + filtros + detalhe`;
@@ -1636,7 +1636,7 @@ Em `docs/TESTING.md`:
 - linha 40: `home, busca, filtros` → `home, busca, filtros, página de evento`;
 - linha 73 (coluna live do E2E): `primeiro fluxo: home + busca + filtros` → `primeiro fluxo: home + busca + filtros + página de evento`.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add README.md docs/TESTING.md
@@ -1651,7 +1651,7 @@ git commit -m "docs: sync tooling docs with ticket 06"
 - Modify: `.scratch/ticketvibe/issues/06-pagina-de-evento.md`
 - Modify: `docs/superpowers/plans/2026-10-11-ticket-06-pagina-de-evento.md`
 
-- [ ] **Step 1: Gate completo**
+- [x] **Step 1: Gate completo**
 
 Run: `pnpm lint`
 Expected: 0 erros (biome).
@@ -1668,7 +1668,7 @@ Expected: 8 passed.
 Run: `git status`
 Expected: working tree limpa.
 
-- [ ] **Step 2: Fechar o issue 06**
+- [x] **Step 2: Fechar o issue 06**
 
 Em `.scratch/ticketvibe/issues/06-pagina-de-evento.md`:
 - marque as 5 caixas `- [ ]` → `- [x]`;
@@ -1686,11 +1686,11 @@ Em `.scratch/ticketvibe/issues/06-pagina-de-evento.md`:
 - **Validação Zod do slug do path param** — deliberadamente ausente (lookup → 404); reconsiderar quando existir regra de formato de slug.
 ```
 
-- [ ] **Step 3: Marcar o plano como executado**
+- [x] **Step 3: Marcar o plano como executado**
 
 Em `docs/superpowers/plans/2026-10-11-ticket-06-pagina-de-evento.md`, troque todos os marcadores `- [ ]` por `- [x]` (inclusive no header e nesta task).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add .scratch/ticketvibe/issues/06-pagina-de-evento.md docs/superpowers/plans/2026-10-11-ticket-06-pagina-de-evento.md
