@@ -4,6 +4,7 @@ import { Header } from '@/components/header';
 import { CategoryChips } from '@/components/home/category-chips';
 import { EventsSection } from '@/components/home/events-section';
 import { HeroCard } from '@/components/home/hero-card';
+import { PageSkeleton } from '@/components/home/page-skeleton';
 import { SearchResults } from '@/components/home/search-results';
 import { toEventCardProps, toHeroCardProps } from '@/lib/event-mapper';
 import { fetchCategories, fetchEvents } from '@/lib/events-api';
@@ -12,16 +13,6 @@ import {
   parseSearchFilters,
   type RawSearchParams,
 } from '@/lib/search-params';
-
-function PageSkeleton() {
-  return (
-    <div className="flex flex-col gap-12" aria-hidden>
-      <div className="min-h-[26rem] animate-pulse rounded-2xl border border-border bg-card" />
-      <div className="h-10 w-full animate-pulse rounded-full bg-card" />
-      <div className="h-[26rem] w-full animate-pulse rounded-xl border border-border bg-card" />
-    </div>
-  );
-}
 
 async function HomeContent({
   searchParams,
