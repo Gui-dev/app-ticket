@@ -3,6 +3,8 @@ import type {
   EventDetailEntity,
   EventEntity,
   EventView,
+  SuggestLocation,
+  SuggestResult,
 } from '../domain/event-entity';
 import type { EventsRepository } from '../domain/events-repository';
 
@@ -70,5 +72,29 @@ export class InMemoryEventsRepository implements EventsRepository {
           a.priceFromCents - b.priceFromCents || a.slug.localeCompare(b.slug),
       ),
     });
+  }
+
+  suggest(q: string): Promise<SuggestResult> {
+    const needle = q.toLowerCase();
+    const locations = new Map<string, SuggestLocation>();
+
+    for (const item of this.items) {
+      const key = `${item.venueCity}|${item.venueState}`;
+      const matches =
+        item.venueCity.toLowerCase().includes(needle) ||
+        item.venueState.toLowerCase().includes(needle);
+      if (matches && !locations.has(key)) {
+        locations.set(key, { city: item.venueCity, state: item.venueState });
+      }
+    }
+
+    const sortedLocations = [...locations.values()].sort(
+      (a, b) => a.city.localeCompare(b.city) || a.state.localeCompare(b.state),
+    );
+
+    return this.findAll('all', { q }).then((events) => ({
+      events: events.slice(0, 5),
+      locations: sortedLocations.slice(0, 5),
+    }));
   }
 }

@@ -29,3 +29,13 @@ export interface SectorEntity {
 export interface EventDetailEntity extends EventEntity {
   sectors: SectorEntity[];
 }
+
+export interface SuggestLocation {
+  city: string;
+  state: string;
+}
+
+export interface SuggestResult {
+  events: EventEntity[];
+  locations: SuggestLocation[];
+}
