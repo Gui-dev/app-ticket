@@ -3,6 +3,7 @@ import {
   listCategoriesResponseSchema,
   listEventsResponseSchema,
 } from '@ticketvibe/shared';
+import { sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
@@ -331,5 +332,98 @@ describe('GET /events/:slug (postgres integration)', () => {
 
     expect(response.statusCode).toBe(404);
     expect(response.json()).toEqual({ error: 'event_not_found' });
+  });
+});
+
+describe('GET /events/suggest (integration)', () => {
+  let app: FastifyInstance;
+  let testDb: Db;
+
+  beforeAll(async () => {
+    await ensureTestDatabase();
+    testDb = createDb(TEST_DATABASE_URL);
+    await migrateTestDatabase(testDb);
+    await seedFixtures(testDb);
+    app = buildApp({
+      eventsRepository: new DrizzleEventsRepository(testDb),
+      categoriesRepository: new DrizzleCategoriesRepository(testDb),
+    });
+    await app.ready();
+  });
+
+  beforeEach(async () => {
+    await resetDatabase(testDb);
+    await seedFixtures(testDb);
+  });
+
+  afterAll(async () => {
+    await app.close();
+    await testDb.$client.end();
+  });
+
+  it('ranks FTS matches and limits events to five', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: `/events/suggest?q=${encodeURIComponent('São Paulo')}`,
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.events).toHaveLength(5);
+    expect(body.locations).toEqual([{ city: 'São Paulo', state: 'SP' }]);
+  });
+
+  it('matches city text in venue content for event titles', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/events/suggest?q=fantasma',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.events.map((event: { slug: string }) => event.slug)).toEqual([
+      'o-fantasma-da-opera',
+    ]);
+    expect(body.locations).toEqual([]);
+  });
+
+  it('suggests locations only for venues that still have events', async () => {
+    await testDb.execute(
+      sql`DELETE FROM sectors WHERE event_id IN (SELECT id FROM events WHERE venue_id = (SELECT id FROM venues WHERE name = 'Vivo Rio'))`,
+    );
+    await testDb.execute(
+      sql`DELETE FROM events WHERE venue_id = (SELECT id FROM venues WHERE name = 'Vivo Rio')`,
+    );
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/events/suggest?q=rio',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.locations).toEqual([]);
+    expect(
+      body.events.every(
+        (event: { venueName: string }) => event.venueName !== 'Vivo Rio',
+      ),
+    ).toBe(true);
+  });
+
+  it('returns empty results for an unknown term', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/events/suggest?q=zzzzzzzz',
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ events: [], locations: [] });
+  });
+
+  it('returns 400 invalid_query for a missing query', async () => {
+    const res = await app.inject({ method: 'GET', url: '/events/suggest' });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toBe('invalid_query');
   });
 });

@@ -241,3 +241,46 @@ describe('GET /events/:slug', () => {
     expect(response.json()).toEqual({ error: 'event_not_found' });
   });
 });
+
+describe('GET /events/suggest (in-memory)', () => {
+  let app: FastifyInstance;
+
+  beforeEach(() => {
+    app = buildApp({
+      eventsRepository: new InMemoryEventsRepository(stubEvents),
+    });
+  });
+
+  afterEach(async () => {
+    await app.close();
+  });
+
+  it('returns matching events and city suggestions', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/events/suggest?q=rio',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.events.map((event: { slug: string }) => event.slug)).toEqual([
+      'destaque',
+    ]);
+    expect(body.locations).toEqual([{ city: 'Rio de Janeiro', state: 'RJ' }]);
+  });
+
+  it('returns 400 invalid_query when q is too short', async () => {
+    const res = await app.inject({ method: 'GET', url: '/events/suggest?q=a' });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toBe('invalid_query');
+    expect(res.json().issues).toBeDefined();
+  });
+
+  it('returns 400 invalid_query when q is missing', async () => {
+    const res = await app.inject({ method: 'GET', url: '/events/suggest' });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toBe('invalid_query');
+  });
+});

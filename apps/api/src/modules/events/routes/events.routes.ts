@@ -2,6 +2,8 @@ import {
   type EventDetailDto,
   type EventDto,
   listEventsQuerySchema,
+  suggestQuerySchema,
+  suggestResponseSchema,
 } from '@ticketvibe/shared';
 import type { FastifyInstance } from 'fastify';
 
@@ -9,6 +11,7 @@ import type { EventDetailEntity, EventEntity } from '../domain/event-entity.js';
 import type { EventsRepository } from '../domain/events-repository.js';
 import { GetEventDetailUseCase } from '../use-cases/get-event-detail.use-case.js';
 import { ListEventsUseCase } from '../use-cases/list-events.use-case.js';
+import { SuggestEventsUseCase } from '../use-cases/suggest-events.use-case.js';
 
 function toEventDto(entity: EventEntity): EventDto {
   return {
@@ -46,6 +49,7 @@ export function registerEventRoutes(
 ): void {
   const listUseCase = new ListEventsUseCase(eventsRepository);
   const detailUseCase = new GetEventDetailUseCase(eventsRepository);
+  const suggestUseCase = new SuggestEventsUseCase(eventsRepository);
 
   app.get('/events', async (request, reply) => {
     const parsed = listEventsQuerySchema.safeParse(request.query);
@@ -57,6 +61,36 @@ export function registerEventRoutes(
     }
     const list = await listUseCase.execute(parsed.data);
     return { events: list.map(toEventDto) };
+  });
+
+  app.get('/events/suggest', async (request, reply) => {
+    const parsed = suggestQuerySchema.safeParse(request.query);
+    if (!parsed.success) {
+      return reply.code(400).send({
+        error: 'invalid_query',
+        issues: parsed.error.issues.map((issue) => ({
+          path: issue.path.join('.'),
+          message: issue.message,
+        })),
+      });
+    }
+
+    const result = await suggestUseCase.execute(parsed.data.q);
+
+    const payload = suggestResponseSchema.parse({
+      events: result.events.map((event) => ({
+        slug: event.slug,
+        title: event.title,
+        startsAt: event.startsAt.toISOString(),
+        venueName: event.venueName,
+        venueCity: event.venueCity,
+        venueState: event.venueState,
+        priceFromCents: event.priceFromCents,
+      })),
+      locations: result.locations,
+    });
+
+    return reply.send(payload);
   });
 
   app.get<{ Params: { slug: string } }>(

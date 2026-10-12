@@ -1,5 +1,5 @@
 import type { SearchFilters } from '@ticketvibe/shared';
-import { and, asc, eq, gte, lte, type SQL, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, lte, or, type SQL, sql } from 'drizzle-orm';
 
 import type { Db } from '../../../db/client.js';
 import { categories, events, sectors, venues } from '../../../db/schema.js';
@@ -7,6 +7,7 @@ import type {
   EventDetailEntity,
   EventEntity,
   EventView,
+  SuggestResult,
 } from '../domain/event-entity.js';
 import type { EventsRepository } from '../domain/events-repository.js';
 
@@ -154,6 +155,45 @@ export class DrizzleEventsRepository implements EventsRepository {
         slug: sector.slug,
         name: sector.name,
         priceFromCents: sector.priceFromCents,
+      })),
+    };
+  }
+
+  async suggest(q: string): Promise<SuggestResult> {
+    const tsQuery = sql`websearch_to_tsquery('portuguese', unaccent(${q}))`;
+
+    const [eventRows, locationRows] = await Promise.all([
+      this.db
+        .select(eventSelect)
+        .from(events)
+        .innerJoin(categories, eq(events.categoryId, categories.id))
+        .innerJoin(venues, eq(events.venueId, venues.id))
+        .where(buildConditions('all', { q }))
+        .orderBy(
+          desc(sql`ts_rank(${events.searchVector}, ${tsQuery})`),
+          asc(events.startsAt),
+          asc(events.id),
+        )
+        .limit(5),
+      this.db
+        .selectDistinct({ city: venues.city, state: venues.state })
+        .from(venues)
+        .innerJoin(events, eq(events.venueId, venues.id))
+        .where(
+          or(
+            sql`unaccent(${venues.city}) ilike unaccent(${`%${q}%`})`,
+            sql`unaccent(${venues.state}) ilike unaccent(${`%${q}%`})`,
+          ),
+        )
+        .orderBy(asc(venues.city), asc(venues.state))
+        .limit(5),
+    ]);
+
+    return {
+      events: eventRows.map(toEventEntity),
+      locations: locationRows.map((row) => ({
+        city: row.city,
+        state: row.state,
       })),
     };
   }
