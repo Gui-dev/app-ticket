@@ -27,7 +27,7 @@ const evento: EventDetailDto = {
     { slug: 'plateia', name: 'Plateia', priceFromCents: 12000 },
     { slug: 'balcao', name: 'Balcão', priceFromCents: 19000 },
   ],
-  artists: [],
+  artists: [{ slug: 'andrew-lloyd-webber', name: 'Andrew Lloyd Webber' }],
 };
 
 describe('EventDetail', () => {
@@ -65,6 +65,22 @@ describe('EventDetail', () => {
       screen.getByText('Setores em divulgação em breve.'),
     ).toBeInTheDocument();
     expect(screen.queryByRole('list')).not.toBeInTheDocument();
+  });
+
+  test('links the venue name to the venue page', () => {
+    render(<EventDetail event={evento} />);
+
+    const venueLink = screen.getByRole('link', { name: /Teatro Renault/ });
+    expect(venueLink).toHaveAttribute('href', '/venues/teatro-renault');
+  });
+
+  test('lists artists linking to their pages', () => {
+    render(<EventDetail event={evento} />);
+
+    const artistLink = screen.getByRole('link', {
+      name: 'Andrew Lloyd Webber',
+    });
+    expect(artistLink).toHaveAttribute('href', '/artists/andrew-lloyd-webber');
   });
 });
 

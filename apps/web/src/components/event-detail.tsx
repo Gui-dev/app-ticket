@@ -39,9 +39,34 @@ function EventDetail({ event }: EventDetailProps) {
                 className="size-4 shrink-0 text-primary"
                 aria-hidden="true"
               />
-              {event.venue.name} · {event.venue.city}/{event.venue.state}
+              <Link
+                href={`/venues/${event.venue.slug}`}
+                className="hover:text-foreground hover:underline"
+              >
+                {event.venue.name}
+              </Link>
+              <span aria-hidden="true">·</span>
+              {event.venue.city}/{event.venue.state}
             </span>
           </p>
+          {event.artists.length > 0 ? (
+            <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              <span>Artistas:</span>
+              {event.artists.map((artist, index) => (
+                <span key={artist.slug}>
+                  <Link
+                    href={`/artists/${artist.slug}`}
+                    className="text-foreground hover:underline"
+                  >
+                    {artist.name}
+                  </Link>
+                  {index < event.artists.length - 1 ? (
+                    <span aria-hidden="true">, </span>
+                  ) : null}
+                </span>
+              ))}
+            </p>
+          ) : null}
           <p className="max-w-3xl text-base text-muted-foreground">
             {event.description}
           </p>
