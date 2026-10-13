@@ -81,7 +81,7 @@ export function useSearchSuggestions({
         setStatus(hasResults ? 'ready' : 'empty');
         if (!dismissedRef.current) {
           setOpen(hasResults);
-          setActiveIndex(hasResults ? 0 : -1);
+          setActiveIndex(-1);
         }
       } catch {
         if (controller.signal.aborted) return;

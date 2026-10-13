@@ -144,6 +144,23 @@ describe('HeaderSearch', () => {
     expect(input).toHaveAttribute('aria-autocomplete', 'list');
   });
 
+  it('leaves Enter unconsumed without a highlighted suggestion', async () => {
+    renderSearch();
+
+    const input = getCombobox();
+    await openSuggestions(input);
+
+    expect(input).not.toHaveAttribute('aria-activedescendant');
+    expect(screen.getAllByRole('option')[0]).toHaveAttribute(
+      'aria-selected',
+      'false',
+    );
+
+    const enterWasPrevented = !fireEvent.keyDown(input, { key: 'Enter' });
+    expect(enterWasPrevented).toBe(false);
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+  });
+
   it('pushes to the event page when an event suggestion is selected', async () => {
     renderSearch();
 

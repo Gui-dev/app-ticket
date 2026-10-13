@@ -105,8 +105,8 @@ describe('useSearchSuggestions', () => {
     expect(result.current.items[1]).toMatchObject({
       location: locationFixture,
     });
-    expect(result.current.activeIndex).toBe(0);
-    expect(result.current.activeDescendant).toBe(suggestionOptionId(0));
+    expect(result.current.activeIndex).toBe(-1);
+    expect(result.current.activeDescendant).toBeUndefined();
   });
 
   it('becomes empty and closes the panel when there are no results', async () => {
@@ -158,9 +158,20 @@ describe('useSearchSuggestions', () => {
   it('selects the active item on Enter and ignores Enter without a highlight', async () => {
     const { result, onSelect } = await renderReady();
 
+    expect(result.current.activeIndex).toBe(-1);
+
     const first = keyDownWith(result, 'Enter');
-    expect(first.wasHandled()).toBe(true);
-    expect(first.preventDefault).toHaveBeenCalled();
+    expect(first.wasHandled()).toBe(false);
+    expect(first.preventDefault).not.toHaveBeenCalled();
+    expect(onSelect).not.toHaveBeenCalled();
+
+    const down = keyDownWith(result, 'ArrowDown');
+    expect(down.wasHandled()).toBe(true);
+    expect(result.current.activeIndex).toBe(0);
+
+    const select = keyDownWith(result, 'Enter');
+    expect(select.wasHandled()).toBe(true);
+    expect(select.preventDefault).toHaveBeenCalled();
     expect(onSelect).toHaveBeenCalledTimes(1);
     expect(onSelect).toHaveBeenCalledWith(result.current.items[0]);
     expect(result.current.open).toBe(false);
@@ -168,9 +179,7 @@ describe('useSearchSuggestions', () => {
     act(() => {
       result.current.reopen();
     });
-    act(() => {
-      result.current.setActiveIndex(-1);
-    });
+    expect(result.current.activeIndex).toBe(-1);
 
     const second = keyDownWith(result, 'Enter');
     expect(second.wasHandled()).toBe(false);
@@ -180,22 +189,22 @@ describe('useSearchSuggestions', () => {
   it('cycles the active index with arrow keys and reopens on ArrowDown', async () => {
     const { result } = await renderReady();
 
-    expect(result.current.activeIndex).toBe(0);
+    expect(result.current.activeIndex).toBe(-1);
 
     const down = keyDownWith(result, 'ArrowDown');
     expect(down.wasHandled()).toBe(true);
     expect(down.preventDefault).toHaveBeenCalled();
-    expect(result.current.activeIndex).toBe(1);
+    expect(result.current.activeIndex).toBe(0);
 
     const up = keyDownWith(result, 'ArrowUp');
     expect(up.wasHandled()).toBe(true);
-    expect(result.current.activeIndex).toBe(0);
-
-    keyDownWith(result, 'ArrowUp');
     expect(result.current.activeIndex).toBe(1);
 
-    keyDownWith(result, 'ArrowDown');
+    keyDownWith(result, 'ArrowUp');
     expect(result.current.activeIndex).toBe(0);
+
+    keyDownWith(result, 'ArrowDown');
+    expect(result.current.activeIndex).toBe(1);
 
     act(() => {
       result.current.close();
@@ -243,6 +252,11 @@ describe('useSearchSuggestions', () => {
       timeout: 3000,
     });
 
+    expect(result.current.activeDescendant).toBeUndefined();
+
+    act(() => {
+      result.current.setActiveIndex(0);
+    });
     expect(result.current.activeDescendant).toBe('search-suggestion-option-0');
 
     act(() => {
@@ -300,13 +314,17 @@ describe('useSearchSuggestions', () => {
 
   it('ignores keyboard interaction and the active descendant while reloading', async () => {
     const { result, onSelect } = await renderReady();
-    expect(result.current.activeIndex).toBe(0);
+    expect(result.current.activeIndex).toBe(-1);
 
+    act(() => {
+      result.current.setActiveIndex(0);
+    });
     act(() => {
       result.current.setQuery('fantas');
     });
     expect(result.current.status).toBe('loading');
     expect(result.current.items).toHaveLength(2);
+    expect(result.current.activeIndex).toBe(0);
     expect(result.current.activeDescendant).toBeUndefined();
 
     const enter = keyDownWith(result, 'Enter');
