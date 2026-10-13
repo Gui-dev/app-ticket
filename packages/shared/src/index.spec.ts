@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  artistDetailResponseSchema,
+  artistDetailSchema,
   eventDetailResponseSchema,
   eventDetailSchema,
   eventSchema,
@@ -11,6 +13,8 @@ import {
   sectorSchema,
   suggestQuerySchema,
   suggestResponseSchema,
+  venueDetailResponseSchema,
+  venueDetailSchema,
 } from './index';
 
 describe('healthResponseSchema', () => {
@@ -264,5 +268,96 @@ describe('suggestResponseSchema', () => {
         events: [incomplete],
       }),
     ).toThrow();
+  });
+});
+
+describe('artistDetailSchema', () => {
+  const validArtist = {
+    slug: 'andrew-lloyd-webber',
+    name: 'Andrew Lloyd Webber',
+    events: [
+      {
+        id: '3d8f2f3a-8c1b-4a2e-9c3d-1b2a3c4d5e6f',
+        slug: 'o-fantasma-da-opera',
+        title: 'O Fantasma da Ópera',
+        description: 'Um musical famoso.',
+        category: { slug: 'shows', name: 'Shows' },
+        venue: { name: 'Teatro Renault', city: 'São Paulo', state: 'SP' },
+        startsAt: '2026-10-22T23:00:00.000Z',
+        priceFromCents: 12000,
+        imageUrl: null,
+        badgeLabel: null,
+      },
+    ],
+  };
+
+  it('accepts an artist with events', () => {
+    expect(artistDetailSchema.parse(validArtist)).toEqual(validArtist);
+  });
+
+  it('accepts an artist with zero events', () => {
+    expect(
+      artistDetailSchema.parse({ ...validArtist, events: [] }).events,
+    ).toEqual([]);
+  });
+
+  it('rejects an artist without slug', () => {
+    const { slug: _slug, ...withoutSlug } = validArtist;
+    expect(artistDetailSchema.safeParse(withoutSlug).success).toBe(false);
+  });
+
+  it('rejects an artist with empty name', () => {
+    expect(
+      artistDetailSchema.safeParse({ ...validArtist, name: '' }).success,
+    ).toBe(false);
+  });
+});
+
+describe('artistDetailResponseSchema', () => {
+  it('wraps the artist', () => {
+    const payload = {
+      artist: {
+        slug: 'comédiantes-afiados',
+        name: 'Comediantes Afiados',
+        events: [],
+      },
+    };
+    expect(artistDetailResponseSchema.parse(payload)).toEqual(payload);
+  });
+});
+
+describe('venueDetailSchema', () => {
+  const validVenue = {
+    slug: 'teatro-renault',
+    name: 'Teatro Renault',
+    city: 'São Paulo',
+    state: 'SP',
+    events: [],
+  };
+
+  it('accepts a venue with city and state', () => {
+    expect(venueDetailSchema.parse(validVenue)).toEqual(validVenue);
+  });
+
+  it('rejects a venue with invalid state', () => {
+    expect(
+      venueDetailSchema.safeParse({ ...validVenue, state: 'São Paulo' })
+        .success,
+    ).toBe(false);
+  });
+});
+
+describe('venueDetailResponseSchema', () => {
+  it('wraps the venue', () => {
+    const payload = {
+      venue: {
+        slug: 'vivo-rio',
+        name: 'Vivo Rio',
+        city: 'Rio de Janeiro',
+        state: 'RJ',
+        events: [],
+      },
+    };
+    expect(venueDetailResponseSchema.parse(payload)).toEqual(payload);
   });
 });

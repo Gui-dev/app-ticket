@@ -122,3 +122,35 @@ export const suggestResponseSchema = z.object({
 });
 
 export type SuggestResponse = z.infer<typeof suggestResponseSchema>;
+
+export const artistSchema = z.object({
+  slug: z.string().min(1),
+  name: z.string().min(1),
+});
+
+export type ArtistDto = z.infer<typeof artistSchema>;
+
+export const artistDetailSchema = artistSchema.extend({
+  events: z.array(eventSchema),
+});
+
+export type ArtistDetailDto = z.infer<typeof artistDetailSchema>;
+
+export const artistDetailResponseSchema = z.object({
+  artist: artistDetailSchema,
+});
+
+export type ArtistDetailResponse = z.infer<typeof artistDetailResponseSchema>;
+
+export const venueDetailSchema = venueSchema.extend({
+  slug: z.string().min(1),
+  events: z.array(eventSchema),
+});
+
+export type VenueDetailDto = z.infer<typeof venueDetailSchema>;
+
+export const venueDetailResponseSchema = z.object({
+  venue: venueDetailSchema,
+});
+
+export type VenueDetailResponse = z.infer<typeof venueDetailResponseSchema>;
