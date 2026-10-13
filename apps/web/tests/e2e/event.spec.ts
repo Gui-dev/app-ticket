@@ -21,7 +21,7 @@ test('página de evento inexistente responde 404', async ({ page }) => {
 
   expect(response?.status()).toBe(404);
   await expect(
-    page.getByRole('heading', { level: 1, name: 'Evento não encontrado' }),
+    page.getByRole('heading', { level: 1, name: 'Página não encontrada' }),
   ).toBeVisible();
   await expect(
     page.getByRole('link', { name: 'Voltar para a home' }),
