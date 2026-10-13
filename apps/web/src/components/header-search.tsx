@@ -32,7 +32,7 @@ function HeaderSearchField() {
 
   const suggestions = useSearchSuggestions({ onSelect: handleSelect });
 
-  const panelVisible = suggestions.open || suggestions.status === 'loading';
+  const panelVisible = suggestions.panelVisible;
   const suggestionsReady = suggestions.open && suggestions.status === 'ready';
 
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {

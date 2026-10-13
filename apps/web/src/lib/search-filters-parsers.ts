@@ -11,6 +11,8 @@ export const SEARCH_FILTER_KEYS = [
 
 export type SearchFilterKey = (typeof SEARCH_FILTER_KEYS)[number];
 
+export const MAX_QUERY_LENGTH = 120;
+
 const BASE_OPTIONS = {
   clearOnDefault: true,
   history: 'replace',
@@ -18,7 +20,7 @@ const BASE_OPTIONS = {
 } as const;
 
 const parseAsTrimmedString = createParser<string>({
-  parse: (value) => value.trim(),
+  parse: (value) => value.trim().slice(0, MAX_QUERY_LENGTH),
   serialize: (value) => value,
 });
 

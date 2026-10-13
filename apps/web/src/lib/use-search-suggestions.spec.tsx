@@ -298,11 +298,13 @@ describe('useSearchSuggestions', () => {
     const escapeKey = keyDownWith(result, 'Escape');
     expect(escapeKey.preventDefault).toHaveBeenCalled();
     expect(result.current.open).toBe(false);
+    expect(result.current.panelVisible).toBe(false);
 
     await waitFor(() => expect(result.current.status).toBe('ready'), {
       timeout: 3000,
     });
     expect(result.current.open).toBe(false);
+    expect(result.current.panelVisible).toBe(false);
     expect(result.current.items).toHaveLength(2);
     expect(result.current.activeDescendant).toBeUndefined();
 
@@ -310,6 +312,84 @@ describe('useSearchSuggestions', () => {
       result.current.reopen();
     });
     expect(result.current.open).toBe(true);
+    expect(result.current.panelVisible).toBe(true);
+  });
+
+  it('dismisses the loading panel on Escape and keeps it dismissed on resolve', async () => {
+    server.use(
+      http.get(SUGGEST_URL, async () => {
+        await delay(300);
+        return HttpResponse.json({
+          events: [eventFixture],
+          locations: [locationFixture],
+        });
+      }),
+    );
+
+    const { result } = renderHook(() =>
+      useSearchSuggestions({ onSelect: vi.fn() }),
+    );
+
+    act(() => {
+      result.current.setQuery('fanta');
+    });
+    expect(result.current.status).toBe('loading');
+    expect(result.current.panelVisible).toBe(true);
+
+    const escapeKey = keyDownWith(result, 'Escape');
+    expect(escapeKey.preventDefault).toHaveBeenCalled();
+    expect(result.current.open).toBe(false);
+    expect(result.current.dismissed).toBe(true);
+    expect(result.current.panelVisible).toBe(false);
+
+    await waitFor(() => expect(result.current.status).toBe('ready'), {
+      timeout: 3000,
+    });
+    expect(result.current.open).toBe(false);
+    expect(result.current.panelVisible).toBe(false);
+    expect(result.current.items).toHaveLength(2);
+  });
+
+  it('dismisses the loading panel on an outside pointerdown and stays dismissed', async () => {
+    server.use(
+      http.get(SUGGEST_URL, async () => {
+        await delay(300);
+        return HttpResponse.json({
+          events: [eventFixture],
+          locations: [locationFixture],
+        });
+      }),
+    );
+
+    const { result } = renderHook(() =>
+      useSearchSuggestions({ onSelect: vi.fn() }),
+    );
+
+    const root = document.createElement('div');
+    document.body.append(root);
+    result.current.rootRef.current = root;
+
+    act(() => {
+      result.current.setQuery('fanta');
+    });
+    expect(result.current.status).toBe('loading');
+    expect(result.current.panelVisible).toBe(true);
+
+    act(() => {
+      document.body.dispatchEvent(
+        new PointerEvent('pointerdown', { bubbles: true }),
+      );
+    });
+    expect(result.current.dismissed).toBe(true);
+    expect(result.current.panelVisible).toBe(false);
+
+    await waitFor(() => expect(result.current.status).toBe('ready'), {
+      timeout: 3000,
+    });
+    expect(result.current.open).toBe(false);
+    expect(result.current.panelVisible).toBe(false);
+
+    root.remove();
   });
 
   it('ignores keyboard interaction and the active descendant while reloading', async () => {

@@ -207,6 +207,75 @@ describe('HeaderSearch', () => {
     expect(input).not.toHaveAttribute('aria-controls');
   });
 
+  it('hides the loading skeleton on Escape and keeps it hidden on resolve', async () => {
+    let responded = false;
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.get(SUGGEST_URL, async () => {
+        await gate;
+        responded = true;
+        return HttpResponse.json({
+          events: [eventFixture],
+          locations: [locationFixture],
+        });
+      }),
+    );
+
+    renderSearch();
+    const input = getCombobox();
+
+    fireEvent.change(input, { target: { value: 'fanta' } });
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+    expect(input).toHaveAttribute('aria-expanded', 'true');
+
+    const escapeWasPrevented = !fireEvent.keyDown(input, { key: 'Escape' });
+    expect(escapeWasPrevented).toBe(true);
+    expect(screen.queryByRole('listbox')).toBeNull();
+    expect(input).toHaveAttribute('aria-expanded', 'false');
+    expect(input).not.toHaveAttribute('aria-controls');
+    expect(input.value).toBe('fanta');
+
+    release();
+    await waitFor(() => expect(responded).toBe(true), { timeout: 3000 });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(screen.queryByRole('listbox')).toBeNull();
+    expect(input.value).toBe('fanta');
+  });
+
+  it('hides the loading skeleton on an outside pointerdown', async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.get(SUGGEST_URL, async () => {
+        await gate;
+        return HttpResponse.json({
+          events: [eventFixture],
+          locations: [locationFixture],
+        });
+      }),
+    );
+
+    renderSearch();
+    const input = getCombobox();
+
+    fireEvent.change(input, { target: { value: 'fanta' } });
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByRole('listbox')).toBeNull();
+    expect(input).toHaveAttribute('aria-expanded', 'false');
+
+    release();
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(screen.queryByRole('listbox')).toBeNull();
+    expect(input.value).toBe('fanta');
+  });
+
   it('announces the suggestions panel through a polite live region', async () => {
     renderSearch();
 

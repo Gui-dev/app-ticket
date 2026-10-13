@@ -43,10 +43,16 @@ export function useSearchSuggestions({
   const [data, setData] = useState<SuggestResponse | null>(null);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [open, setOpen] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
 
   const onSelectRef = useRef(onSelect);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const dismissedRef = useRef(false);
+
+  const updateDismissed = useCallback((value: boolean) => {
+    dismissedRef.current = value;
+    setDismissed(value);
+  }, []);
 
   useEffect(() => {
     onSelectRef.current = onSelect;
@@ -54,7 +60,7 @@ export function useSearchSuggestions({
 
   useEffect(() => {
     const trimmed = query.trim();
-    dismissedRef.current = false;
+    updateDismissed(false);
     if (trimmed.length < MIN_QUERY_LENGTH) {
       setStatus('idle');
       setData(null);
@@ -96,7 +102,7 @@ export function useSearchSuggestions({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [query]);
+  }, [query, updateDismissed]);
 
   const events = useMemo(() => data?.events ?? EMPTY_EVENTS, [data]);
   const locations = useMemo(() => data?.locations ?? EMPTY_LOCATIONS, [data]);
@@ -121,16 +127,21 @@ export function useSearchSuggestions({
   }, []);
 
   const close = useCallback(() => {
-    dismissedRef.current = true;
+    updateDismissed(true);
     setOpen(false);
     setActiveIndex(-1);
-  }, []);
+  }, [updateDismissed]);
+
+  const openPanel = useCallback(() => {
+    updateDismissed(false);
+    setOpen(true);
+  }, [updateDismissed]);
 
   const reopen = useCallback(() => {
     if (items.length > 0 && status === 'ready') {
-      setOpen(true);
+      openPanel();
     }
-  }, [items.length, status]);
+  }, [items.length, status, openPanel]);
 
   const selectIndex = useCallback(
     (index: number) => {
@@ -143,7 +154,7 @@ export function useSearchSuggestions({
   );
 
   useEffect(() => {
-    if (!open) return;
+    if (!open && status !== 'loading') return;
     const onPointerDown = (event: PointerEvent) => {
       const root = rootRef.current;
       if (
@@ -156,14 +167,14 @@ export function useSearchSuggestions({
     };
     document.addEventListener('pointerdown', onPointerDown);
     return () => document.removeEventListener('pointerdown', onPointerDown);
-  }, [open, close]);
+  }, [open, status, close]);
 
   /** Returns true when the event was consumed (suppress native form submit). */
   const handleKeyDown = useCallback(
     (event: SuggestionKeyDownEvent): boolean => {
       switch (event.key) {
         case 'Escape': {
-          if (open) {
+          if (open || status === 'loading') {
             event.preventDefault();
             close();
           }
@@ -172,7 +183,7 @@ export function useSearchSuggestions({
         case 'ArrowDown': {
           if (status !== 'ready' || items.length === 0) return false;
           event.preventDefault();
-          setOpen(true);
+          openPanel();
           setActiveIndex((current) =>
             current < 0 || current >= items.length - 1 ? 0 : current + 1,
           );
@@ -203,7 +214,7 @@ export function useSearchSuggestions({
           return false;
       }
     },
-    [open, close, items, activeIndex, selectIndex, status],
+    [open, close, items, activeIndex, selectIndex, status, openPanel],
   );
 
   const activeDescendant =
@@ -211,12 +222,16 @@ export function useSearchSuggestions({
       ? suggestionOptionId(activeIndex)
       : undefined;
 
+  const panelVisible = (open || status === 'loading') && !dismissed;
+
   return {
     query,
     setQuery,
     status,
     open,
     setOpen,
+    dismissed,
+    panelVisible,
     close,
     reopen,
     events,

@@ -18,6 +18,14 @@ describe('searchFiltersParsers', () => {
     expect(result.current.q.shallow).toBe(false);
   });
 
+  it('truncates q to the 120 character server cap', () => {
+    const { result } = renderWith('');
+    const parsed = result.current.q.parse(`  ${'a'.repeat(130)}  `);
+    expect(parsed).toHaveLength(120);
+    expect(parsed).toBe('a'.repeat(120));
+    expect(result.current.q.parse('fanta')).toBe('fanta');
+  });
+
   it('uppercases state and drops invalid UF', () => {
     const { result } = renderWith('state=sp');
     expect(result.current.state.parse('sp')).toBe('SP');
