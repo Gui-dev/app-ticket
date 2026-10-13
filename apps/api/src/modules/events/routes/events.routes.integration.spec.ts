@@ -322,6 +322,10 @@ describe('GET /events/:slug (postgres integration)', () => {
       { slug: 'plateia', name: 'Plateia', priceFromCents: 12000 },
       { slug: 'balcao', name: 'Balcão', priceFromCents: 19000 },
     ]);
+    expect(body.event.artists).toEqual([
+      { slug: 'andrew-lloyd-webber', name: 'Andrew Lloyd Webber' },
+    ]);
+    expect(body.event.venue.slug).toBe('teatro-renault');
   });
 
   it('returns 404 for an unknown slug', async () => {
