@@ -2,17 +2,28 @@ import { sql } from 'drizzle-orm';
 
 import type { Db } from './client.js';
 import {
+  artistFixtures,
   categoryFixtures,
+  eventArtistFixtures,
   eventFixtures,
   sectorFixtures,
   venueFixtures,
 } from './fixtures.js';
-import { categories, events, sectors, venues } from './schema.js';
+import {
+  artists,
+  categories,
+  eventArtists,
+  events,
+  sectors,
+  venues,
+} from './schema.js';
 
 export async function seedFixtures(db: Db): Promise<void> {
   await db.transaction(async (tx) => {
     await tx.delete(sectors);
+    await tx.delete(eventArtists);
     await tx.delete(events);
+    await tx.delete(artists);
     await tx.delete(venues);
     await tx.delete(categories);
 
@@ -62,6 +73,24 @@ export async function seedFixtures(db: Db): Promise<void> {
         .returning({ id: events.id });
       eventIds.set(fixture.slug, insertedEvent.id);
     }
+
+    const insertedArtists = await tx
+      .insert(artists)
+      .values(artistFixtures)
+      .returning();
+    const artistIds = new Map(insertedArtists.map((row) => [row.slug, row.id]));
+
+    const eventArtistValues = eventArtistFixtures.map((fixture) => {
+      const eventId = eventIds.get(fixture.eventSlug);
+      const artistId = artistIds.get(fixture.artistSlug);
+      if (!eventId || !artistId) {
+        throw new Error(
+          `Missing event or artist for link "${fixture.eventSlug}"→"${fixture.artistSlug}"`,
+        );
+      }
+      return { eventId, artistId };
+    });
+    await tx.insert(eventArtists).values(eventArtistValues);
 
     const sectorValues = sectorFixtures.map((fixture) => {
       const eventId = eventIds.get(fixture.eventSlug);

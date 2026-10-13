@@ -10,6 +10,16 @@ export interface VenueFixture {
   state: string;
 }
 
+export interface ArtistFixture {
+  slug: string;
+  name: string;
+}
+
+export interface EventArtistFixture {
+  eventSlug: string;
+  artistSlug: string;
+}
+
 export interface EventFixture {
   slug: string;
   title: string;
@@ -67,6 +77,26 @@ export const venueFixtures: VenueFixture[] = [
     state: 'SP',
   },
   { slug: 'vivo-rio', name: 'Vivo Rio', city: 'Rio de Janeiro', state: 'RJ' },
+];
+
+export const artistFixtures: ArtistFixture[] = [
+  { slug: 'andrew-lloyd-webber', name: 'Andrew Lloyd Webber' },
+  { slug: 'comédiantes-afiados', name: 'Comediantes Afiados' },
+];
+
+export const eventArtistFixtures: EventArtistFixture[] = [
+  {
+    eventSlug: 'o-fantasma-da-opera',
+    artistSlug: 'andrew-lloyd-webber',
+  },
+  {
+    eventSlug: 'standup-noite-de-verdades',
+    artistSlug: 'comédiantes-afiados',
+  },
+  {
+    eventSlug: 'melhor-de-standup-grand-finale',
+    artistSlug: 'comédiantes-afiados',
+  },
 ];
 
 export const eventFixtures: EventFixture[] = [

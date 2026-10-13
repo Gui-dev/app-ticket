@@ -30,6 +30,12 @@ export const venues = pgTable('venues', {
   state: text('state').notNull(),
 });
 
+export const artists = pgTable('artists', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  slug: text('slug').notNull().unique(),
+  name: text('name').notNull(),
+});
+
 export const events = pgTable(
   'events',
   {
@@ -56,6 +62,25 @@ export const events = pgTable(
   },
   (table) => [
     index('events_search_vector_idx').using('gin', table.searchVector),
+  ],
+);
+
+export const eventArtists = pgTable(
+  'event_artists',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    eventId: uuid('event_id')
+      .notNull()
+      .references(() => events.id),
+    artistId: uuid('artist_id')
+      .notNull()
+      .references(() => artists.id),
+  },
+  (table) => [
+    unique('event_artists_event_id_artist_id_unique').on(
+      table.eventId,
+      table.artistId,
+    ),
   ],
 );
 
