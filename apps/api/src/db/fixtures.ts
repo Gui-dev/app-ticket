@@ -81,7 +81,7 @@ export const venueFixtures: VenueFixture[] = [
 
 export const artistFixtures: ArtistFixture[] = [
   { slug: 'andrew-lloyd-webber', name: 'Andrew Lloyd Webber' },
-  { slug: 'comédiantes-afiados', name: 'Comediantes Afiados' },
+  { slug: 'comediantes-afiados', name: 'Comediantes Afiados' },
 ];
 
 export const eventArtistFixtures: EventArtistFixture[] = [
@@ -91,11 +91,11 @@ export const eventArtistFixtures: EventArtistFixture[] = [
   },
   {
     eventSlug: 'standup-noite-de-verdades',
-    artistSlug: 'comédiantes-afiados',
+    artistSlug: 'comediantes-afiados',
   },
   {
     eventSlug: 'melhor-de-standup-grand-finale',
-    artistSlug: 'comédiantes-afiados',
+    artistSlug: 'comediantes-afiados',
   },
 ];
 

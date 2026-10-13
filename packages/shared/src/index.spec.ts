@@ -317,7 +317,7 @@ describe('artistDetailResponseSchema', () => {
   it('wraps the artist', () => {
     const payload = {
       artist: {
-        slug: 'comédiantes-afiados',
+        slug: 'comediantes-afiados',
         name: 'Comediantes Afiados',
         events: [],
       },

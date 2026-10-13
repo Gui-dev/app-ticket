@@ -121,7 +121,7 @@ describe('artistDetailResponseSchema', () => {
   it('wraps the artist', () => {
     const payload = {
       artist: {
-        slug: 'comédiantes-afiados',
+        slug: 'comediantes-afiados',
         name: 'Comediantes Afiados',
         events: [],
       },
@@ -275,7 +275,7 @@ describe('seedFixtures (postgres integration)', () => {
     const artistRows = await testDb.select().from(artists);
     expect(artistRows.map((row) => row.slug).sort()).toEqual([
       'andrew-lloyd-webber',
-      'comédiantes-afiados',
+      'comediantes-afiados',
     ]);
 
     const linkRows = await testDb
@@ -289,8 +289,8 @@ describe('seedFixtures (postgres integration)', () => {
     const links = linkRows.map((row) => `${row.artistSlug}:${row.eventSlug}`);
     expect(links.sort()).toEqual([
       'andrew-lloyd-webber:o-fantasma-da-opera',
-      'comédiantes-afiados:melhor-de-standup-grand-finale',
-      'comédiantes-afiados:standup-noite-de-verdades',
+      'comediantes-afiados:melhor-de-standup-grand-finale',
+      'comediantes-afiados:standup-noite-de-verdades',
     ]);
   });
 });
@@ -361,7 +361,7 @@ E os arrays (após `venueFixtures`):
 ```ts
 export const artistFixtures: ArtistFixture[] = [
   { slug: 'andrew-lloyd-webber', name: 'Andrew Lloyd Webber' },
-  { slug: 'comédiantes-afiados', name: 'Comediantes Afiados' },
+  { slug: 'comediantes-afiados', name: 'Comediantes Afiados' },
 ];
 
 export const eventArtistFixtures: EventArtistFixture[] = [
@@ -371,11 +371,11 @@ export const eventArtistFixtures: EventArtistFixture[] = [
   },
   {
     eventSlug: 'standup-noite-de-verdades',
-    artistSlug: 'comédiantes-afiados',
+    artistSlug: 'comediantes-afiados',
   },
   {
     eventSlug: 'melhor-de-standup-grand-finale',
-    artistSlug: 'comédiantes-afiados',
+    artistSlug: 'comediantes-afiados',
   },
 ];
 ```
@@ -674,7 +674,7 @@ const stubEvents: EventDetailEntity[] = [
     featured: false,
     isHot: false,
     sectors: [],
-    artists: [{ slug: 'comédiantes-afiados', name: 'Comediantes Afiados' }],
+    artists: [{ slug: 'comediantes-afiados', name: 'Comediantes Afiados' }],
   },
   {
     id: '22222222-2222-4222-8222-222222222222',
@@ -694,7 +694,7 @@ const stubEvents: EventDetailEntity[] = [
     featured: false,
     isHot: false,
     sectors: [],
-    artists: [{ slug: 'comédiantes-afiados', name: 'Comediantes Afiados' }],
+    artists: [{ slug: 'comediantes-afiados', name: 'Comediantes Afiados' }],
   },
 ];
 
@@ -705,12 +705,12 @@ describe('GET /artists/:slug', () => {
     });
     const response = await app.inject({
       method: 'GET',
-      url: '/artists/comédiantes-afiados',
+      url: '/artists/comediantes-afiados',
     });
 
     expect(response.statusCode).toBe(200);
     const body = artistDetailResponseSchema.parse(response.json());
-    expect(body.artist.slug).toBe('comédiantes-afiados');
+    expect(body.artist.slug).toBe('comediantes-afiados');
     expect(body.artist.name).toBe('Comediantes Afiados');
     expect(body.artist.events.map((event) => event.slug)).toEqual([
       'standup-noite-de-verdades',
@@ -1340,7 +1340,7 @@ describe('GET /artists/:slug (postgres integration)', () => {
   it('returns the seeded artist with their events in date order', async () => {
     const response = await app.inject({
       method: 'GET',
-      url: '/artists/comédiantes-afiados',
+      url: '/artists/comediantes-afiados',
     });
 
     expect(response.statusCode).toBe(200);
@@ -2204,6 +2204,6 @@ git commit -m "test(web): cover artist and venue navigation e2e"
 
 ## Riscos conhecidos
 
-1. **Slug com acento** (`comédiantes-afiados`): URL e Fastify decodificam via `encodeURIComponent`; E2E cobre o fluxo ASCII do artista do Fantasma. Se houver problema de encoding no navegador, trocar o fixture para `comediantes-afiados` (sem acento) em `fixtures.ts` — decisão do implementer, documentar no commit se mudar.
+1. **Slug com acento** (`comediantes-afiados`): URL e Fastify decodificam via `encodeURIComponent`; E2E cobre o fluxo ASCII do artista do Fantasma. Se houver problema de encoding no navegador, trocar o fixture para `comediantes-afiados` (sem acento) em `fixtures.ts` — decisão do implementer, documentar no commit se mudar.
 2. **Propagação do `venue.slug` obrigatório** (Task 3) quebra fixtures em 3 pacotes de uma vez — é intencional; fazer Step 1 completo antes de implementar.
 3. **`db:generate` pode ordenar FKs de forma inesperada** — revisar o SQL gerado (0003) antes de commitar; nunca editar migração já aplicada.

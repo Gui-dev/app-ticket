@@ -32,7 +32,7 @@ describe('seedFixtures (postgres integration)', () => {
     const artistRows = await testDb.select().from(artists);
     expect(artistRows.map((row) => row.slug).sort()).toEqual([
       'andrew-lloyd-webber',
-      'comédiantes-afiados',
+      'comediantes-afiados',
     ]);
 
     const linkRows = await testDb
@@ -49,8 +49,8 @@ describe('seedFixtures (postgres integration)', () => {
     const links = linkRows.map((row) => `${row.artistSlug}:${row.eventSlug}`);
     expect(links.sort()).toEqual([
       'andrew-lloyd-webber:o-fantasma-da-opera',
-      'comédiantes-afiados:melhor-de-standup-grand-finale',
-      'comédiantes-afiados:standup-noite-de-verdades',
+      'comediantes-afiados:melhor-de-standup-grand-finale',
+      'comediantes-afiados:standup-noite-de-verdades',
     ]);
   });
 });
