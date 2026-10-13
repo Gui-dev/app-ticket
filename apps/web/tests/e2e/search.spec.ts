@@ -59,9 +59,7 @@ test('limpar filtros volta para a home', async ({ page }) => {
   );
 });
 
-test('suggestion panel opens and navigating to an event works', async ({
-  page,
-}) => {
+test('abre o painel de sugestões e navega para um evento', async ({ page }) => {
   await page.goto('/');
 
   const input = page.getByRole('combobox', { name: 'Buscar eventos' });
@@ -78,42 +76,38 @@ test('suggestion panel opens and navigating to an event works', async ({
   );
 });
 
-test('pressing Enter with no highlighted suggestion shows results', async ({
-  page,
-}) => {
+test('Enter sem sugestão destacada mostra os resultados', async ({ page }) => {
   await page.goto('/');
 
   const input = page.getByRole('combobox', { name: 'Buscar eventos' });
   await input.fill('cyberpunk');
+  await expect(
+    page.getByRole('listbox').getByRole('option').first(),
+  ).toBeVisible();
   await input.press('Enter');
 
   await page.waitForURL((url) => url.searchParams.get('q') === 'cyberpunk');
-  await expect(page).toHaveURL(/\?q=cyberpunk/);
 });
 
-test('selecting a location suggestion filters the results by city', async ({
-  page,
-}) => {
+test('selecionar sugestão de local filtra por cidade', async ({ page }) => {
   await page.goto('/');
 
   const input = page.getByRole('combobox', { name: 'Buscar eventos' });
   await input.fill('rio');
 
-  const listbox = page.getByRole('listbox');
-  await expect(listbox).toBeVisible();
-
-  const localsGroup = listbox.getByRole('group', { name: 'Locais' });
+  const localsGroup = page
+    .getByRole('listbox')
+    .getByRole('group', { name: 'Locais' });
   await expect(localsGroup).toBeVisible();
-  await localsGroup.getByRole('option').first().click();
+  await localsGroup.getByRole('option', { name: /Rio de Janeiro/ }).click();
 
   await page.waitForURL(
     (url) => url.searchParams.get('q') === 'Rio de Janeiro',
   );
-  await expect(page).toHaveURL(/\?q=Rio\+de\+Janeiro/);
   await expect(page.locator('article')).toHaveCount(2);
 });
 
-test('Escape closes the panel and keeps the typed text', async ({ page }) => {
+test('Escape fecha o painel e mantém o texto digitado', async ({ page }) => {
   await page.goto('/');
 
   const input = page.getByRole('combobox', { name: 'Buscar eventos' });
