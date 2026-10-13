@@ -18,7 +18,12 @@ const validEventFixture = {
   title: 'Rock Night',
   description: 'A night of rock music.',
   category: { slug: 'music', name: 'Music' },
-  venue: { name: 'Audio Club', city: 'São Paulo', state: 'SP' },
+  venue: {
+    slug: 'audio-club',
+    name: 'Audio Club',
+    city: 'São Paulo',
+    state: 'SP',
+  },
   startsAt: '2026-10-22T23:00:00Z',
   priceFromCents: 8000,
   imageUrl: 'https://example.com/image.jpg',
@@ -33,6 +38,7 @@ const validEventDetailFixture = {
     { slug: 'plateia', name: 'Plateia', priceFromCents: 12000 },
     { slug: 'camarote', name: 'Camarote', priceFromCents: 25000 },
   ],
+  artists: [{ slug: 'andrew-lloyd-webber', name: 'Andrew Lloyd Webber' }],
 };
 
 const server = setupServer(

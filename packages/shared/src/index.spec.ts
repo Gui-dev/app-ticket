@@ -35,7 +35,12 @@ const validEvent = {
   title: 'Rock Night',
   description: 'A night of rock music.',
   category: { slug: 'music', name: 'Music' },
-  venue: { name: 'Audio Club', city: 'São Paulo', state: 'SP' },
+  venue: {
+    slug: 'audio-club',
+    name: 'Audio Club',
+    city: 'São Paulo',
+    state: 'SP',
+  },
   startsAt: '2026-11-10T20:00:00.000Z',
   priceFromCents: 8000,
   imageUrl: 'https://example.com/image.jpg',
@@ -180,12 +185,21 @@ describe('sectorSchema', () => {
 
 describe('eventDetailSchema', () => {
   it('accepts an event with sectors', () => {
-    const detail = { ...validEvent, sectors: [validSector] };
+    const detail = { ...validEvent, sectors: [validSector], artists: [] };
     expect(eventDetailSchema.parse(detail)).toEqual(detail);
   });
 
   it('accepts an event with no sectors', () => {
-    const detail = { ...validEvent, sectors: [] };
+    const detail = { ...validEvent, sectors: [], artists: [] };
+    expect(eventDetailSchema.parse(detail)).toEqual(detail);
+  });
+
+  it('accepts an event with artists', () => {
+    const detail = {
+      ...validEvent,
+      sectors: [],
+      artists: [{ slug: 'banda-exemplo', name: 'Banda Exemplo' }],
+    };
     expect(eventDetailSchema.parse(detail)).toEqual(detail);
   });
 
@@ -194,6 +208,7 @@ describe('eventDetailSchema', () => {
       eventDetailSchema.parse({
         ...validEvent,
         sectors: [{ slug: 'plateia', name: 'Plateia' }],
+        artists: [],
       }),
     ).toThrow();
   });
@@ -201,7 +216,9 @@ describe('eventDetailSchema', () => {
 
 describe('eventDetailResponseSchema', () => {
   it('accepts a wrapped event detail payload', () => {
-    const payload = { event: { ...validEvent, sectors: [validSector] } };
+    const payload = {
+      event: { ...validEvent, sectors: [validSector], artists: [] },
+    };
     expect(eventDetailResponseSchema.parse(payload)).toEqual(payload);
   });
 });
@@ -282,7 +299,12 @@ describe('artistDetailSchema', () => {
         title: 'O Fantasma da Ópera',
         description: 'Um musical famoso.',
         category: { slug: 'shows', name: 'Shows' },
-        venue: { name: 'Teatro Renault', city: 'São Paulo', state: 'SP' },
+        venue: {
+          slug: 'teatro-renault',
+          name: 'Teatro Renault',
+          city: 'São Paulo',
+          state: 'SP',
+        },
         startsAt: '2026-10-22T23:00:00.000Z',
         priceFromCents: 12000,
         imageUrl: null,

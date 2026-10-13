@@ -11,6 +11,7 @@ const stubEvents: EventDetailEntity[] = [
     description: 'Musical internacional no palco do Teatro Renault.',
     categorySlug: 'shows',
     categoryName: 'Shows',
+    venueSlug: 'teatro-renault',
     venueName: 'Teatro Renault',
     venueCity: 'São Paulo',
     venueState: 'SP',
@@ -24,6 +25,7 @@ const stubEvents: EventDetailEntity[] = [
       { slug: 'plateia', name: 'Plateia', priceFromCents: 12000 },
       { slug: 'balcao', name: 'Balcão', priceFromCents: 19000 },
     ],
+    artists: [],
   },
   {
     id: '22222222-2222-4222-8222-222222222222',
@@ -32,6 +34,7 @@ const stubEvents: EventDetailEntity[] = [
     description: 'Comédia sem filtro no Espaço Unimed.',
     categorySlug: 'comedy',
     categoryName: 'Comédia',
+    venueSlug: 'espaco-unimed',
     venueName: 'Espaço Unimed',
     venueCity: 'São Paulo',
     venueState: 'SP',
@@ -42,6 +45,7 @@ const stubEvents: EventDetailEntity[] = [
     featured: false,
     isHot: true,
     sectors: [{ slug: 'pista', name: 'Pista', priceFromCents: 9000 }],
+    artists: [],
   },
 ];
 

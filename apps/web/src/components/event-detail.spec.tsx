@@ -13,7 +13,12 @@ const evento: EventDetailDto = {
   title: 'O Fantasma da Ópera',
   description: 'O musical internacional mais famoso do mundo.',
   category: { slug: 'shows', name: 'Shows' },
-  venue: { name: 'Teatro Renault', city: 'São Paulo', state: 'SP' },
+  venue: {
+    slug: 'teatro-renault',
+    name: 'Teatro Renault',
+    city: 'São Paulo',
+    state: 'SP',
+  },
   startsAt: '2026-10-22T23:00:00Z',
   priceFromCents: 12000,
   imageUrl: null,
@@ -22,6 +27,7 @@ const evento: EventDetailDto = {
     { slug: 'plateia', name: 'Plateia', priceFromCents: 12000 },
     { slug: 'balcao', name: 'Balcão', priceFromCents: 19000 },
   ],
+  artists: [],
 };
 
 describe('EventDetail', () => {

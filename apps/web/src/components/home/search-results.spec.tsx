@@ -9,7 +9,12 @@ const event = {
   title: 'Cyberpunk Electronic Festival',
   description: 'Festival techno.',
   category: { slug: 'festivais', name: 'Festivais' },
-  venue: { name: 'Parque Olímpico', city: 'São Paulo', state: 'SP' },
+  venue: {
+    slug: 'parque-olimpico',
+    name: 'Parque Olímpico',
+    city: 'São Paulo',
+    state: 'SP',
+  },
   startsAt: '2026-12-05T17:00:00.000Z',
   priceFromCents: 29000,
   imageUrl: null,

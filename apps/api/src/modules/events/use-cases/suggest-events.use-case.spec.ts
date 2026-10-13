@@ -11,6 +11,7 @@ const stubEvents: EventDetailEntity[] = [
     description: 'Musical no Teatro Renault.',
     categorySlug: 'shows',
     categoryName: 'Shows',
+    venueSlug: 'teatro-renault',
     venueName: 'Teatro Renault',
     venueCity: 'São Paulo',
     venueState: 'SP',
@@ -21,6 +22,7 @@ const stubEvents: EventDetailEntity[] = [
     featured: false,
     isHot: false,
     sectors: [],
+    artists: [],
   },
   {
     id: '22222222-2222-4222-8222-222222222222',
@@ -29,6 +31,7 @@ const stubEvents: EventDetailEntity[] = [
     description: 'Sertanejo no Vivo Rio.',
     categorySlug: 'shows',
     categoryName: 'Shows',
+    venueSlug: 'vivo-rio',
     venueName: 'Vivo Rio',
     venueCity: 'Rio de Janeiro',
     venueState: 'RJ',
@@ -39,6 +42,7 @@ const stubEvents: EventDetailEntity[] = [
     featured: false,
     isHot: false,
     sectors: [],
+    artists: [],
   },
 ];
 

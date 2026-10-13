@@ -9,6 +9,7 @@ export interface EventEntity {
   description: string;
   categorySlug: string;
   categoryName: string;
+  venueSlug: string;
   venueName: string;
   venueCity: string;
   venueState: string;
@@ -20,6 +21,11 @@ export interface EventEntity {
   isHot: boolean;
 }
 
+export interface ArtistRefEntity {
+  slug: string;
+  name: string;
+}
+
 export interface SectorEntity {
   slug: string;
   name: string;
@@ -28,6 +34,7 @@ export interface SectorEntity {
 
 export interface EventDetailEntity extends EventEntity {
   sectors: SectorEntity[];
+  artists: ArtistRefEntity[];
 }
 
 export interface SuggestLocation {

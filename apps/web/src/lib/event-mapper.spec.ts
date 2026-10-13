@@ -9,7 +9,12 @@ const eventoFeatured: EventDto = {
   title: 'Espetáculo Internacional',
   description: 'Uma noite inesquecível no Teatro Renault.',
   category: { slug: 'shows', name: 'Shows' },
-  venue: { name: 'Teatro Renault', city: 'São Paulo', state: 'SP' },
+  venue: {
+    slug: 'teatro-renault',
+    name: 'Teatro Renault',
+    city: 'São Paulo',
+    state: 'SP',
+  },
   startsAt: '2026-10-22T23:00:00Z',
   priceFromCents: 12000,
   imageUrl: null,

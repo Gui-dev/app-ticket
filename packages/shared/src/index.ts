@@ -12,6 +12,7 @@ export const categorySchema = z.object({
 });
 
 export const venueSchema = z.object({
+  slug: z.string().min(1),
   name: z.string().min(1),
   city: z.string().min(1),
   state: z.string().length(2),
@@ -79,8 +80,16 @@ export const sectorSchema = z.object({
 
 export type SectorDto = z.infer<typeof sectorSchema>;
 
+export const artistSchema = z.object({
+  slug: z.string().min(1),
+  name: z.string().min(1),
+});
+
+export type ArtistDto = z.infer<typeof artistSchema>;
+
 export const eventDetailSchema = eventSchema.extend({
   sectors: z.array(sectorSchema),
+  artists: z.array(artistSchema),
 });
 
 export type EventDetailDto = z.infer<typeof eventDetailSchema>;
@@ -122,13 +131,6 @@ export const suggestResponseSchema = z.object({
 });
 
 export type SuggestResponse = z.infer<typeof suggestResponseSchema>;
-
-export const artistSchema = z.object({
-  slug: z.string().min(1),
-  name: z.string().min(1),
-});
-
-export type ArtistDto = z.infer<typeof artistSchema>;
 
 export const artistDetailSchema = artistSchema.extend({
   events: z.array(eventSchema),

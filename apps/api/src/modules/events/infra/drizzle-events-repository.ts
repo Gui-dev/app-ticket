@@ -2,7 +2,14 @@ import type { SearchFilters } from '@ticketvibe/shared';
 import { and, asc, desc, eq, gte, lte, or, type SQL, sql } from 'drizzle-orm';
 
 import type { Db } from '../../../db/client.js';
-import { categories, events, sectors, venues } from '../../../db/schema.js';
+import {
+  artists,
+  categories,
+  eventArtists,
+  events,
+  sectors,
+  venues,
+} from '../../../db/schema.js';
 import type {
   EventDetailEntity,
   EventEntity,
@@ -29,13 +36,14 @@ interface EventRow {
     name: string;
   };
   venues: {
+    slug: string;
     name: string;
     city: string;
     state: string;
   };
 }
 
-const eventSelect = {
+export const eventSelect = {
   events: {
     id: events.id,
     slug: events.slug,
@@ -53,6 +61,7 @@ const eventSelect = {
     name: categories.name,
   },
   venues: {
+    slug: venues.slug,
     name: venues.name,
     city: venues.city,
     state: venues.state,
@@ -90,7 +99,7 @@ function buildConditions(
   return conditions.length > 0 ? and(...conditions) : undefined;
 }
 
-function toEventEntity(row: EventRow): EventEntity {
+export function toEventEntity(row: EventRow): EventEntity {
   return {
     id: row.events.id,
     slug: row.events.slug,
@@ -98,6 +107,7 @@ function toEventEntity(row: EventRow): EventEntity {
     description: row.events.description,
     categorySlug: row.categories.slug,
     categoryName: row.categories.name,
+    venueSlug: row.venues.slug,
     venueName: row.venues.name,
     venueCity: row.venues.city,
     venueState: row.venues.state,
@@ -149,6 +159,13 @@ export class DrizzleEventsRepository implements EventsRepository {
       .where(eq(sectors.eventId, row.events.id))
       .orderBy(asc(sectors.priceFromCents), asc(sectors.slug));
 
+    const artistRows = await this.db
+      .select({ slug: artists.slug, name: artists.name })
+      .from(eventArtists)
+      .innerJoin(artists, eq(eventArtists.artistId, artists.id))
+      .where(eq(eventArtists.eventId, row.events.id))
+      .orderBy(asc(artists.name), asc(artists.slug));
+
     return {
       ...toEventEntity(row),
       sectors: sectorRows.map((sector) => ({
@@ -156,6 +173,7 @@ export class DrizzleEventsRepository implements EventsRepository {
         name: sector.name,
         priceFromCents: sector.priceFromCents,
       })),
+      artists: artistRows,
     };
   }
 

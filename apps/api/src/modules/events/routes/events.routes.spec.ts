@@ -16,6 +16,7 @@ const stubEvents: EventDetailEntity[] = [
     description: 'Show com poucos ingressos restantes',
     categorySlug: 'show',
     categoryName: 'Show',
+    venueSlug: 'arena-central',
     venueName: 'Arena Central',
     venueCity: 'São Paulo',
     venueState: 'SP',
@@ -26,6 +27,7 @@ const stubEvents: EventDetailEntity[] = [
     featured: false,
     isHot: true,
     sectors: [],
+    artists: [],
   },
   {
     id: 'e1b947d9-7be5-4896-bbf2-f433416b18dc',
@@ -34,6 +36,7 @@ const stubEvents: EventDetailEntity[] = [
     description: 'Evento em destaque na home',
     categorySlug: 'teatro',
     categoryName: 'Teatro',
+    venueSlug: 'teatro-municipal',
     venueName: 'Teatro Municipal',
     venueCity: 'Rio de Janeiro',
     venueState: 'RJ',
@@ -44,6 +47,7 @@ const stubEvents: EventDetailEntity[] = [
     featured: true,
     isHot: false,
     sectors: [],
+    artists: [{ slug: 'banda-exemplo', name: 'Banda Exemplo' }],
   },
   {
     id: '37b8aba4-c962-4d58-bbbc-91e97f33abea',
@@ -52,6 +56,7 @@ const stubEvents: EventDetailEntity[] = [
     description: 'Evento sem selo especial',
     categorySlug: 'festival',
     categoryName: 'Festival',
+    venueSlug: 'parque-central',
     venueName: 'Parque Central',
     venueCity: 'Belo Horizonte',
     venueState: 'MG',
@@ -65,6 +70,7 @@ const stubEvents: EventDetailEntity[] = [
       { slug: 'pista', name: 'Pista', priceFromCents: 15000 },
       { slug: 'camarote', name: 'Camarote', priceFromCents: 21000 },
     ],
+    artists: [],
   },
 ];
 

@@ -11,6 +11,7 @@ const stubEvents: EventDetailEntity[] = [
     description: 'Show de sertanejo às margens do Rio.',
     categorySlug: 'shows',
     categoryName: 'Shows',
+    venueSlug: 'vivo-rio',
     venueName: 'Vivo Rio',
     venueCity: 'Rio de Janeiro',
     venueState: 'RJ',
@@ -21,6 +22,7 @@ const stubEvents: EventDetailEntity[] = [
     featured: false,
     isHot: false,
     sectors: [],
+    artists: [],
   },
   {
     id: '11111111-1111-4111-8111-111111111111',
@@ -29,6 +31,7 @@ const stubEvents: EventDetailEntity[] = [
     description: 'Musical internacional no palco do Teatro Renault.',
     categorySlug: 'shows',
     categoryName: 'Shows',
+    venueSlug: 'teatro-renault',
     venueName: 'Teatro Renault',
     venueCity: 'São Paulo',
     venueState: 'SP',
@@ -39,6 +42,7 @@ const stubEvents: EventDetailEntity[] = [
     featured: true,
     isHot: true,
     sectors: [],
+    artists: [],
   },
   {
     id: '22222222-2222-4222-8222-222222222222',
@@ -47,6 +51,7 @@ const stubEvents: EventDetailEntity[] = [
     description: 'Comédia sem filtro no Espaço Unimed.',
     categorySlug: 'comedy',
     categoryName: 'Comédia',
+    venueSlug: 'espaco-unimed',
     venueName: 'Espaço Unimed',
     venueCity: 'São Paulo',
     venueState: 'SP',
@@ -57,6 +62,7 @@ const stubEvents: EventDetailEntity[] = [
     featured: false,
     isHot: true,
     sectors: [],
+    artists: [],
   },
 ];
 
@@ -144,6 +150,7 @@ describe('ListEventsUseCase', () => {
         description: 'Segundo evento com a mesma data de início.',
         categorySlug: 'shows',
         categoryName: 'Shows',
+        venueSlug: 'teatro-renault',
         venueName: 'Teatro Renault',
         venueCity: 'São Paulo',
         venueState: 'SP',
@@ -154,6 +161,7 @@ describe('ListEventsUseCase', () => {
         featured: true,
         isHot: true,
         sectors: [],
+        artists: [],
       },
       {
         id: '11111111-1111-4111-8111-111111111111',
@@ -162,6 +170,7 @@ describe('ListEventsUseCase', () => {
         description: 'Primeiro evento com a mesma data de início.',
         categorySlug: 'shows',
         categoryName: 'Shows',
+        venueSlug: 'teatro-renault',
         venueName: 'Teatro Renault',
         venueCity: 'São Paulo',
         venueState: 'SP',
@@ -172,6 +181,7 @@ describe('ListEventsUseCase', () => {
         featured: true,
         isHot: true,
         sectors: [],
+        artists: [],
       },
     ];
 
