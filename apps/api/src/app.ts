@@ -9,12 +9,16 @@ import { registerCategoryRoutes } from './modules/categories/routes/categories.r
 import type { EventsRepository } from './modules/events/domain/events-repository.js';
 import { DrizzleEventsRepository } from './modules/events/infra/drizzle-events-repository.js';
 import { registerEventRoutes } from './modules/events/routes/events.routes.js';
+import type { VenuesRepository } from './modules/venues/domain/venues-repository.js';
+import { DrizzleVenuesRepository } from './modules/venues/infra/drizzle-venues-repository.js';
+import { registerVenueRoutes } from './modules/venues/routes/venues.routes.js';
 
 export function buildApp(
   options: {
     eventsRepository?: EventsRepository;
     categoriesRepository?: CategoriesRepository;
     artistsRepository?: ArtistsRepository;
+    venuesRepository?: VenuesRepository;
   } = {},
 ): FastifyInstance {
   const app = Fastify({ logger: false });
@@ -32,6 +36,8 @@ export function buildApp(
     new DrizzleCategoriesRepository(getDefaultDb());
   const artistsRepository =
     options.artistsRepository ?? new DrizzleArtistsRepository(getDefaultDb());
+  const venuesRepository =
+    options.venuesRepository ?? new DrizzleVenuesRepository(getDefaultDb());
 
   app.addHook('onClose', async () => {
     await defaultDb?.$client.end();
@@ -40,6 +46,7 @@ export function buildApp(
   registerEventRoutes(app, eventsRepository);
   registerCategoryRoutes(app, categoriesRepository);
   registerArtistRoutes(app, artistsRepository);
+  registerVenueRoutes(app, venuesRepository);
 
   app.get('/health', async () => ({ status: 'ok' }));
 
