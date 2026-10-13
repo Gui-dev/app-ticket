@@ -20,7 +20,7 @@ export class DrizzleArtistsRepository implements ArtistsRepository {
 
   async findBySlug(slug: string): Promise<ArtistDetailEntity | null> {
     const [artistRow] = await this.db
-      .select({ slug: artists.slug, name: artists.name })
+      .select({ id: artists.id, slug: artists.slug, name: artists.name })
       .from(artists)
       .where(eq(artists.slug, slug))
       .limit(1);
@@ -33,8 +33,7 @@ export class DrizzleArtistsRepository implements ArtistsRepository {
       .innerJoin(categories, eq(events.categoryId, categories.id))
       .innerJoin(venues, eq(events.venueId, venues.id))
       .innerJoin(eventArtists, eq(eventArtists.eventId, events.id))
-      .innerJoin(artists, eq(eventArtists.artistId, artists.id))
-      .where(eq(artists.slug, slug))
+      .where(eq(eventArtists.artistId, artistRow.id))
       .orderBy(asc(events.startsAt), asc(events.id));
 
     return {

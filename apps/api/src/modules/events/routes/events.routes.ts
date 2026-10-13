@@ -1,37 +1,17 @@
 import {
   type EventDetailDto,
-  type EventDto,
   listEventsQuerySchema,
   suggestQuerySchema,
   suggestResponseSchema,
 } from '@ticketvibe/shared';
 import type { FastifyInstance } from 'fastify';
 
-import type { EventDetailEntity, EventEntity } from '../domain/event-entity.js';
+import type { EventDetailEntity } from '../domain/event-entity.js';
 import type { EventsRepository } from '../domain/events-repository.js';
+import { toEventDto } from '../mappers/event-dto.js';
 import { GetEventDetailUseCase } from '../use-cases/get-event-detail.use-case.js';
 import { ListEventsUseCase } from '../use-cases/list-events.use-case.js';
 import { SuggestEventsUseCase } from '../use-cases/suggest-events.use-case.js';
-
-function toEventDto(entity: EventEntity): EventDto {
-  return {
-    id: entity.id,
-    slug: entity.slug,
-    title: entity.title,
-    description: entity.description,
-    category: { slug: entity.categorySlug, name: entity.categoryName },
-    venue: {
-      slug: entity.venueSlug,
-      name: entity.venueName,
-      city: entity.venueCity,
-      state: entity.venueState,
-    },
-    startsAt: entity.startsAt.toISOString(),
-    priceFromCents: entity.priceFromCents,
-    imageUrl: entity.imageUrl,
-    badgeLabel: entity.badgeLabel,
-  };
-}
 
 function toEventDetailDto(entity: EventDetailEntity): EventDetailDto {
   return {

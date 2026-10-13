@@ -46,6 +46,26 @@ const stubEvents: EventDetailEntity[] = [
     sectors: [],
     artists: [{ slug: 'comediantes-afiados', name: 'Comediantes Afiados' }],
   },
+  {
+    id: '55555555-5555-4555-8555-555555555555',
+    slug: 'o-fantasma-da-opera',
+    title: 'O Fantasma da Ópera',
+    description: 'Um musical.',
+    categorySlug: 'shows',
+    categoryName: 'Shows',
+    venueSlug: 'teatro-renault',
+    venueName: 'Teatro Renault',
+    venueCity: 'São Paulo',
+    venueState: 'SP',
+    startsAt: new Date('2026-10-23T00:00:00.000Z'),
+    priceFromCents: 12000,
+    imageUrl: null,
+    badgeLabel: null,
+    featured: true,
+    isHot: true,
+    sectors: [],
+    artists: [{ slug: 'andrew-lloyd-webber', name: 'Andrew Lloyd Webber' }],
+  },
 ];
 
 describe('GET /artists/:slug', () => {

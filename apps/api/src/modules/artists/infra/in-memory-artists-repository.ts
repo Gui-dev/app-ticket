@@ -12,13 +12,14 @@ export class InMemoryArtistsRepository implements ArtistsRepository {
     if (withArtist.length === 0) {
       return Promise.resolve(null);
     }
-    const name =
-      withArtist[0].artists.find((artist) => artist.slug === slug)?.name ??
-      slug;
+    const artist = withArtist[0].artists.find((entry) => entry.slug === slug);
+    if (!artist) {
+      return Promise.resolve(null);
+    }
     const events = [...withArtist].sort(
       (a, b) =>
         a.startsAt.getTime() - b.startsAt.getTime() || a.id.localeCompare(b.id),
     );
-    return Promise.resolve({ slug, name, events });
+    return Promise.resolve({ slug, name: artist.name, events });
   }
 }
