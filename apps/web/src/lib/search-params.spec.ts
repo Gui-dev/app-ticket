@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  buildSearchPath,
-  filtersFromSearchParams,
-  hasActiveFilters,
-  parseSearchFilters,
-} from './search-params';
+import { hasActiveFilters, parseSearchFilters } from './search-params';
 
 describe('parseSearchFilters', () => {
   it('reads a plain record and trims/normalizes values', () => {
@@ -28,31 +23,9 @@ describe('parseSearchFilters', () => {
   });
 });
 
-describe('filtersFromSearchParams', () => {
-  it('reads from a URLSearchParams', () => {
-    const params = new URLSearchParams('q=show&category=comedy');
-    expect(filtersFromSearchParams(params)).toEqual({
-      q: 'show',
-      category: 'comedy',
-    });
-  });
-});
-
 describe('hasActiveFilters', () => {
   it('is false for empty filters and true when any filter is set', () => {
     expect(hasActiveFilters({})).toBe(false);
     expect(hasActiveFilters({ q: 'x' })).toBe(true);
-  });
-});
-
-describe('buildSearchPath', () => {
-  it('returns / when there are no filters', () => {
-    expect(buildSearchPath({})).toBe('/');
-  });
-
-  it('serializes filters in a stable order', () => {
-    expect(
-      buildSearchPath({ q: 'stand', category: 'comedy', state: 'SP' }),
-    ).toBe('/?q=stand&category=comedy&state=SP');
   });
 });

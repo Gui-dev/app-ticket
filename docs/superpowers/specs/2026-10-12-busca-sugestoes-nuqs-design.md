@@ -202,3 +202,14 @@ digita (≥2 chars) → debounce 250 ms → `GET /api/suggest` (proxy → Fastif
 5. URL não muda enquanto o usuário digita (só no submit/seleção).
 6. Gates do repo verdes: lint · typecheck · shared/api/web unit · E2E · `next build` · sem drift de schema (migração nova só se fallback `city` disparar).
 7. Sem novos inputs além do input de busca existente; sem `biome-ignore`.
+
+## Desvios implementados
+
+1. **Parsers num arquivo irmão** — `lib/search-filters-parsers.ts` em vez de dentro de `lib/search-params.ts`, para não puxar `nuqs` para o bundle de servidor.
+2. **Mecanismo de pending oficial do nuqs** — `startTransition` passado nas opções dos parsers com `shallow: false` (padrão documentado do nuqs v2 para streaming de RSC); `SearchTransitionProvider` compartilha uma única instância via contexto.
+3. **`role="combobox"` no input** — obrigatório pelo Biome (`useAriaPropsSupportedByRole`): `aria-expanded` em `type="search"` sem `role="combobox"` reprova o lint. Seletores E2E/unitários migraram de `searchbox` para `combobox`.
+4. **Ordem dos query params** — nuqs preserva params existentes e anexa novos (não canônica como `buildSearchPath`). Nenhum fluxo depende de ordem.
+5. **Remoção dos helpers manuais** — `buildSearchPath`/`filtersFromSearchParams` removidos (ou `filtersFromSearchParams` mantido apenas no RSC).
+6. **Sem auto-highlight das sugestões** — `activeIndex` inicia em `-1`; Enter sem destaque submete o formulário (fluxo aprovado: "Enter sem destaque → /?q="). Setas/hover destacam.
+7. **FTS sem prefix matching** — `websearch_to_tsquery` casa lexemas inteiros: 'fantasma' retorna resultado, 'fanta' não. E2Es usam termos inteiros. Possível evolução futura: prefixo `:*` ou trigram.
+8. **Painel de sugestões montado quando `open || status==='loading'`** — mostra skeleton já na primeira busca; `aria-expanded` acompanha essa visibilidade.
