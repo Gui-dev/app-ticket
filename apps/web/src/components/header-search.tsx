@@ -1,38 +1,101 @@
 'use client';
 
-import { useRouter, useSearchParams } from 'next/navigation';
-import { type FormEvent, Suspense, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import {
+  type FormEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  Suspense,
+  useEffect,
+  useState,
+} from 'react';
 
+import { SearchSuggestions } from '@/components/search-suggestions';
 import { SearchInput } from '@/components/ui/search-input';
-import { buildSearchPath, filtersFromSearchParams } from '@/lib/search-params';
+import { useSearchFilters } from '@/lib/use-search-filters';
+import {
+  SUGGESTIONS_LISTBOX_ID,
+  type SuggestionItem,
+  useSearchSuggestions,
+} from '@/lib/use-search-suggestions';
 
 function HeaderSearchField() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const filters = filtersFromSearchParams(searchParams);
-  const [value, setValue] = useState(filters.q ?? '');
+  const { filters, setFilters } = useSearchFilters();
+  const [value, setValue] = useState('');
 
   useEffect(() => {
     setValue(filters.q ?? '');
   }, [filters.q]);
 
-  function onSubmit(event: FormEvent<HTMLFormElement>) {
+  const handleSelect = (item: SuggestionItem) => {
+    if (item.kind === 'event') {
+      router.push(`/events/${item.event.slug}`);
+      return;
+    }
+    setFilters({ q: item.location.city });
+    setValue(item.location.city);
+  };
+
+  const suggestions = useSearchSuggestions({ onSelect: handleSelect });
+
+  const panelVisible = suggestions.open || suggestions.status === 'loading';
+
+  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const q = value.trim();
-    router.replace(buildSearchPath({ ...filters, q: q || undefined }));
-  }
+    suggestions.close();
+    const trimmed = value.trim();
+    setFilters({ q: trimmed === '' ? null : trimmed });
+  };
+
+  const onKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (suggestions.handleKeyDown(event)) return;
+  };
 
   return (
     <search className="hidden max-w-md flex-1 md:flex">
-      <form onSubmit={onSubmit} className="contents">
-        <SearchInput
-          type="search"
-          aria-label="Buscar eventos"
-          placeholder="Buscar shows, teatro, comédia, cidade."
-          value={value}
-          onChange={(event) => setValue(event.target.value)}
-        />
-      </form>
+      <div ref={suggestions.rootRef} className="relative w-full max-w-md">
+        <form onSubmit={onSubmit} className="contents">
+          <SearchInput
+            type="search"
+            value={value}
+            onChange={(event) => {
+              setValue(event.target.value);
+              suggestions.setQuery(event.target.value);
+            }}
+            onKeyDown={onKeyDown}
+            onFocus={() => {
+              suggestions.setQuery(value);
+              suggestions.reopen();
+            }}
+            role="combobox"
+            aria-expanded={panelVisible}
+            aria-controls={panelVisible ? SUGGESTIONS_LISTBOX_ID : undefined}
+            aria-activedescendant={suggestions.activeDescendant}
+            aria-autocomplete="list"
+            aria-label="Buscar eventos"
+            placeholder="Buscar shows, teatro, comédia, cidade."
+          />
+        </form>
+        <p aria-live="polite" className="sr-only">
+          {panelVisible ? 'Sugestões de busca disponíveis' : ''}
+        </p>
+        {panelVisible && (
+          <SearchSuggestions
+            open={suggestions.open}
+            status={suggestions.status}
+            items={suggestions.items}
+            activeIndex={suggestions.activeIndex}
+            listboxId={SUGGESTIONS_LISTBOX_ID}
+            query={suggestions.query}
+            highlighted={suggestions.highlighted}
+            onHover={suggestions.setActiveIndex}
+            onSelect={(item) => {
+              suggestions.close();
+              handleSelect(item);
+            }}
+          />
+        )}
+      </div>
     </search>
   );
 }
