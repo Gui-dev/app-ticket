@@ -213,8 +213,14 @@ describe('HeaderSearch', () => {
     const region = document.querySelector('p[aria-live="polite"]');
     expect(region?.textContent).toBe('');
 
-    await openSuggestions(getCombobox());
+    fireEvent.change(getCombobox(), { target: { value: 'fanta' } });
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+    expect(region?.textContent).toBe('');
 
+    await waitFor(
+      () => expect(screen.getAllByRole('option').length).toBeGreaterThan(0),
+      { timeout: 3000 },
+    );
     expect(region?.textContent).toBe('Sugestões de busca disponíveis');
   });
 });

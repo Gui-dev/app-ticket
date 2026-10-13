@@ -1,13 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import {
-  type FormEvent,
-  type KeyboardEvent as ReactKeyboardEvent,
-  Suspense,
-  useEffect,
-  useState,
-} from 'react';
+import { type FormEvent, Suspense, useEffect, useState } from 'react';
 
 import { SearchSuggestions } from '@/components/search-suggestions';
 import { SearchInput } from '@/components/ui/search-input';
@@ -39,16 +33,13 @@ function HeaderSearchField() {
   const suggestions = useSearchSuggestions({ onSelect: handleSelect });
 
   const panelVisible = suggestions.open || suggestions.status === 'loading';
+  const suggestionsReady = suggestions.open && suggestions.status === 'ready';
 
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     suggestions.close();
     const trimmed = value.trim();
     setFilters({ q: trimmed === '' ? null : trimmed });
-  };
-
-  const onKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
-    if (suggestions.handleKeyDown(event)) return;
   };
 
   return (
@@ -62,9 +53,11 @@ function HeaderSearchField() {
               setValue(event.target.value);
               suggestions.setQuery(event.target.value);
             }}
-            onKeyDown={onKeyDown}
+            onKeyDown={suggestions.handleKeyDown}
             onFocus={() => {
-              suggestions.setQuery(value);
+              if (value !== suggestions.query) {
+                suggestions.setQuery(value);
+              }
               suggestions.reopen();
             }}
             role="combobox"
@@ -77,7 +70,7 @@ function HeaderSearchField() {
           />
         </form>
         <p aria-live="polite" className="sr-only">
-          {panelVisible ? 'Sugestões de busca disponíveis' : ''}
+          {suggestionsReady ? 'Sugestões de busca disponíveis' : ''}
         </p>
         {panelVisible && (
           <SearchSuggestions
