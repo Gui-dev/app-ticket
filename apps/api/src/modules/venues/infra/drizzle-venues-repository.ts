@@ -15,6 +15,7 @@ export class DrizzleVenuesRepository implements VenuesRepository {
   async findBySlug(slug: string): Promise<VenueDetailEntity | null> {
     const [venueRow] = await this.db
       .select({
+        id: venues.id,
         slug: venues.slug,
         name: venues.name,
         city: venues.city,
@@ -31,7 +32,7 @@ export class DrizzleVenuesRepository implements VenuesRepository {
       .from(events)
       .innerJoin(categories, eq(events.categoryId, categories.id))
       .innerJoin(venues, eq(events.venueId, venues.id))
-      .where(eq(venues.slug, slug))
+      .where(eq(events.venueId, venueRow.id))
       .orderBy(asc(events.startsAt), asc(events.id));
 
     return {
