@@ -62,6 +62,15 @@ describe('proxy /api/auth/*', () => {
 
   it('encaminha POST com body JSON e propaga set-cookie', async () => {
     let receivedBody: unknown;
+    const setCookieHeaders = new Headers();
+    setCookieHeaders.append(
+      'set-cookie',
+      'better-auth.session_token=abc; Path=/; HttpOnly; SameSite=Lax',
+    );
+    setCookieHeaders.append(
+      'set-cookie',
+      'better-auth.session_cache=xyz; Path=/',
+    );
     server.use(
       http.post(
         'http://localhost:3001/api/auth/sign-in/email',
@@ -69,12 +78,7 @@ describe('proxy /api/auth/*', () => {
           receivedBody = await info.request.json();
           return HttpResponse.json(
             { token: 'tok', user: { email: 'maria@test.dev' } },
-            {
-              headers: {
-                'set-cookie':
-                  'better-auth.session_token=abc; Path=/; HttpOnly; SameSite=Lax',
-              },
-            },
+            { headers: setCookieHeaders },
           );
         },
       ),
@@ -94,9 +98,10 @@ describe('proxy /api/auth/*', () => {
       email: 'maria@test.dev',
       password: 'x',
     });
-    expect(res.headers.getSetCookie().join(' ')).toContain(
-      'better-auth.session_token=abc',
-    );
+    const cookies = res.headers.getSetCookie();
+    expect(cookies).toHaveLength(2);
+    expect(cookies.join(' ')).toContain('better-auth.session_token=abc');
+    expect(cookies.join(' ')).toContain('better-auth.session_cache=xyz');
   });
 
   it('devolve 502 quando o upstream está fora', async () => {
@@ -106,6 +111,7 @@ describe('proxy /api/auth/*', () => {
     );
 
     expect(res.status).toBe(502);
+    expect(await res.json()).toEqual({ error: 'upstream_error' });
   });
 
   it('DELETE também é suportado (sign-out)', async () => {

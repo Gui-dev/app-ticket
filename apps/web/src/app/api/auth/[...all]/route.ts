@@ -17,6 +17,7 @@ async function proxy(request: Request, all: string[]): Promise<Response> {
       headers,
       cache: 'no-store',
       redirect: 'manual',
+      signal: AbortSignal.timeout(3000),
       ...(hasBody ? { body: await request.text() } : {}),
     });
   } catch (error) {
@@ -26,14 +27,16 @@ async function proxy(request: Request, all: string[]): Promise<Response> {
 
   const responseHeaders = new Headers(upstream.headers);
   responseHeaders.delete('content-length');
+  const setCookies = upstream.headers.getSetCookie();
+  responseHeaders.delete('set-cookie');
+  for (const cookie of setCookies) {
+    responseHeaders.append('set-cookie', cookie);
+  }
 
   const response = new Response(upstream.body, {
     status: upstream.status,
     headers: responseHeaders,
   });
-  for (const cookie of upstream.headers.getSetCookie()) {
-    response.headers.append('set-cookie', cookie);
-  }
   return response;
 }
 
