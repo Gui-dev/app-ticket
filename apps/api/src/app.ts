@@ -3,6 +3,9 @@ import { createDb, type Db } from './db/client.js';
 import type { ArtistsRepository } from './modules/artists/domain/artists-repository.js';
 import { DrizzleArtistsRepository } from './modules/artists/infra/drizzle-artists-repository.js';
 import { registerArtistRoutes } from './modules/artists/routes/artists.routes.js';
+import { createAuth } from './modules/auth/auth.js';
+import { sendEmail } from './modules/auth/email.js';
+import { registerAuthRoutes } from './modules/auth/routes/auth.routes.js';
 import type { CategoriesRepository } from './modules/categories/domain/categories-repository.js';
 import { DrizzleCategoriesRepository } from './modules/categories/infra/drizzle-categories-repository.js';
 import { registerCategoryRoutes } from './modules/categories/routes/categories.routes.js';
@@ -19,6 +22,7 @@ export function buildApp(
     categoriesRepository?: CategoriesRepository;
     artistsRepository?: ArtistsRepository;
     venuesRepository?: VenuesRepository;
+    auth?: ReturnType<typeof createAuth>;
   } = {},
 ): FastifyInstance {
   const app = Fastify({ logger: false });
@@ -47,6 +51,10 @@ export function buildApp(
   registerCategoryRoutes(app, categoriesRepository);
   registerArtistRoutes(app, artistsRepository);
   registerVenueRoutes(app, venuesRepository);
+
+  const authInstance =
+    options.auth ?? createAuth(getDefaultDb(), { sendEmail });
+  registerAuthRoutes(app, authInstance);
 
   app.get('/health', async () => ({ status: 'ok' }));
 

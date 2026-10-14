@@ -1,0 +1,48 @@
+import { betterAuth } from 'better-auth';
+import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+
+import type { Db } from '../../db/client.js';
+import * as schema from '../../db/schema.js';
+import type { SendEmailFn } from './email.js';
+
+export type { SendEmailInput } from './email.js';
+
+const DEFAULT_WEB_URL = 'http://localhost:3000';
+
+function webUrl(): string {
+  return process.env.BETTER_AUTH_URL ?? DEFAULT_WEB_URL;
+}
+
+export function createAuth(db: Db, deps: { sendEmail: SendEmailFn }) {
+  return betterAuth({
+    database: drizzleAdapter(db, {
+      provider: 'pg',
+      schema,
+    }),
+    baseURL: webUrl(),
+    emailAndPassword: {
+      enabled: true,
+      requireEmailVerification: true,
+      minPasswordLength: 8,
+      sendResetPassword: async ({ user, token }) => {
+        const url = `${webUrl()}/redefinir-senha?token=${encodeURIComponent(token)}`;
+        await deps.sendEmail({
+          to: user.email,
+          subject: 'Recupere sua senha do TICKETVIBE',
+          text: `Olá ${user.name}, redefina sua senha acessando: ${url}`,
+        });
+      },
+    },
+    emailVerification: {
+      sendVerificationEmail: async ({ user, url }) => {
+        await deps.sendEmail({
+          to: user.email,
+          subject: 'Confirme seu e-mail do TICKETVIBE',
+          text: `Olá ${user.name}, confirme seu e-mail acessando: ${url}`,
+        });
+      },
+    },
+  });
+}
+
+export type AuthInstance = ReturnType<typeof createAuth>;
