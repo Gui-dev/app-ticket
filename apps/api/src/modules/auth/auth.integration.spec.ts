@@ -203,6 +203,28 @@ describe('POST /api/auth/sign-in/email', () => {
     const sessionBody = session.json() as { user?: { email: string } };
     expect(sessionBody.user?.email).toBe('maria@test.dev');
   });
+
+  it('aceita sign-in com Origin 127.0.0.1 (trustedOrigins)', async () => {
+    const email = 'origin127@test.dev';
+    await app.inject({
+      method: 'POST',
+      url: '/api/auth/sign-up/email',
+      payload: { name: 'Origin Test', email, password: 'senha-segura-1' },
+    });
+    const parsed = new URL(extractUrl(sentEmails[0].text));
+    await app.inject({
+      method: 'GET',
+      url: `${parsed.pathname}${parsed.search}`,
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/auth/sign-in/email',
+      headers: { origin: 'http://127.0.0.1:3000' },
+      payload: { email, password: 'senha-segura-1' },
+    });
+    expect(res.statusCode).toBe(200);
+  });
 });
 
 describe('recuperação de senha', () => {

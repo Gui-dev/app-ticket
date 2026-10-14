@@ -20,6 +20,8 @@ export function createAuth(db: Db, deps: { sendEmail: SendEmailFn }) {
       schema,
     }),
     baseURL: webUrl(),
+    trustedOrigins: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+    advanced: { disableOriginCheck: false },
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: true,
