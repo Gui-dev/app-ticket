@@ -31,17 +31,22 @@ function LoginForm() {
     setPending(true);
     setError(null);
     const form = new FormData(event.currentTarget);
-    const { error: authError } = await authClient.signIn.email({
-      email: String(form.get('email') ?? ''),
-      password: String(form.get('password') ?? ''),
-    });
-    setPending(false);
-    if (authError) {
-      setError(formatAuthError(authError.code));
-      return;
+    try {
+      const { error: authError } = await authClient.signIn.email({
+        email: String(form.get('email') ?? ''),
+        password: String(form.get('password') ?? ''),
+      });
+      if (authError) {
+        setError(formatAuthError(authError.code));
+        return;
+      }
+      router.push('/');
+      router.refresh();
+    } catch {
+      setError(formatAuthError(undefined));
+    } finally {
+      setPending(false);
     }
-    router.push('/');
-    router.refresh();
   }
 
   return (

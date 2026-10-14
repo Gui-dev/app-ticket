@@ -107,4 +107,18 @@ describe('LoginForm', () => {
       'E-mail ainda não confirmado. Verifique sua caixa de entrada.',
     );
   });
+
+  it('mostra mensagem genérica quando a rede falha', async () => {
+    server.use(
+      http.post(/\/api\/auth\/sign-in\/email$/, () => HttpResponse.error()),
+    );
+
+    render(<LoginForm />);
+    fillAndSubmit('maria@test.dev', 'senha-segura-1');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Não foi possível continuar. Tente novamente.',
+    );
+    expect(push).not.toHaveBeenCalled();
+  });
 });
