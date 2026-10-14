@@ -204,3 +204,96 @@ describe('POST /api/auth/sign-in/email', () => {
     expect(sessionBody.user?.email).toBe('maria@test.dev');
   });
 });
+
+describe('recuperação de senha', () => {
+  async function signUpAndVerify(email: string) {
+    await app.inject({
+      method: 'POST',
+      url: '/api/auth/sign-up/email',
+      payload: { name: 'Maria Silva', email, password: 'senha-segura-1' },
+    });
+    const parsed = new URL(extractUrl(sentEmails[0].text));
+    await app.inject({
+      method: 'GET',
+      url: `${parsed.pathname}${parsed.search}`,
+    });
+  }
+
+  it('esqueci → e-mail com token → redefino → login só com a senha nova', async () => {
+    const email = 'reset@test.dev';
+    await signUpAndVerify(email);
+
+    const forgot = await app.inject({
+      method: 'POST',
+      url: '/api/auth/request-password-reset',
+      payload: { email },
+    });
+    expect(forgot.statusCode).toBe(200);
+
+    const resetEmail = sentEmails.at(-1);
+    expect(resetEmail?.subject).toContain('Recupere sua senha');
+    expect(resetEmail?.text).toContain('/redefinir-senha?token=');
+    const token = new URL(extractUrl(resetEmail?.text ?? '')).searchParams.get(
+      'token',
+    );
+    expect(token).toBeTruthy();
+
+    const reset = await app.inject({
+      method: 'POST',
+      url: '/api/auth/reset-password',
+      payload: { token, newPassword: 'senha-nova-456' },
+    });
+    expect(reset.statusCode).toBe(200);
+
+    const oldLogin = await app.inject({
+      method: 'POST',
+      url: '/api/auth/sign-in/email',
+      payload: { email, password: 'senha-segura-1' },
+    });
+    expect(oldLogin.statusCode).toBe(401);
+
+    const newLogin = await app.inject({
+      method: 'POST',
+      url: '/api/auth/sign-in/email',
+      payload: { email, password: 'senha-nova-456' },
+    });
+    expect(newLogin.statusCode).toBe(200);
+  });
+
+  it('token de reset é de uso único', async () => {
+    const email = 'reset2@test.dev';
+    await signUpAndVerify(email);
+
+    await app.inject({
+      method: 'POST',
+      url: '/api/auth/request-password-reset',
+      payload: { email },
+    });
+    const token = new URL(
+      extractUrl(sentEmails.at(-1)?.text ?? ''),
+    ).searchParams.get('token');
+
+    const first = await app.inject({
+      method: 'POST',
+      url: '/api/auth/reset-password',
+      payload: { token, newPassword: 'senha-nova-456' },
+    });
+    expect(first.statusCode).toBe(200);
+
+    const reuse = await app.inject({
+      method: 'POST',
+      url: '/api/auth/reset-password',
+      payload: { token, newPassword: 'outra-senha-789' },
+    });
+    expect(reuse.statusCode).toBe(400);
+  });
+
+  it('esqueci com e-mail inexistente responde 200 (anti-enumeration)', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/auth/request-password-reset',
+      payload: { email: 'ninguem@test.dev' },
+    });
+    expect(res.statusCode).toBe(200);
+  });
+});
