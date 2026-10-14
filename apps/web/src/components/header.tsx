@@ -1,4 +1,5 @@
-import { ChevronDown, Heart, MapPin, Ticket, User } from 'lucide-react';
+import { ChevronDown, Heart, MapPin, Ticket } from 'lucide-react';
+import { AuthMenu } from './auth-menu';
 import { HeaderSearch } from './header-search';
 import { Button } from './ui/button';
 
@@ -41,10 +42,7 @@ function Header({ location = 'São Paulo, SP' }: HeaderProps) {
           <Button variant="outline" size="icon" aria-label="Favoritos">
             <Heart className="size-5" />
           </Button>
-          <Button variant="default">
-            <User className="size-4" aria-hidden="true" />
-            Entrar
-          </Button>
+          <AuthMenu />
         </div>
       </div>
     </header>
