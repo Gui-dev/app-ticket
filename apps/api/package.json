@@ -12,12 +12,15 @@
   },
   "dependencies": {
     "@ticketvibe/shared": "workspace:*",
+    "better-auth": "^1.7.7",
     "drizzle-orm": "^0.45.4",
     "fastify": "^5.12.5",
+    "nodemailer": "^10.1.0",
     "pg": "^8.23.1"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",
+    "@types/nodemailer": "^8.0.2",
     "@types/pg": "^8.23.1",
     "drizzle-kit": "^0.31.11",
     "tsx": "^4.23.15",
