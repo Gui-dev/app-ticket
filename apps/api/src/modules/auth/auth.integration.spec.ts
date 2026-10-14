@@ -207,16 +207,18 @@ describe('POST /api/auth/sign-in/email', () => {
 
 describe('recuperação de senha', () => {
   async function signUpAndVerify(email: string) {
-    await app.inject({
+    const signUp = await app.inject({
       method: 'POST',
       url: '/api/auth/sign-up/email',
       payload: { name: 'Maria Silva', email, password: 'senha-segura-1' },
     });
+    expect(signUp.statusCode).toBe(200);
     const parsed = new URL(extractUrl(sentEmails[0].text));
-    await app.inject({
+    const verify = await app.inject({
       method: 'GET',
       url: `${parsed.pathname}${parsed.search}`,
     });
+    expect([300, 302]).toContain(verify.statusCode);
   }
 
   it('esqueci → e-mail com token → redefino → login só com a senha nova', async () => {
@@ -295,5 +297,6 @@ describe('recuperação de senha', () => {
       payload: { email: 'ninguem@test.dev' },
     });
     expect(res.statusCode).toBe(200);
+    expect(sentEmails).toHaveLength(0);
   });
 });
