@@ -37,6 +37,21 @@ timeout 10 pnpm --filter @ticketvibe/worker dev
 Esperado: `[worker] listening for heartbeat jobs` e `[worker] job processed: N` (exit `124` do `timeout`).
 Com o Redis fora o worker fica em loop de reconexão e não processa (nem sai) — suba a infra antes.
 
+### Autenticação local (e-mail e senha)
+
+1. `pnpm infra:up` — sobe Postgres, Redis e Mailpit (SMTP `:1025`, interface `:8025`).
+2. Crie a conta em <http://localhost:3000/cadastro>.
+3. Abra o **Mailpit** em <http://localhost:8025> — os e-mails de **confirmação de cadastro** e de **recuperação de senha** chegam lá (em produção seria o SMTP real; localmente o container `ticketvibe-mailpit` recebe tudo).
+4. Após confirmar o e-mail pelo link da mensagem, entre em <http://localhost:3000/entrar>.
+
+Variáveis opcionais (defaults valem para o ambiente local):
+
+| Variável | Padrão | Uso |
+|---|---|---|
+| `BETTER_AUTH_URL` | `http://localhost:3000` | origem dos links nos e-mails |
+| `SMTP_HOST` / `SMTP_PORT` | `127.0.0.1` / `1025` | servidor de e-mail (Mailpit) |
+| `BETTER_AUTH_SECRET` | valor de dev do Better Auth | em produção é obrigatório |
+
 ## Scripts (raiz)
 
 | Script | O que faz |
