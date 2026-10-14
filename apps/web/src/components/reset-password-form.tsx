@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { type FormEvent, useState } from 'react';
 
 import { authClient } from '@/lib/auth-client';
-import { formatAuthError } from './login-form';
+import { formatAuthError } from '@/lib/auth-errors';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 

@@ -5,21 +5,9 @@ import { useRouter } from 'next/navigation';
 import { type FormEvent, useState } from 'react';
 
 import { authClient } from '@/lib/auth-client';
+import { formatAuthError } from '@/lib/auth-errors';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-
-export function formatAuthError(code: string | null | undefined): string {
-  switch (code) {
-    case 'EMAIL_NOT_VERIFIED':
-      return 'E-mail ainda não confirmado. Verifique sua caixa de entrada.';
-    case 'INVALID_EMAIL_OR_PASSWORD':
-      return 'E-mail ou senha inválidos.';
-    case 'PASSWORD_TOO_SHORT':
-      return 'A senha deve ter pelo menos 8 caracteres.';
-    default:
-      return 'Não foi possível continuar. Tente novamente.';
-  }
-}
 
 function LoginForm() {
   const router = useRouter();

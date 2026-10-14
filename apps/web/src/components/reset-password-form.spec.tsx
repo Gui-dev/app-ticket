@@ -83,7 +83,7 @@ describe('ResetPasswordForm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Salvar nova senha' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Não foi possível continuar. Tente novamente.',
+      'Link expirado ou inválido. Solicite um novo.',
     );
   });
 });
