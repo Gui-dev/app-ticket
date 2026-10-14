@@ -40,7 +40,7 @@ export function registerAuthRoutes(
         }
         return reply.send(response.body ? await response.text() : null);
       } catch (error) {
-        request.log.error(error);
+        console.error('Auth route failed:', error);
         return reply.status(500).send({ error: 'auth_upstream_error' });
       }
     },

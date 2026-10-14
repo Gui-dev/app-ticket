@@ -68,6 +68,8 @@ describe('POST /api/auth/sign-up/email', () => {
     expect(res.statusCode).toBe(200);
     const body = res.json() as { user: { email: string } };
     expect(body.user.email).toBe('maria@test.dev');
+    expect((body as { token?: unknown }).token ?? null).toBeNull();
+    expect(res.headers['set-cookie']).toBeUndefined();
 
     const created = await findUserByEmail('maria@test.dev');
     expect(created?.emailVerified).toBe(false);
@@ -188,10 +190,8 @@ describe('POST /api/auth/sign-in/email', () => {
       ? rawSetCookie.join('; ')
       : String(rawSetCookie);
     expect(setCookie).toContain('better-auth.session_token');
-    const cookieHeader = setCookie
-      .split(',')
-      .map((part) => part.split(';')[0])
-      .filter((part) => part.includes('='))
+    const cookieHeader = login.cookies
+      .map((cookie) => `${cookie.name}=${cookie.value}`)
       .join('; ');
 
     const session = await app.inject({
