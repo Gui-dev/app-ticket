@@ -8,7 +8,11 @@ import {
   migrateTestDatabase,
   resetDatabase,
 } from '../../db/test-helpers.js';
-import { createAuth, type SendEmailInput } from './auth.js';
+import {
+  createAuth,
+  DEV_GOOGLE_CLIENT_ID,
+  type SendEmailInput,
+} from './auth.js';
 
 let app: Awaited<ReturnType<typeof buildApp>>;
 let testDb: Db;
@@ -320,5 +324,49 @@ describe('recuperação de senha', () => {
     });
     expect(res.statusCode).toBe(200);
     expect(sentEmails).toHaveLength(0);
+  });
+});
+
+describe('POST /api/auth/sign-in/social (Google)', () => {
+  it('devolve 200 com Location para o authorize do Google e cookie de state', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/auth/sign-in/social',
+      payload: { provider: 'google', callbackURL: '/' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { url: string; redirect: boolean };
+    expect(body.redirect).toBe(true);
+
+    const authorizeUrl = new URL(body.url);
+    expect(authorizeUrl.origin).toBe('https://accounts.google.com');
+    expect(authorizeUrl.pathname).toBe('/o/oauth2/v2/auth');
+    expect(authorizeUrl.searchParams.get('response_type')).toBe('code');
+    expect(authorizeUrl.searchParams.get('client_id')).toBe(
+      DEV_GOOGLE_CLIENT_ID,
+    );
+    expect(authorizeUrl.searchParams.get('redirect_uri')).toBe(
+      'http://localhost:3000/api/auth/callback/google',
+    );
+    expect(authorizeUrl.searchParams.get('scope')).toContain('email');
+    expect(authorizeUrl.searchParams.get('state')).toBeTruthy();
+    expect(res.headers.location).toBe(body.url);
+
+    const stateCookie = res.cookies.find(
+      (cookie) => cookie.name === 'better-auth.state',
+    );
+    expect(stateCookie).toBeDefined();
+    expect(stateCookie?.httpOnly).toBe(true);
+  });
+
+  it('devolve 404 PROVIDER_NOT_FOUND para provider desconhecido', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/auth/sign-in/social',
+      payload: { provider: 'não-existe', callbackURL: '/' },
+    });
+
+    expect(res.statusCode).toBe(404);
   });
 });

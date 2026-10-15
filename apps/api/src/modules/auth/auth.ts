@@ -7,6 +7,9 @@ import type { SendEmailFn } from './email.js';
 
 export type { SendEmailInput } from './email.js';
 
+export const DEV_GOOGLE_CLIENT_ID = 'ticketvibe-dev-client';
+export const DEV_GOOGLE_CLIENT_SECRET = 'ticketvibe-dev-secret';
+
 const DEFAULT_WEB_URL = 'http://localhost:3000';
 
 function webUrl(): string {
@@ -22,6 +25,13 @@ export function createAuth(db: Db, deps: { sendEmail: SendEmailFn }) {
     baseURL: webUrl(),
     trustedOrigins: ['http://localhost:3000', 'http://127.0.0.1:3000'],
     advanced: { disableOriginCheck: false },
+    socialProviders: {
+      google: {
+        clientId: process.env.GOOGLE_CLIENT_ID ?? DEV_GOOGLE_CLIENT_ID,
+        clientSecret:
+          process.env.GOOGLE_CLIENT_SECRET ?? DEV_GOOGLE_CLIENT_SECRET,
+      },
+    },
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: true,
