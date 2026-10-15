@@ -106,9 +106,26 @@ function EventDetail({ event }: EventDetailProps) {
                 <span className="font-medium text-foreground">
                   {sector.name}
                 </span>
-                <span className="font-bold text-primary">
-                  {formatBRL(sector.priceFromCents)}
-                </span>
+                <div className="flex items-center gap-3 text-sm">
+                  {sector.seatsAvailable !== null && (
+                    <span
+                      className={
+                        sector.seatsAvailable === 0
+                          ? 'font-medium text-destructive'
+                          : 'text-muted-foreground'
+                      }
+                    >
+                      {sector.seatsAvailable === 0
+                        ? 'Esgotado'
+                        : sector.seatsAvailable === 1
+                          ? '1 lugar disponível'
+                          : `${sector.seatsAvailable} lugares disponíveis`}
+                    </span>
+                  )}
+                  <span className="font-bold text-primary">
+                    {formatBRL(sector.priceFromCents)}
+                  </span>
+                </div>
               </li>
             ))}
           </ul>

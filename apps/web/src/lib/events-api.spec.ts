@@ -35,8 +35,18 @@ const validEventDetailFixture = {
   slug: 'o-fantasma-da-opera',
   title: 'O Fantasma da Ópera',
   sectors: [
-    { slug: 'plateia', name: 'Plateia', priceFromCents: 12000 },
-    { slug: 'camarote', name: 'Camarote', priceFromCents: 25000 },
+    {
+      slug: 'plateia',
+      name: 'Plateia',
+      priceFromCents: 12000,
+      seatsAvailable: 91,
+    },
+    {
+      slug: 'camarote',
+      name: 'Camarote',
+      priceFromCents: 25000,
+      seatsAvailable: null,
+    },
   ],
   artists: [{ slug: 'andrew-lloyd-webber', name: 'Andrew Lloyd Webber' }],
 };

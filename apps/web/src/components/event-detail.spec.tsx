@@ -24,8 +24,18 @@ const evento: EventDetailDto = {
   imageUrl: null,
   badgeLabel: 'Espetáculo Internacional',
   sectors: [
-    { slug: 'plateia', name: 'Plateia', priceFromCents: 12000 },
-    { slug: 'balcao', name: 'Balcão', priceFromCents: 19000 },
+    {
+      slug: 'plateia',
+      name: 'Plateia',
+      priceFromCents: 12000,
+      seatsAvailable: 91,
+    },
+    {
+      slug: 'balcao',
+      name: 'Balcão',
+      priceFromCents: 19000,
+      seatsAvailable: null,
+    },
   ],
   artists: [{ slug: 'andrew-lloyd-webber', name: 'Andrew Lloyd Webber' }],
 };
@@ -65,6 +75,32 @@ describe('EventDetail', () => {
       screen.getByText('Setores em divulgação em breve.'),
     ).toBeInTheDocument();
     expect(screen.queryByRole('list')).not.toBeInTheDocument();
+  });
+
+  test('shows published seat availability per sector', () => {
+    render(<EventDetail event={evento} />);
+
+    expect(screen.getByText('91 lugares disponíveis')).toBeInTheDocument();
+  });
+
+  test('marks a sector as esgotado when no seats are left', () => {
+    render(
+      <EventDetail
+        event={{
+          ...evento,
+          sectors: [
+            {
+              slug: 'plateia',
+              name: 'Plateia',
+              priceFromCents: 12000,
+              seatsAvailable: 0,
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByText('Esgotado')).toBeInTheDocument();
   });
 
   test('links the venue name to the venue page', () => {
