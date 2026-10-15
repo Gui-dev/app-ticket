@@ -11,7 +11,7 @@ import {
 } from 'vitest';
 import { buildApp } from '../../app.js';
 import { createDb, type Db, TEST_DATABASE_URL } from '../../db/client.js';
-import { user } from '../../db/schema.js';
+import { account, user } from '../../db/schema.js';
 import {
   ensureTestDatabase,
   migrateTestDatabase,
@@ -464,6 +464,13 @@ describe('callback do Google (simulado)', () => {
     expect(created).toBeDefined();
     expect(created?.emailVerified).toBe(true);
     expect(created?.name).toBe('Usuário Google');
+
+    const accounts = await testDb
+      .select()
+      .from(account)
+      .where(eq(account.accountId, 'sub-google-1'));
+    expect(accounts).toHaveLength(1);
+    expect(accounts[0]?.providerId).toBe('google');
   });
 
   it('segundo login reutiliza a mesma conta (mesmo sub)', async () => {
@@ -475,6 +482,7 @@ describe('callback do Google (simulado)', () => {
     const second = await startGoogleSignIn();
     const callback = await hitCallback(second.state, second.cookieHeader);
     expect(callback.statusCode).toBe(302);
+    expect(callback.headers.location).toBe('/');
 
     const rows = await testDb
       .select()
@@ -505,6 +513,16 @@ describe('callback do Google (simulado)', () => {
     const rows = await testDb.select().from(user).where(eq(user.email, email));
     expect(rows).toHaveLength(1);
     expect(rows[0]?.emailVerified).toBe(true);
+
+    expect(callback.headers.location).toBe('/');
+
+    const accounts = await testDb
+      .select()
+      .from(account)
+      .where(eq(account.providerId, 'google'));
+    expect(accounts).toHaveLength(1);
+    expect(accounts[0]?.accountId).toBe('sub-google-2');
+    expect(accounts[0]?.userId).toBe(rows[0]?.id);
   });
 
   it('devolve redirect de erro quando o token exchange falha', async () => {
