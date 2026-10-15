@@ -1,5 +1,14 @@
 import { eq } from 'drizzle-orm';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 import { buildApp } from '../../app.js';
 import { createDb, type Db, TEST_DATABASE_URL } from '../../db/client.js';
 import { user } from '../../db/schema.js';
@@ -34,6 +43,39 @@ function extractUrl(text: string): string {
 async function findUserByEmail(email: string) {
   const rows = await testDb.select().from(user).where(eq(user.email, email));
   return rows[0];
+}
+
+function fakeIdToken(payload: Record<string, unknown>): string {
+  const encode = (value: unknown) =>
+    Buffer.from(JSON.stringify(value)).toString('base64url');
+  return `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode(payload)}.fake-signature`;
+}
+
+function stubGoogleTokenEndpoint(sub: string, email: string) {
+  const realFetch = globalThis.fetch;
+  vi.stubGlobal(
+    'fetch',
+    async (input: string | URL | Request, init?: RequestInit) => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.includes('oauth2.googleapis.com/token')) {
+        return new Response(
+          JSON.stringify({
+            access_token: 'ya29-fake-access-token',
+            refresh_token: 'fake-refresh-token',
+            id_token: fakeIdToken({
+              sub,
+              email,
+              email_verified: true,
+              name: 'Usuário Google',
+            }),
+            expires_in: 3600,
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      return realFetch(input, init);
+    },
+  );
 }
 
 beforeAll(async () => {
@@ -368,5 +410,124 @@ describe('POST /api/auth/sign-in/social (Google)', () => {
     });
 
     expect(res.statusCode).toBe(404);
+  });
+});
+
+describe('callback do Google (simulado)', () => {
+  async function startGoogleSignIn() {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/auth/sign-in/social',
+      payload: { provider: 'google', callbackURL: '/' },
+    });
+    expect(res.statusCode).toBe(200);
+    const { url } = res.json() as { url: string };
+    const state = new URL(url).searchParams.get('state');
+    expect(state).toBeTruthy();
+    const stateCookie = res.cookies.find(
+      (cookie) => cookie.name === 'better-auth.state',
+    );
+    expect(stateCookie).toBeDefined();
+    return {
+      state: state as string,
+      cookieHeader: `${stateCookie?.name}=${stateCookie?.value}`,
+    };
+  }
+
+  async function hitCallback(state: string, cookieHeader: string) {
+    return app.inject({
+      method: 'GET',
+      url: `/api/auth/callback/google?code=fake-code&state=${encodeURIComponent(state)}`,
+      headers: { cookie: cookieHeader },
+    });
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('primeiro callback cria usuário verificado, conta google e sessão', async () => {
+    stubGoogleTokenEndpoint('sub-google-1', 'ana.google@test.dev');
+    const { state, cookieHeader } = await startGoogleSignIn();
+
+    const callback = await hitCallback(state, cookieHeader);
+
+    expect(callback.statusCode).toBe(302);
+    expect(callback.headers.location).toBe('/');
+
+    const sessionCookie = callback.cookies.find(
+      (cookie) => cookie.name === 'better-auth.session_token',
+    );
+    expect(sessionCookie).toBeDefined();
+
+    const created = await findUserByEmail('ana.google@test.dev');
+    expect(created).toBeDefined();
+    expect(created?.emailVerified).toBe(true);
+    expect(created?.name).toBe('Usuário Google');
+  });
+
+  it('segundo login reutiliza a mesma conta (mesmo sub)', async () => {
+    stubGoogleTokenEndpoint('sub-google-1', 'ana.google@test.dev');
+
+    const first = await startGoogleSignIn();
+    await hitCallback(first.state, first.cookieHeader);
+
+    const second = await startGoogleSignIn();
+    const callback = await hitCallback(second.state, second.cookieHeader);
+    expect(callback.statusCode).toBe(302);
+
+    const rows = await testDb
+      .select()
+      .from(user)
+      .where(eq(user.email, 'ana.google@test.dev'));
+    expect(rows).toHaveLength(1);
+  });
+
+  it('converge com conta de e-mail existente de mesmo e-mail', async () => {
+    const email = 'convergente@test.dev';
+
+    await app.inject({
+      method: 'POST',
+      url: '/api/auth/sign-up/email',
+      payload: { name: 'Maria Silva', email, password: 'senha-segura-1' },
+    });
+    const parsed = new URL(extractUrl(sentEmails[0].text));
+    await app.inject({
+      method: 'GET',
+      url: `${parsed.pathname}${parsed.search}`,
+    });
+
+    stubGoogleTokenEndpoint('sub-google-2', email);
+    const { state, cookieHeader } = await startGoogleSignIn();
+    const callback = await hitCallback(state, cookieHeader);
+    expect(callback.statusCode).toBe(302);
+
+    const rows = await testDb.select().from(user).where(eq(user.email, email));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.emailVerified).toBe(true);
+  });
+
+  it('devolve redirect de erro quando o token exchange falha', async () => {
+    const realFetch = globalThis.fetch;
+    vi.stubGlobal(
+      'fetch',
+      async (input: string | URL | Request, init?: RequestInit) => {
+        const url = input instanceof Request ? input.url : String(input);
+        if (url.includes('oauth2.googleapis.com/token')) {
+          return new Response(JSON.stringify({ error: 'invalid_grant' }), {
+            status: 400,
+            headers: { 'content-type': 'application/json' },
+          });
+        }
+        return realFetch(input, init);
+      },
+    );
+
+    const { state, cookieHeader } = await startGoogleSignIn();
+    const callback = await hitCallback(state, cookieHeader);
+
+    expect(callback.statusCode).toBe(302);
+    expect(callback.headers.location).toContain('/api/auth/error');
+    expect(await findUserByEmail('nunca-criado@test.dev')).toBeUndefined();
   });
 });
