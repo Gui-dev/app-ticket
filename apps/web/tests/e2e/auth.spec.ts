@@ -30,7 +30,7 @@ test('cadastro, confirmação de e-mail via Mailpit, login, persistência e logo
   await page.goto(`${WEB}/entrar`);
   await page.getByLabel('E-mail').fill(email);
   await page.getByLabel('Senha').fill(password);
-  await page.getByRole('button', { name: 'Entrar' }).click();
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click();
 
   await page.waitForURL(`${WEB}/`);
   const headerName = page.getByRole('banner').getByText('Comprador E2E');

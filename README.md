@@ -52,6 +52,23 @@ Variáveis opcionais (defaults valem para o ambiente local):
 | `SMTP_HOST` / `SMTP_PORT` | `127.0.0.1` / `1025` | servidor de e-mail (Mailpit) |
 | `BETTER_AUTH_SECRET` | valor de dev do Better Auth | em produção é obrigatório |
 
+#### Login com Google
+
+O botão "Entrar com Google" usa Better Auth + provider social. Sem credenciais reais, o
+redirect é montado com placeholders de dev (`ticketvibe-dev-client`) e o Google rejeita no
+consentimento — suficiente para E2E e testes.
+
+Para usar contas Google de verdade:
+
+1. Crie um projeto em <https://console.cloud.google.com/apis/credentials> → OAuth client ID (tipo "Web application").
+2. Em "Authorized redirect URIs", adicione `http://localhost:3000/api/auth/callback/google`.
+3. Exporte as variáveis antes de subir a API:
+
+| Variável | Default | Uso |
+| --- | --- | --- |
+| `GOOGLE_CLIENT_ID` | `ticketvibe-dev-client` | client ID do OAuth (Google Cloud Console) |
+| `GOOGLE_CLIENT_SECRET` | `ticketvibe-dev-secret` | client secret correspondente |
+
 ## Scripts (raiz)
 
 | Script | O que faz |
