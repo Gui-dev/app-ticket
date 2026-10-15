@@ -77,7 +77,7 @@ function LoginForm() {
         Entrar com Google
       </Button>
       <div className="relative text-center text-sm text-muted-foreground">
-        <span className="relative z-10 bg-card px-2">ou com e-mail</span>
+        <span className="relative z-10 bg-background px-2">ou com e-mail</span>
         <div
           className="absolute inset-x-0 top-1/2 h-px bg-border"
           aria-hidden="true"
