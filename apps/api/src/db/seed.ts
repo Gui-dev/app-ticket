@@ -5,7 +5,9 @@ const db = createDb();
 
 try {
   await seedFixtures(db);
-  console.log('Seed completed: 7 categories, 5 venues, 12 events, 24 sectors.');
+  console.log(
+    'Seed completed: 7 categories, 5 venues, 12 events, 24 sectors, 69 seat rows, 800 seats.',
+  );
 } catch (error) {
   console.error('Seed failed:', error);
   process.exitCode = 1;

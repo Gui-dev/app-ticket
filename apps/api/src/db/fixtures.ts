@@ -416,3 +416,119 @@ export const sectorFixtures: SectorFixture[] = [
     priceFromCents: 52000,
   },
 ];
+
+export interface SeatMapFixture {
+  eventSlug: string;
+  sectorSlug: string;
+  rows: number;
+  seatsPerRow: number;
+  marks?: { seat: string; status: 'occupied' | 'unavailable' }[];
+}
+
+export const seatMapFixtures: SeatMapFixture[] = [
+  {
+    eventSlug: 'o-fantasma-da-opera',
+    sectorSlug: 'plateia',
+    rows: 8,
+    seatsPerRow: 12,
+    marks: [
+      { seat: 'B-7', status: 'occupied' },
+      { seat: 'C-4', status: 'occupied' },
+      { seat: 'C-5', status: 'occupied' },
+      { seat: 'D-10', status: 'occupied' },
+      { seat: 'H-12', status: 'unavailable' },
+    ],
+  },
+  {
+    eventSlug: 'o-fantasma-da-opera',
+    sectorSlug: 'balcao',
+    rows: 4,
+    seatsPerRow: 10,
+    marks: [{ seat: 'A-5', status: 'occupied' }],
+  },
+  {
+    eventSlug: 'derby-capital',
+    sectorSlug: 'arquibancada',
+    rows: 10,
+    seatsPerRow: 20,
+    marks: [
+      { seat: 'A-10', status: 'occupied' },
+      { seat: 'A-11', status: 'occupied' },
+      { seat: 'B-1', status: 'occupied' },
+      { seat: 'J-20', status: 'unavailable' },
+    ],
+  },
+  {
+    eventSlug: 'derby-capital',
+    sectorSlug: 'camarote',
+    rows: 3,
+    seatsPerRow: 8,
+  },
+  {
+    eventSlug: 'corpo-em-movimento',
+    sectorSlug: 'plateia',
+    rows: 6,
+    seatsPerRow: 12,
+  },
+  {
+    eventSlug: 'corpo-em-movimento',
+    sectorSlug: 'mezanino',
+    rows: 4,
+    seatsPerRow: 10,
+  },
+  {
+    eventSlug: 'standup-noite-de-verdades',
+    sectorSlug: 'camarote',
+    rows: 3,
+    seatsPerRow: 8,
+  },
+  {
+    eventSlug: 'pequeno-principe-musical',
+    sectorSlug: 'plateia',
+    rows: 6,
+    seatsPerRow: 12,
+  },
+  {
+    eventSlug: 'pequeno-principe-musical',
+    sectorSlug: 'camarote',
+    rows: 3,
+    seatsPerRow: 8,
+  },
+  {
+    eventSlug: 'neon-lights-world-tour',
+    sectorSlug: 'camarote',
+    rows: 3,
+    seatsPerRow: 8,
+    marks: [{ seat: 'B-4', status: 'occupied' }],
+  },
+  {
+    eventSlug: 'sertaneja-rio',
+    sectorSlug: 'camarote',
+    rows: 3,
+    seatsPerRow: 8,
+  },
+  {
+    eventSlug: 'melhor-de-standup-grand-finale',
+    sectorSlug: 'camarote',
+    rows: 3,
+    seatsPerRow: 8,
+  },
+  {
+    eventSlug: 'a-hora-e-a-vez',
+    sectorSlug: 'plateia',
+    rows: 6,
+    seatsPerRow: 12,
+  },
+  {
+    eventSlug: 'a-hora-e-a-vez',
+    sectorSlug: 'balcao',
+    rows: 4,
+    seatsPerRow: 10,
+  },
+  {
+    eventSlug: 'festival-de-verao',
+    sectorSlug: 'camarote',
+    rows: 3,
+    seatsPerRow: 8,
+  },
+];

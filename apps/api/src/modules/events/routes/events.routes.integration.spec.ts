@@ -408,6 +408,12 @@ describe('GET /events/suggest (integration)', () => {
 
   it('suggests locations only for venues that still have events', async () => {
     await testDb.execute(
+      sql`DELETE FROM seats WHERE row_id IN (SELECT id FROM seat_rows WHERE sector_id IN (SELECT id FROM sectors WHERE event_id IN (SELECT id FROM events WHERE venue_id = (SELECT id FROM venues WHERE name = 'Vivo Rio'))))`,
+    );
+    await testDb.execute(
+      sql`DELETE FROM seat_rows WHERE sector_id IN (SELECT id FROM sectors WHERE event_id IN (SELECT id FROM events WHERE venue_id = (SELECT id FROM venues WHERE name = 'Vivo Rio')))`,
+    );
+    await testDb.execute(
       sql`DELETE FROM sectors WHERE event_id IN (SELECT id FROM events WHERE venue_id = (SELECT id FROM venues WHERE name = 'Vivo Rio'))`,
     );
     await testDb.execute(

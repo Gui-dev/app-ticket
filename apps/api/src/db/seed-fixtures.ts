@@ -6,6 +6,7 @@ import {
   categoryFixtures,
   eventArtistFixtures,
   eventFixtures,
+  seatMapFixtures,
   sectorFixtures,
   venueFixtures,
 } from './fixtures.js';
@@ -14,12 +15,16 @@ import {
   categories,
   eventArtists,
   events,
+  seatRows,
+  seats,
   sectors,
   venues,
 } from './schema.js';
 
 export async function seedFixtures(db: Db): Promise<void> {
   await db.transaction(async (tx) => {
+    await tx.delete(seats);
+    await tx.delete(seatRows);
     await tx.delete(sectors);
     await tx.delete(eventArtists);
     await tx.delete(events);
@@ -104,6 +109,65 @@ export async function seedFixtures(db: Db): Promise<void> {
         priceFromCents: fixture.priceFromCents,
       };
     });
-    await tx.insert(sectors).values(sectorValues);
+    const insertedSectors = await tx
+      .insert(sectors)
+      .values(sectorValues)
+      .returning();
+    const sectorIds = new Map(
+      insertedSectors.map((row) => [`${row.eventId}:${row.slug}`, row.id]),
+    );
+
+    for (const fixture of seatMapFixtures) {
+      const eventId = eventIds.get(fixture.eventSlug);
+      const sectorId = eventId
+        ? sectorIds.get(`${eventId}:${fixture.sectorSlug}`)
+        : undefined;
+      if (!sectorId) {
+        throw new Error(
+          `Missing sector for seat map "${fixture.eventSlug}"→"${fixture.sectorSlug}"`,
+        );
+      }
+      for (const mark of fixture.marks ?? []) {
+        const [rowLabel = '', seatNumber = ''] = mark.seat.split('-');
+        const rowIndex = rowLabel.charCodeAt(0) - 65;
+        const number = Number(seatNumber);
+        if (
+          rowIndex < 0 ||
+          rowIndex >= fixture.rows ||
+          number < 1 ||
+          number > fixture.seatsPerRow
+        ) {
+          throw new Error(
+            `Invalid seat mark "${mark.seat}" for "${fixture.eventSlug}"→"${fixture.sectorSlug}"`,
+          );
+        }
+      }
+      const marks = new Map(
+        (fixture.marks ?? []).map((mark) => [mark.seat, mark.status]),
+      );
+      const insertedRows = await tx
+        .insert(seatRows)
+        .values(
+          Array.from({ length: fixture.rows }, (_, index) => ({
+            sectorId,
+            label: String.fromCharCode(65 + index),
+            position: index,
+          })),
+        )
+        .returning();
+      const seatValues = insertedRows.flatMap((row) =>
+        Array.from({ length: fixture.seatsPerRow }, (_, index) => {
+          const label = String(index + 1);
+          return {
+            rowId: row.id,
+            label,
+            position: index,
+            status:
+              marks.get(`${row.label}-${label}`) ?? ('available' as const),
+          };
+        }),
+      );
+      await tx.insert(seats).values(seatValues);
+    }
   });
 }

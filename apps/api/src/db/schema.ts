@@ -100,6 +100,42 @@ export const sectors = pgTable(
   ],
 );
 
+export const seatRows = pgTable(
+  'seat_rows',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    sectorId: uuid('sector_id')
+      .notNull()
+      .references(() => sectors.id),
+    label: text('label').notNull(),
+    position: integer('position').notNull(),
+  },
+  (table) => [
+    unique('seat_rows_sector_id_label_unique').on(table.sectorId, table.label),
+    index('seat_rows_sector_id_idx').on(table.sectorId),
+  ],
+);
+
+export const seats = pgTable(
+  'seats',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    rowId: uuid('row_id')
+      .notNull()
+      .references(() => seatRows.id),
+    label: text('label').notNull(),
+    position: integer('position').notNull(),
+    status: text('status')
+      .$type<'available' | 'occupied' | 'unavailable'>()
+      .notNull()
+      .default('available'),
+  },
+  (table) => [
+    unique('seats_row_id_label_unique').on(table.rowId, table.label),
+    index('seats_row_id_idx').on(table.rowId),
+  ],
+);
+
 export const user = pgTable('user', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
