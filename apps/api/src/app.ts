@@ -12,6 +12,11 @@ import { registerCategoryRoutes } from './modules/categories/routes/categories.r
 import type { EventsRepository } from './modules/events/domain/events-repository.js';
 import { DrizzleEventsRepository } from './modules/events/infra/drizzle-events-repository.js';
 import { registerEventRoutes } from './modules/events/routes/events.routes.js';
+import type { SeatmapRepository } from './modules/seatmaps/domain/seatmap-repository.js';
+import { DrizzleSeatmapRepository } from './modules/seatmaps/infra/drizzle-seatmap-repository.js';
+import { registerSeatmapRoutes } from './modules/seatmaps/routes/seatmap.routes.js';
+import { FindBestSeatUseCase } from './modules/seatmaps/use-cases/find-best-seat.use-case.js';
+import { GetSeatmapUseCase } from './modules/seatmaps/use-cases/get-seatmap.use-case.js';
 import type { VenuesRepository } from './modules/venues/domain/venues-repository.js';
 import { DrizzleVenuesRepository } from './modules/venues/infra/drizzle-venues-repository.js';
 import { registerVenueRoutes } from './modules/venues/routes/venues.routes.js';
@@ -22,6 +27,7 @@ export function buildApp(
     categoriesRepository?: CategoriesRepository;
     artistsRepository?: ArtistsRepository;
     venuesRepository?: VenuesRepository;
+    seatmapRepository?: SeatmapRepository;
     auth?: ReturnType<typeof createAuth>;
   } = {},
 ): FastifyInstance {
@@ -42,6 +48,8 @@ export function buildApp(
     options.artistsRepository ?? new DrizzleArtistsRepository(getDefaultDb());
   const venuesRepository =
     options.venuesRepository ?? new DrizzleVenuesRepository(getDefaultDb());
+  const seatmapRepository =
+    options.seatmapRepository ?? new DrizzleSeatmapRepository(getDefaultDb());
 
   app.addHook('onClose', async () => {
     await defaultDb?.$client.end();
@@ -51,6 +59,10 @@ export function buildApp(
   registerCategoryRoutes(app, categoriesRepository);
   registerArtistRoutes(app, artistsRepository);
   registerVenueRoutes(app, venuesRepository);
+  registerSeatmapRoutes(app, {
+    getSeatmap: new GetSeatmapUseCase(seatmapRepository),
+    findBestSeat: new FindBestSeatUseCase(seatmapRepository),
+  });
 
   const authInstance =
     options.auth ?? createAuth(getDefaultDb(), { sendEmail });
