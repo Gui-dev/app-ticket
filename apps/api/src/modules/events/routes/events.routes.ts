@@ -20,6 +20,7 @@ function toEventDetailDto(entity: EventDetailEntity): EventDetailDto {
       slug: sector.slug,
       name: sector.name,
       priceFromCents: sector.priceFromCents,
+      seatsAvailable: sector.seatsAvailable,
     })),
     artists: entity.artists.map((artist) => ({
       slug: artist.slug,

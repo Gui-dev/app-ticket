@@ -67,8 +67,18 @@ const stubEvents: EventDetailEntity[] = [
     featured: false,
     isHot: false,
     sectors: [
-      { slug: 'pista', name: 'Pista', priceFromCents: 15000 },
-      { slug: 'camarote', name: 'Camarote', priceFromCents: 21000 },
+      {
+        slug: 'pista',
+        name: 'Pista',
+        priceFromCents: 15000,
+        seatsAvailable: null,
+      },
+      {
+        slug: 'camarote',
+        name: 'Camarote',
+        priceFromCents: 21000,
+        seatsAvailable: 10,
+      },
     ],
     artists: [],
   },
@@ -232,8 +242,18 @@ describe('GET /events/:slug', () => {
     const body = eventDetailResponseSchema.parse(response.json());
     expect(body.event.slug).toBe('comum');
     expect(body.event.sectors).toEqual([
-      { slug: 'pista', name: 'Pista', priceFromCents: 15000 },
-      { slug: 'camarote', name: 'Camarote', priceFromCents: 21000 },
+      {
+        slug: 'pista',
+        name: 'Pista',
+        priceFromCents: 15000,
+        seatsAvailable: null,
+      },
+      {
+        slug: 'camarote',
+        name: 'Camarote',
+        priceFromCents: 21000,
+        seatsAvailable: 10,
+      },
     ]);
   });
 

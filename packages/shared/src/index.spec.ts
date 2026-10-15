@@ -168,7 +168,12 @@ describe('listEventsResponseSchema', () => {
   });
 });
 
-const validSector = { slug: 'plateia', name: 'Plateia', priceFromCents: 12000 };
+const validSector = {
+  slug: 'plateia',
+  name: 'Plateia',
+  priceFromCents: 12000,
+  seatsAvailable: 91,
+};
 
 describe('sectorSchema', () => {
   it('accepts a valid sector', () => {
@@ -183,6 +188,19 @@ describe('sectorSchema', () => {
 
   it('rejects an empty name', () => {
     expect(() => sectorSchema.parse({ ...validSector, name: '' })).toThrow();
+  });
+
+  it('accepts a null seatsAvailable for sectors without a seat map', () => {
+    expect(
+      sectorSchema.parse({ ...validSector, seatsAvailable: null })
+        .seatsAvailable,
+    ).toBeNull();
+  });
+
+  it('rejects a negative seatsAvailable', () => {
+    expect(() =>
+      sectorSchema.parse({ ...validSector, seatsAvailable: -1 }),
+    ).toThrow();
   });
 });
 

@@ -22,8 +22,18 @@ const stubEvents: EventDetailEntity[] = [
     featured: true,
     isHot: true,
     sectors: [
-      { slug: 'plateia', name: 'Plateia', priceFromCents: 12000 },
-      { slug: 'balcao', name: 'Balcão', priceFromCents: 19000 },
+      {
+        slug: 'plateia',
+        name: 'Plateia',
+        priceFromCents: 12000,
+        seatsAvailable: 91,
+      },
+      {
+        slug: 'balcao',
+        name: 'Balcão',
+        priceFromCents: 19000,
+        seatsAvailable: 39,
+      },
     ],
     artists: [],
   },
@@ -44,7 +54,14 @@ const stubEvents: EventDetailEntity[] = [
     badgeLabel: null,
     featured: false,
     isHot: true,
-    sectors: [{ slug: 'pista', name: 'Pista', priceFromCents: 9000 }],
+    sectors: [
+      {
+        slug: 'pista',
+        name: 'Pista',
+        priceFromCents: 9000,
+        seatsAvailable: null,
+      },
+    ],
     artists: [],
   },
 ];
@@ -76,8 +93,18 @@ describe('GetEventDetailUseCase', () => {
       {
         ...stubEvents[0],
         sectors: [
-          { slug: 'balcao', name: 'Balcão', priceFromCents: 19000 },
-          { slug: 'plateia', name: 'Plateia', priceFromCents: 12000 },
+          {
+            slug: 'balcao',
+            name: 'Balcão',
+            priceFromCents: 19000,
+            seatsAvailable: 39,
+          },
+          {
+            slug: 'plateia',
+            name: 'Plateia',
+            priceFromCents: 12000,
+            seatsAvailable: 91,
+          },
         ],
       },
     ];
@@ -95,8 +122,18 @@ describe('GetEventDetailUseCase', () => {
       {
         ...stubEvents[0],
         sectors: [
-          { slug: 'zona-b', name: 'Zona B', priceFromCents: 15000 },
-          { slug: 'zona-a', name: 'Zona A', priceFromCents: 15000 },
+          {
+            slug: 'zona-b',
+            name: 'Zona B',
+            priceFromCents: 15000,
+            seatsAvailable: null,
+          },
+          {
+            slug: 'zona-a',
+            name: 'Zona A',
+            priceFromCents: 15000,
+            seatsAvailable: null,
+          },
         ],
       },
     ];

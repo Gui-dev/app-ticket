@@ -30,6 +30,7 @@ export interface SectorEntity {
   slug: string;
   name: string;
   priceFromCents: number;
+  seatsAvailable: number | null;
 }
 
 export interface EventDetailEntity extends EventEntity {

@@ -76,6 +76,7 @@ export const sectorSchema = z.object({
   slug: z.string().min(1),
   name: z.string().min(1),
   priceFromCents: z.number().int().min(0),
+  seatsAvailable: z.number().int().min(0).nullable(),
 });
 
 export type SectorDto = z.infer<typeof sectorSchema>;

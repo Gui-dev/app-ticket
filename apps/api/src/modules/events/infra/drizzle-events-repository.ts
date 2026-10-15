@@ -7,6 +7,8 @@ import {
   categories,
   eventArtists,
   events,
+  seatRows,
+  seats,
   sectors,
   venues,
 } from '../../../db/schema.js';
@@ -154,9 +156,14 @@ export class DrizzleEventsRepository implements EventsRepository {
         slug: sectors.slug,
         name: sectors.name,
         priceFromCents: sectors.priceFromCents,
+        availableCount: sql<number>`(count(${seats.id}) filter (where ${seats.status} = 'available'))::int`,
+        totalCount: sql<number>`count(${seats.id})::int`,
       })
       .from(sectors)
+      .leftJoin(seatRows, eq(seatRows.sectorId, sectors.id))
+      .leftJoin(seats, eq(seats.rowId, seatRows.id))
       .where(eq(sectors.eventId, row.events.id))
+      .groupBy(sectors.id, sectors.slug, sectors.name, sectors.priceFromCents)
       .orderBy(asc(sectors.priceFromCents), asc(sectors.slug));
 
     const artistRows = await this.db
@@ -172,6 +179,7 @@ export class DrizzleEventsRepository implements EventsRepository {
         slug: sector.slug,
         name: sector.name,
         priceFromCents: sector.priceFromCents,
+        seatsAvailable: sector.totalCount === 0 ? null : sector.availableCount,
       })),
       artists: artistRows,
     };

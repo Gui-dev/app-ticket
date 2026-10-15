@@ -318,14 +318,43 @@ describe('GET /events/:slug (postgres integration)', () => {
     expect(body.event.slug).toBe('o-fantasma-da-opera');
     expect(body.event.priceFromCents).toBe(12000);
     expect(body.event.sectors).toEqual([
-      { slug: 'antecamara', name: 'Antecâmara', priceFromCents: 12000 },
-      { slug: 'plateia', name: 'Plateia', priceFromCents: 12000 },
-      { slug: 'balcao', name: 'Balcão', priceFromCents: 19000 },
+      {
+        slug: 'antecamara',
+        name: 'Antecâmara',
+        priceFromCents: 12000,
+        seatsAvailable: null,
+      },
+      {
+        slug: 'plateia',
+        name: 'Plateia',
+        priceFromCents: 12000,
+        seatsAvailable: 91,
+      },
+      {
+        slug: 'balcao',
+        name: 'Balcão',
+        priceFromCents: 19000,
+        seatsAvailable: 39,
+      },
     ]);
     expect(body.event.artists).toEqual([
       { slug: 'andrew-lloyd-webber', name: 'Andrew Lloyd Webber' },
     ]);
     expect(body.event.venue.slug).toBe('teatro-renault');
+  });
+
+  it('returns seat availability per sector', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/events/o-fantasma-da-opera',
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = eventDetailResponseSchema.parse(response.json());
+    const availability = Object.fromEntries(
+      body.event.sectors.map((sector) => [sector.slug, sector.seatsAvailable]),
+    );
+    expect(availability).toEqual({ plateia: 91, balcao: 39 });
   });
 
   it('returns 404 for an unknown slug', async () => {
