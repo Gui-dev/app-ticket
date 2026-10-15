@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   artistDetailResponseSchema,
   artistDetailSchema,
+  bestSeatQuerySchema,
+  bestSeatResponseSchema,
   eventDetailResponseSchema,
   eventDetailSchema,
   eventSchema,
@@ -10,6 +12,7 @@ import {
   listEventsQuerySchema,
   listEventsResponseSchema,
   searchFiltersSchema,
+  seatmapResponseSchema,
   sectorSchema,
   suggestQuerySchema,
   suggestResponseSchema,
@@ -381,5 +384,100 @@ describe('venueDetailResponseSchema', () => {
       },
     };
     expect(venueDetailResponseSchema.parse(payload)).toEqual(payload);
+  });
+});
+
+describe('seatmapResponseSchema', () => {
+  it('accepts a seatmap with rows and seat statuses', () => {
+    const payload = {
+      seatmap: {
+        eventSlug: 'o-fantasma-da-opera',
+        sectors: [
+          {
+            slug: 'plateia',
+            name: 'Plateia',
+            priceFromCents: 12000,
+            rows: [
+              {
+                label: 'A',
+                seats: [
+                  { label: '1', status: 'available' },
+                  { label: '2', status: 'occupied' },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    };
+    expect(seatmapResponseSchema.parse(payload)).toEqual(payload);
+  });
+
+  it('accepts a seatmap with sectors without rows', () => {
+    const payload = {
+      seatmap: {
+        eventSlug: 'corrida-de-rua-sp',
+        sectors: [
+          { slug: 'pista', name: 'Pista', priceFromCents: 15000, rows: [] },
+        ],
+      },
+    };
+    expect(seatmapResponseSchema.parse(payload)).toEqual(payload);
+  });
+
+  it('rejects an unknown seat status', () => {
+    const payload = {
+      seatmap: {
+        eventSlug: 'gig',
+        sectors: [
+          {
+            slug: 'a',
+            name: 'A',
+            priceFromCents: 100,
+            rows: [{ label: 'A', seats: [{ label: '1', status: 'reserved' }] }],
+          },
+        ],
+      },
+    };
+    expect(() => seatmapResponseSchema.parse(payload)).toThrow();
+  });
+});
+
+describe('bestSeatQuerySchema', () => {
+  it('trims the sector slug', () => {
+    expect(bestSeatQuerySchema.parse({ sector: ' plateia ' }).sector).toBe(
+      'plateia',
+    );
+  });
+
+  it('rejects an empty sector', () => {
+    expect(() => bestSeatQuerySchema.parse({ sector: '   ' })).toThrow();
+  });
+});
+
+describe('bestSeatResponseSchema', () => {
+  it('accepts a best seat payload', () => {
+    const payload = {
+      seat: {
+        sectorSlug: 'plateia',
+        rowLabel: 'A',
+        seatLabel: '6',
+        priceFromCents: 12000,
+      },
+    };
+    expect(bestSeatResponseSchema.parse(payload)).toEqual(payload);
+  });
+
+  it('rejects a negative price', () => {
+    expect(() =>
+      bestSeatResponseSchema.parse({
+        seat: {
+          sectorSlug: 'plateia',
+          rowLabel: 'A',
+          seatLabel: '6',
+          priceFromCents: -1,
+        },
+      }),
+    ).toThrow();
   });
 });

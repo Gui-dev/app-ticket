@@ -100,6 +100,55 @@ export const eventDetailResponseSchema = z.object({
 
 export type EventDetailResponse = z.infer<typeof eventDetailResponseSchema>;
 
+export const seatStatusSchema = z.enum([
+  'available',
+  'occupied',
+  'unavailable',
+]);
+
+export type SeatStatus = z.infer<typeof seatStatusSchema>;
+
+export const seatSchema = z.object({
+  label: z.string().min(1),
+  status: seatStatusSchema,
+});
+
+export const seatRowSchema = z.object({
+  label: z.string().min(1),
+  seats: z.array(seatSchema),
+});
+
+export const seatmapSectorSchema = z.object({
+  slug: z.string().min(1),
+  name: z.string().min(1),
+  priceFromCents: z.number().int().min(0),
+  rows: z.array(seatRowSchema),
+});
+
+export const seatmapSchema = z.object({
+  eventSlug: z.string().min(1),
+  sectors: z.array(seatmapSectorSchema),
+});
+
+export const seatmapResponseSchema = z.object({ seatmap: seatmapSchema });
+
+export type SeatmapDto = z.infer<typeof seatmapSchema>;
+
+export const bestSeatQuerySchema = z.object({
+  sector: z.string().trim().min(1),
+});
+
+export const bestSeatSchema = z.object({
+  sectorSlug: z.string().min(1),
+  rowLabel: z.string().min(1),
+  seatLabel: z.string().min(1),
+  priceFromCents: z.number().int().min(0),
+});
+
+export const bestSeatResponseSchema = z.object({ seat: bestSeatSchema });
+
+export type BestSeatDto = z.infer<typeof bestSeatSchema>;
+
 export const suggestQuerySchema = z.object({
   q: z.string().trim().min(2).max(120),
 });
