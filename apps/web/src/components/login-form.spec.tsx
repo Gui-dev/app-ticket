@@ -121,4 +121,44 @@ describe('LoginForm', () => {
     );
     expect(push).not.toHaveBeenCalled();
   });
+
+  it('envia o signIn.social para o Google ao clicar no botão', async () => {
+    let received: unknown;
+    server.use(
+      http.post(/\/api\/auth\/sign-in\/social$/, async (info) => {
+        received = await info.request.json();
+        return HttpResponse.json({
+          url: 'https://accounts.google.com/o/oauth2/v2/auth?fake=1',
+          redirect: false,
+        });
+      }),
+    );
+
+    render(<LoginForm />);
+    fireEvent.click(screen.getByRole('button', { name: 'Entrar com Google' }));
+
+    await waitFor(() => {
+      expect(received).toEqual({ provider: 'google', callbackURL: '/' });
+    });
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it('mostra alerta quando o signIn.social falha', async () => {
+    server.use(
+      http.post(/\/api\/auth\/sign-in\/social$/, () =>
+        HttpResponse.json(
+          { code: 'PROVIDER_NOT_FOUND', message: 'Not found', status: 404 },
+          { status: 404 },
+        ),
+      ),
+    );
+
+    render(<LoginForm />);
+    fireEvent.click(screen.getByRole('button', { name: 'Entrar com Google' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Não foi possível continuar. Tente novamente.',
+    );
+  });
 });
