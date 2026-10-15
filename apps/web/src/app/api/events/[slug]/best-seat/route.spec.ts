@@ -91,4 +91,17 @@ describe('GET /api/events/[slug]/best-seat', () => {
     expect(res.status).toBe(502);
     expect((await res.json()).error).toBe('upstream_error');
   });
+
+  it('returns 502 when the upstream 404 body is not json', async () => {
+    server.use(
+      http.get(
+        'http://localhost:3001/events/o-fantasma-da-opera/best-seat',
+        () => new Response('<html>not found</html>', { status: 404 }),
+      ),
+    );
+
+    const res = await GET(request('o-fantasma-da-opera', 'plateia'), context);
+    expect(res.status).toBe(502);
+    expect((await res.json()).error).toBe('upstream_error');
+  });
 });

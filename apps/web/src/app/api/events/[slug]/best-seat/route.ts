@@ -33,8 +33,13 @@ export async function GET(
   }
 
   if (upstream.status === 404) {
-    const body = await upstream.json();
-    return Response.json(body, { status: 404 });
+    try {
+      const body = await upstream.json();
+      return Response.json(body, { status: 404 });
+    } catch (error) {
+      console.error('Best seat upstream 404 body was not json:', error);
+      return Response.json({ error: 'upstream_error' }, { status: 502 });
+    }
   }
   if (!upstream.ok) {
     console.error(
