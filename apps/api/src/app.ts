@@ -5,6 +5,10 @@ import { DrizzleArtistsRepository } from './modules/artists/infra/drizzle-artist
 import { registerArtistRoutes } from './modules/artists/routes/artists.routes.js';
 import { createAuth } from './modules/auth/auth.js';
 import { sendEmail } from './modules/auth/email.js';
+import {
+  createGetSession,
+  type GetSessionFn,
+} from './modules/auth/get-session.js';
 import { registerAuthRoutes } from './modules/auth/routes/auth.routes.js';
 import type { CategoriesRepository } from './modules/categories/domain/categories-repository.js';
 import { DrizzleCategoriesRepository } from './modules/categories/infra/drizzle-categories-repository.js';
@@ -12,14 +16,20 @@ import { registerCategoryRoutes } from './modules/categories/routes/categories.r
 import type { EventsRepository } from './modules/events/domain/events-repository.js';
 import { DrizzleEventsRepository } from './modules/events/infra/drizzle-events-repository.js';
 import { registerEventRoutes } from './modules/events/routes/events.routes.js';
+import type { HoldRepository } from './modules/seatmaps/domain/hold-repository.js';
 import type { SeatmapRepository } from './modules/seatmaps/domain/seatmap-repository.js';
 import { DrizzleSeatmapRepository } from './modules/seatmaps/infra/drizzle-seatmap-repository.js';
+import { RedisHoldRepository } from './modules/seatmaps/infra/redis-hold-repository.js';
+import { registerHoldRoutes } from './modules/seatmaps/routes/holds.routes.js';
 import { registerSeatmapRoutes } from './modules/seatmaps/routes/seatmap.routes.js';
 import { FindBestSeatUseCase } from './modules/seatmaps/use-cases/find-best-seat.use-case.js';
 import { GetSeatmapUseCase } from './modules/seatmaps/use-cases/get-seatmap.use-case.js';
+import { HoldSeatUseCase } from './modules/seatmaps/use-cases/hold-seat.use-case.js';
+import { ReleaseHoldUseCase } from './modules/seatmaps/use-cases/release-hold.use-case.js';
 import type { VenuesRepository } from './modules/venues/domain/venues-repository.js';
 import { DrizzleVenuesRepository } from './modules/venues/infra/drizzle-venues-repository.js';
 import { registerVenueRoutes } from './modules/venues/routes/venues.routes.js';
+import { createRedis, type RedisClient } from './redis/client.js';
 
 export function buildApp(
   options: {
@@ -29,6 +39,10 @@ export function buildApp(
     venuesRepository?: VenuesRepository;
     seatmapRepository?: SeatmapRepository;
     auth?: ReturnType<typeof createAuth>;
+    holdSeat?: HoldSeatUseCase;
+    releaseHold?: ReleaseHoldUseCase;
+    getSession?: GetSessionFn;
+    holdRepository?: HoldRepository;
   } = {},
 ): FastifyInstance {
   const app = Fastify({ logger: false });
@@ -51,22 +65,58 @@ export function buildApp(
   const seatmapRepository =
     options.seatmapRepository ?? new DrizzleSeatmapRepository(getDefaultDb());
 
+  let defaultRedis: RedisClient | null = null;
+  const getHoldRepository = (): HoldRepository => {
+    if (options.holdRepository) return options.holdRepository;
+    if (!defaultRedis) {
+      defaultRedis = createRedis();
+      defaultRedis.connect().catch(() => {});
+    }
+    return new RedisHoldRepository(defaultRedis);
+  };
+
+  const lazyHoldRepository: HoldRepository = {
+    claim: (seatKey, userId, ttlSeconds) =>
+      getHoldRepository().claim(seatKey, userId, ttlSeconds),
+    renew: (seatKey, userId, ttlSeconds) =>
+      getHoldRepository().renew(seatKey, userId, ttlSeconds),
+    release: (seatKey, userId) => getHoldRepository().release(seatKey, userId),
+  };
+
   app.addHook('onClose', async () => {
     await defaultDb?.$client.end();
+  });
+
+  app.addHook('onClose', async () => {
+    await defaultRedis?.quit().catch(() => {});
   });
 
   registerEventRoutes(app, eventsRepository);
   registerCategoryRoutes(app, categoriesRepository);
   registerArtistRoutes(app, artistsRepository);
   registerVenueRoutes(app, venuesRepository);
-  registerSeatmapRoutes(app, {
-    getSeatmap: new GetSeatmapUseCase(seatmapRepository),
-    findBestSeat: new FindBestSeatUseCase(seatmapRepository),
-  });
 
   const authInstance =
     options.auth ?? createAuth(getDefaultDb(), { sendEmail });
   registerAuthRoutes(app, authInstance);
+
+  const getSession = options.getSession ?? createGetSession(authInstance);
+
+  registerSeatmapRoutes(app, {
+    getSeatmap: new GetSeatmapUseCase(seatmapRepository),
+    findBestSeat: new FindBestSeatUseCase(seatmapRepository),
+    getSession,
+  });
+
+  registerHoldRoutes(app, {
+    getSession,
+    holdSeat:
+      options.holdSeat ??
+      new HoldSeatUseCase(seatmapRepository, lazyHoldRepository),
+    releaseHold:
+      options.releaseHold ??
+      new ReleaseHoldUseCase(seatmapRepository, lazyHoldRepository),
+  });
 
   app.get('/health', async () => ({ status: 'ok' }));
 

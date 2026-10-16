@@ -55,7 +55,10 @@ describe('GET /events/:slug/seatmap', () => {
   let app: FastifyInstance;
 
   beforeAll(() => {
-    app = buildApp({ seatmapRepository: new InMemorySeatmapRepository([gig]) });
+    app = buildApp({
+      seatmapRepository: new InMemorySeatmapRepository([gig]),
+      getSession: async () => null,
+    });
     return app.ready();
   });
 
@@ -90,7 +93,10 @@ describe('GET /events/:slug/best-seat', () => {
   let app: FastifyInstance;
 
   beforeAll(() => {
-    app = buildApp({ seatmapRepository: new InMemorySeatmapRepository([gig]) });
+    app = buildApp({
+      seatmapRepository: new InMemorySeatmapRepository([gig]),
+      getSession: async () => null,
+    });
     return app.ready();
   });
 

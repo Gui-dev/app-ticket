@@ -5,12 +5,14 @@ import {
 } from '@ticketvibe/shared';
 import type { FastifyInstance } from 'fastify';
 
+import type { GetSessionFn } from '../../auth/get-session.js';
 import type { FindBestSeatUseCase } from '../use-cases/find-best-seat.use-case.js';
 import type { GetSeatmapUseCase } from '../use-cases/get-seatmap.use-case.js';
 
 interface SeatmapRoutesDeps {
   getSeatmap: GetSeatmapUseCase;
   findBestSeat: FindBestSeatUseCase;
+  getSession: GetSessionFn;
 }
 
 export function registerSeatmapRoutes(
@@ -19,16 +21,32 @@ export function registerSeatmapRoutes(
 ): void {
   app.get('/events/:slug/seatmap', async (request, reply) => {
     const { slug } = request.params as { slug: string };
-    const result = await deps.getSeatmap.execute(slug);
+    const session = await deps.getSession(request.headers);
+    const result = await deps.getSeatmap.execute(slug, session?.userId);
     if (!result) {
       return reply.code(404).send({ error: 'event_not_found' });
     }
-    const sectors = result.seatmap.sectors.filter(
-      (sector) => sector.rows.length > 0,
-    );
+    const sectors = result.seatmap.sectors
+      .filter((sector) => sector.rows.length > 0)
+      .map((sector) => ({
+        ...sector,
+        rows: sector.rows.map((row) => ({
+          ...row,
+          seats: row.seats.map((seat) => ({
+            label: seat.label,
+            status:
+              seat.status === 'reserved' ? ('occupied' as const) : seat.status,
+          })),
+        })),
+      }));
     const payload = seatmapResponseSchema.parse({
       seatmap: { eventSlug: result.seatmap.eventSlug, sectors },
-      holds: [],
+      holds: result.holds.map((hold) => ({
+        sectorSlug: hold.sectorSlug,
+        rowLabel: hold.rowLabel,
+        seatLabel: hold.seatLabel,
+        expiresAt: hold.expiresAt.toISOString(),
+      })),
     });
     return reply.send(payload);
   });
