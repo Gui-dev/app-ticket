@@ -1,6 +1,7 @@
-import { asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray } from 'drizzle-orm';
 
 import type { Db } from '../../../db/client.js';
+import { expireExpiredHolds } from '../../../db/hold-expiry.js';
 import { events, seatRows, seats, sectors } from '../../../db/schema.js';
 import type {
   SeatmapEntity,
@@ -78,27 +79,100 @@ export class DrizzleSeatmapRepository implements SeatmapRepository {
     };
   }
 
-  async findSeatByCoords(_input: {
+  async findSeatByCoords(input: {
     eventSlug: string;
     sectorSlug: string;
     rowLabel: string;
     seatLabel: string;
   }): Promise<SeatCoordsLookup> {
-    throw new Error(
-      'DrizzleSeatmapRepository.findSeatByCoords: not implemented',
-    );
+    const rows = await this.db
+      .select({
+        eventId: events.id,
+        sectorId: sectors.id,
+        rowId: seatRows.id,
+        seatId: seats.id,
+        seatStatus: seats.status,
+        sectorName: sectors.name,
+        sectorSlug: sectors.slug,
+        priceFromCents: sectors.priceFromCents,
+        rowLabel: seatRows.label,
+        seatLabel: seats.label,
+      })
+      .from(events)
+      .leftJoin(
+        sectors,
+        and(eq(sectors.eventId, events.id), eq(sectors.slug, input.sectorSlug)),
+      )
+      .leftJoin(
+        seatRows,
+        and(
+          eq(seatRows.sectorId, sectors.id),
+          eq(seatRows.label, input.rowLabel),
+        ),
+      )
+      .leftJoin(
+        seats,
+        and(eq(seats.rowId, seatRows.id), eq(seats.label, input.seatLabel)),
+      )
+      .where(eq(events.slug, input.eventSlug))
+      .limit(1);
+
+    const row = rows[0];
+    if (!row) return { found: false, scope: 'event' };
+    if (!row.sectorId) return { found: false, scope: 'sector' };
+    if (!row.rowId || !row.seatId || !row.seatStatus) {
+      return { found: false, scope: 'seat' };
+    }
+    return {
+      found: true,
+      seat: {
+        seatId: row.seatId,
+        rowId: row.rowId,
+        eventId: row.eventId,
+        status: row.seatStatus,
+        sectorSlug: row.sectorSlug ?? input.sectorSlug,
+        sectorName: row.sectorName ?? '',
+        priceFromCents: row.priceFromCents ?? 0,
+        rowLabel: row.rowLabel ?? input.rowLabel,
+        seatLabel: row.seatLabel ?? input.seatLabel,
+      },
+    };
   }
 
-  async findHoldsByUser(_input: {
+  async findHoldsByUser(input: {
     eventSlug: string;
     userId: string;
   }): Promise<SeatHoldRecord[]> {
-    throw new Error(
-      'DrizzleSeatmapRepository.findHoldsByUser: not implemented',
-    );
+    const rows = await this.db
+      .select({
+        sectorSlug: sectors.slug,
+        rowLabel: seatRows.label,
+        seatLabel: seats.label,
+        expiresAt: seats.holdExpiresAt,
+      })
+      .from(seats)
+      .innerJoin(seatRows, eq(seatRows.id, seats.rowId))
+      .innerJoin(sectors, eq(sectors.id, seatRows.sectorId))
+      .innerJoin(events, eq(events.id, sectors.eventId))
+      .where(
+        and(
+          eq(seats.holdUserId, input.userId),
+          gt(seats.holdExpiresAt, new Date()),
+          eq(events.slug, input.eventSlug),
+        ),
+      );
+
+    return rows
+      .filter((row) => row.expiresAt !== null)
+      .map((row) => ({
+        sectorSlug: row.sectorSlug,
+        rowLabel: row.rowLabel,
+        seatLabel: row.seatLabel,
+        expiresAt: row.expiresAt as Date,
+      }));
   }
 
   async expireHolds(): Promise<void> {
-    throw new Error('DrizzleSeatmapRepository.expireHolds: not implemented');
+    await expireExpiredHolds(this.db);
   }
 }
