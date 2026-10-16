@@ -5,7 +5,7 @@ const API_URL = process.env.API_URL ?? 'http://localhost:3001';
 type SeatmapContext = { params: Promise<{ slug: string }> };
 
 export async function GET(
-  _request: Request,
+  request: Request,
   context: SeatmapContext,
 ): Promise<Response> {
   const { slug } = await context.params;
@@ -14,7 +14,11 @@ export async function GET(
   try {
     upstream = await fetch(
       `${API_URL}/events/${encodeURIComponent(slug)}/seatmap`,
-      { cache: 'no-store', signal: AbortSignal.timeout(3000) },
+      {
+        headers: { cookie: request.headers.get('cookie') ?? '' },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(3000),
+      },
     );
   } catch (error) {
     console.error('Seatmap upstream request failed:', error);

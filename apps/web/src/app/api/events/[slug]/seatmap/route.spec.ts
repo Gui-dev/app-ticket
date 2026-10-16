@@ -18,8 +18,10 @@ vi.hoisted(() => {
 
 const server = setupServer();
 
-function request(slug: string) {
-  return new Request(`http://localhost:3000/api/events/${slug}/seatmap`);
+function request(slug: string, cookie?: string) {
+  return new Request(`http://localhost:3000/api/events/${slug}/seatmap`, {
+    headers: cookie ? { cookie } : {},
+  });
 }
 
 const context = { params: Promise.resolve({ slug: 'o-fantasma-da-opera' }) };
@@ -49,6 +51,26 @@ describe('GET /api/events/[slug]/seatmap', () => {
     vi.restoreAllMocks();
   });
   afterAll(() => server.close());
+
+  it('forwards the session cookie', async () => {
+    let forwardedCookie = '';
+    server.use(
+      http.get(
+        'http://localhost:3001/events/o-fantasma-da-opera/seatmap',
+        ({ request: upstream }) => {
+          forwardedCookie = new Headers(upstream.headers).get('cookie') ?? '';
+          return HttpResponse.json(validPayload);
+        },
+      ),
+    );
+
+    const res = await GET(
+      request('o-fantasma-da-opera', 'better-auth.session_token=abc'),
+      context,
+    );
+    expect(res.status).toBe(200);
+    expect(forwardedCookie).toBe('better-auth.session_token=abc');
+  });
 
   it('passes a valid seatmap through the schema', async () => {
     server.use(
