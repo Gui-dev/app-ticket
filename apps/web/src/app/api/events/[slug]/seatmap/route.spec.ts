@@ -97,4 +97,19 @@ describe('GET /api/events/[slug]/seatmap', () => {
     expect(res.status).toBe(502);
     expect((await res.json()).error).toBe('upstream_error');
   });
+
+  it('returns 502 when the upstream responds with a server error', async () => {
+    server.use(
+      http.get('http://localhost:3001/events/o-fantasma-da-opera/seatmap', () =>
+        HttpResponse.json({ error: 'boom' }, { status: 500 }),
+      ),
+    );
+
+    const res = await GET(request('o-fantasma-da-opera'), context);
+    expect(res.status).toBe(502);
+    expect((await res.json()).error).toBe('upstream_error');
+    expect(console.error).toHaveBeenCalledWith(
+      'Seatmap upstream responded with status 500',
+    );
+  });
 });

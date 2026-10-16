@@ -104,4 +104,20 @@ describe('GET /api/events/[slug]/best-seat', () => {
     expect(res.status).toBe(502);
     expect((await res.json()).error).toBe('upstream_error');
   });
+
+  it('returns 502 when the upstream responds with a server error', async () => {
+    server.use(
+      http.get(
+        'http://localhost:3001/events/o-fantasma-da-opera/best-seat',
+        () => HttpResponse.json({ error: 'boom' }, { status: 500 }),
+      ),
+    );
+
+    const res = await GET(request('o-fantasma-da-opera', 'plateia'), context);
+    expect(res.status).toBe(502);
+    expect((await res.json()).error).toBe('upstream_error');
+    expect(console.error).toHaveBeenCalledWith(
+      'Best seat upstream responded with status 500',
+    );
+  });
 });

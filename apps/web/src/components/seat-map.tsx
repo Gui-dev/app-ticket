@@ -1,6 +1,10 @@
 'use client';
 
-import { type SeatmapDto, seatmapResponseSchema } from '@ticketvibe/shared';
+import {
+  bestSeatResponseSchema,
+  type SeatmapDto,
+  seatmapResponseSchema,
+} from '@ticketvibe/shared';
 import { cn } from 'cn';
 import { type ReactNode, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -44,9 +48,12 @@ export function SeatMap({ eventSlug }: SeatMapProps) {
 
     async function load() {
       try {
-        const response = await fetch(`/api/events/${eventSlug}/seatmap`, {
-          signal: AbortSignal.timeout(5000),
-        });
+        const response = await fetch(
+          `/api/events/${encodeURIComponent(eventSlug)}/seatmap`,
+          {
+            signal: AbortSignal.timeout(5000),
+          },
+        );
         if (response.status === 404) {
           if (!cancelled) setLoading(false);
           return;
@@ -76,7 +83,7 @@ export function SeatMap({ eventSlug }: SeatMapProps) {
     setBestError(null);
     try {
       const response = await fetch(
-        `/api/events/${eventSlug}/best-seat?sector=${encodeURIComponent(sectorSlug)}`,
+        `/api/events/${encodeURIComponent(eventSlug)}/best-seat?sector=${encodeURIComponent(sectorSlug)}`,
         { signal: AbortSignal.timeout(5000) },
       );
       if (response.status === 404) {
@@ -84,14 +91,7 @@ export function SeatMap({ eventSlug }: SeatMapProps) {
         return;
       }
       if (!response.ok) throw new Error('best_seat_request_failed');
-      const payload = (await response.json()) as {
-        seat: {
-          sectorSlug: string;
-          rowLabel: string;
-          seatLabel: string;
-          priceFromCents: number;
-        };
-      };
+      const payload = bestSeatResponseSchema.parse(await response.json());
       const sector = seatmap?.sectors.find(
         (item) => item.slug === payload.seat.sectorSlug,
       );
