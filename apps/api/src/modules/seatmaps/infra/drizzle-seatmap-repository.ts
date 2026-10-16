@@ -7,7 +7,11 @@ import type {
   SeatmapRow,
   SeatmapSeat,
 } from '../domain/seatmap-entity.js';
-import type { SeatmapRepository } from '../domain/seatmap-repository.js';
+import type {
+  SeatCoordsLookup,
+  SeatHoldRecord,
+  SeatmapRepository,
+} from '../domain/seatmap-repository.js';
 
 export class DrizzleSeatmapRepository implements SeatmapRepository {
   constructor(private readonly db: Db) {}
@@ -72,5 +76,29 @@ export class DrizzleSeatmapRepository implements SeatmapRepository {
         rows: rowsBySector.get(sector.id) ?? [],
       })),
     };
+  }
+
+  async findSeatByCoords(_input: {
+    eventSlug: string;
+    sectorSlug: string;
+    rowLabel: string;
+    seatLabel: string;
+  }): Promise<SeatCoordsLookup> {
+    throw new Error(
+      'DrizzleSeatmapRepository.findSeatByCoords: not implemented',
+    );
+  }
+
+  async findHoldsByUser(_input: {
+    eventSlug: string;
+    userId: string;
+  }): Promise<SeatHoldRecord[]> {
+    throw new Error(
+      'DrizzleSeatmapRepository.findHoldsByUser: not implemented',
+    );
+  }
+
+  async expireHolds(): Promise<void> {
+    throw new Error('DrizzleSeatmapRepository.expireHolds: not implemented');
   }
 }

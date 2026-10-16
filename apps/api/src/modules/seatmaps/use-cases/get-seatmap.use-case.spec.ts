@@ -32,7 +32,12 @@ describe('GetSeatmapUseCase', () => {
 
   it('delegates the lookup to the repository', async () => {
     const spy = vi.fn(async () => gig);
-    await new GetSeatmapUseCase({ findSeatmap: spy }).execute('gig');
+    await new GetSeatmapUseCase({
+      findSeatmap: spy,
+      findSeatByCoords: vi.fn(),
+      findHoldsByUser: vi.fn(),
+      expireHolds: vi.fn(),
+    }).execute('gig');
     expect(spy).toHaveBeenCalledWith('gig');
   });
 });
