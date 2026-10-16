@@ -19,13 +19,15 @@ export function registerSeatmapRoutes(
 ): void {
   app.get('/events/:slug/seatmap', async (request, reply) => {
     const { slug } = request.params as { slug: string };
-    const seatmap = await deps.getSeatmap.execute(slug);
-    if (!seatmap) {
+    const result = await deps.getSeatmap.execute(slug);
+    if (!result) {
       return reply.code(404).send({ error: 'event_not_found' });
     }
-    const sectors = seatmap.sectors.filter((sector) => sector.rows.length > 0);
+    const sectors = result.seatmap.sectors.filter(
+      (sector) => sector.rows.length > 0,
+    );
     const payload = seatmapResponseSchema.parse({
-      seatmap: { eventSlug: seatmap.eventSlug, sectors },
+      seatmap: { eventSlug: result.seatmap.eventSlug, sectors },
       holds: [],
     });
     return reply.send(payload);

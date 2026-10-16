@@ -15,6 +15,7 @@ export class FindBestSeatUseCase {
     eventSlug: string,
     sectorSlug: string,
   ): Promise<FindBestSeatResult> {
+    await this.seatmapRepository.expireHolds();
     const seatmap = await this.seatmapRepository.findSeatmap(eventSlug);
     if (!seatmap) {
       return { kind: 'event_not_found' };

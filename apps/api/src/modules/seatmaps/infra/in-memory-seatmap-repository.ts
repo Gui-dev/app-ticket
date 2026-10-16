@@ -1,4 +1,4 @@
-import type { SeatmapEntity } from '../domain/seatmap-entity.js';
+import type { SeatmapEntity, SeatmapSeat } from '../domain/seatmap-entity.js';
 import type {
   SeatCoordsLookup,
   SeatHoldRecord,
@@ -12,6 +12,10 @@ interface SeededUserHold extends SeatHoldRecord {
 
 export class InMemorySeatmapRepository implements SeatmapRepository {
   private readonly seatmaps = new Map<string, SeatmapEntity>();
+  private readonly seatHolds = new Map<
+    string,
+    { userId: string; expiresAt: Date }
+  >();
   private userHolds: SeededUserHold[];
 
   constructor(
@@ -84,5 +88,59 @@ export class InMemorySeatmapRepository implements SeatmapRepository {
     this.userHolds = this.userHolds.filter(
       (hold) => hold.expiresAt.getTime() > nowMs,
     );
+  }
+
+  private *seats(): Generator<{ id: string; seat: SeatmapSeat }> {
+    for (const seatmap of this.seatmaps.values()) {
+      for (const sector of seatmap.sectors) {
+        for (const row of sector.rows) {
+          for (const seat of row.seats) {
+            yield {
+              id: `${seatmap.eventSlug}:${sector.slug}:${row.label}:${seat.label}`,
+              seat,
+            };
+          }
+        }
+      }
+    }
+  }
+
+  async reserveSeat(input: {
+    seatId: string;
+    userId: string;
+    expiresAt: Date;
+  }): Promise<boolean> {
+    for (const { id, seat } of this.seats()) {
+      if (id === input.seatId && seat.status === 'available') {
+        seat.status = 'reserved';
+        this.seatHolds.set(input.seatId, {
+          userId: input.userId,
+          expiresAt: input.expiresAt,
+        });
+        return true;
+      }
+    }
+    return false;
+  }
+
+  async renewSeatHold(input: {
+    seatId: string;
+    userId: string;
+    expiresAt: Date;
+  }): Promise<boolean> {
+    const hold = this.seatHolds.get(input.seatId);
+    if (!hold || hold.userId !== input.userId) return false;
+    hold.expiresAt = input.expiresAt;
+    return true;
+  }
+
+  async releaseSeat(input: { seatId: string; userId: string }): Promise<void> {
+    for (const { id, seat } of this.seats()) {
+      if (id === input.seatId) {
+        seat.status = 'available';
+        this.seatHolds.delete(input.seatId);
+        return;
+      }
+    }
   }
 }

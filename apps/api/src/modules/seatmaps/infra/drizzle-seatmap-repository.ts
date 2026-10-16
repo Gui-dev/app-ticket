@@ -175,4 +175,43 @@ export class DrizzleSeatmapRepository implements SeatmapRepository {
   async expireHolds(): Promise<void> {
     await expireExpiredHolds(this.db);
   }
+
+  async reserveSeat(input: {
+    seatId: string;
+    userId: string;
+    expiresAt: Date;
+  }): Promise<boolean> {
+    const result = await this.db
+      .update(seats)
+      .set({
+        status: 'reserved',
+        holdUserId: input.userId,
+        holdExpiresAt: input.expiresAt,
+      })
+      .where(and(eq(seats.id, input.seatId), eq(seats.status, 'available')));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async renewSeatHold(input: {
+    seatId: string;
+    userId: string;
+    expiresAt: Date;
+  }): Promise<boolean> {
+    const result = await this.db
+      .update(seats)
+      .set({ holdExpiresAt: input.expiresAt })
+      .where(
+        and(eq(seats.id, input.seatId), eq(seats.holdUserId, input.userId)),
+      );
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async releaseSeat(input: { seatId: string; userId: string }): Promise<void> {
+    await this.db
+      .update(seats)
+      .set({ status: 'available', holdUserId: null, holdExpiresAt: null })
+      .where(
+        and(eq(seats.id, input.seatId), eq(seats.holdUserId, input.userId)),
+      );
+  }
 }

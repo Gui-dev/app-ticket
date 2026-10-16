@@ -42,4 +42,15 @@ export interface SeatmapRepository {
     userId: string;
   }): Promise<SeatHoldRecord[]>;
   expireHolds(): Promise<void>;
+  reserveSeat(input: {
+    seatId: string;
+    userId: string;
+    expiresAt: Date;
+  }): Promise<boolean>;
+  renewSeatHold(input: {
+    seatId: string;
+    userId: string;
+    expiresAt: Date;
+  }): Promise<boolean>;
+  releaseSeat(input: { seatId: string; userId: string }): Promise<void>;
 }
