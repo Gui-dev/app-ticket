@@ -16,6 +16,7 @@ describe('redis client (integration)', () => {
   });
 
   it('sets, reads and expires keys on the test database', async () => {
+    expect(String(redis.options.db)).toBe('1');
     await redis.set('client-probe', 'ok', 'EX', 60);
     expect(await redis.get('client-probe')).toBe('ok');
     expect(await redis.ttl('client-probe')).toBeGreaterThan(0);

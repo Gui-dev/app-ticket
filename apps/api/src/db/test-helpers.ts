@@ -19,6 +19,14 @@ export function assertTestDatabaseUrl(url: string): void {
   }
 }
 
+export function assertTestRedisUrl(url: string): void {
+  if (new URL(url).pathname !== '/1') {
+    throw new Error(
+      `Refusing to run test helper against non-test redis database: ${url}`,
+    );
+  }
+}
+
 export async function ensureTestDatabase(
   url = TEST_DATABASE_URL,
 ): Promise<void> {
@@ -63,6 +71,7 @@ export async function resetDatabase(db: Db): Promise<void> {
 }
 
 export async function flushTestRedis(url = TEST_REDIS_URL): Promise<void> {
+  assertTestRedisUrl(url);
   const redis = createRedis(url);
   await redis.connect();
   try {
