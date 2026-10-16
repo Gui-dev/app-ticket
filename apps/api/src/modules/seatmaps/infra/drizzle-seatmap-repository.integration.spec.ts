@@ -62,6 +62,14 @@ describe('DrizzleSeatmapRepository (postgres integration)', () => {
         })
       ).found,
     ).toBe(false);
+    expect(
+      await repository.findSeatByCoords({
+        eventSlug: 'o-fantasma-da-opera',
+        sectorSlug: 'plateia',
+        rowLabel: 'Z',
+        seatLabel: '6',
+      }),
+    ).toEqual({ found: false, scope: 'seat' });
 
     await testDb.execute(sql`
       update seats set status = 'reserved', hold_user_id = 'user-holds', hold_expires_at = now() + interval '5 minutes'
@@ -77,5 +85,15 @@ describe('DrizzleSeatmapRepository (postgres integration)', () => {
       rowLabel: 'A',
       seatLabel: '6',
     });
+
+    await testDb.execute(sql`
+      update seats set status = 'reserved', hold_user_id = 'user-expired', hold_expires_at = now() - interval '1 second'
+      where row_id = ${lookup.seat.rowId} and label = '5'
+    `);
+    const expiredHolds = await repository.findHoldsByUser({
+      eventSlug: 'o-fantasma-da-opera',
+      userId: 'user-expired',
+    });
+    expect(expiredHolds).toEqual([]);
   });
 });

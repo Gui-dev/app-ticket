@@ -42,7 +42,6 @@ describe('RedisHoldRepository (redis integration)', () => {
 
   it('reports owned for the same user and renews the ttl', async () => {
     await repository.claim(key, 'user-a', 10);
-    await new Promise((resolve) => setTimeout(resolve, 1_100));
     expect(await repository.claim(key, 'user-a', 600)).toBe('owned');
     expect(await redis.ttl(key)).toBeGreaterThan(590);
   });

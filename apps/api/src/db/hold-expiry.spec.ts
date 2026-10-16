@@ -37,6 +37,7 @@ describe('expireExpiredHolds (postgres integration)', () => {
       limit 1
     `);
     const rowA = rows.rows[0];
+    expect(rowA).toBeDefined();
     await testDb.execute(sql`
       update seats set status = 'reserved', hold_user_id = 'user-expired', hold_expires_at = now() - interval '1 second'
       where row_id = ${rowA.id} and label = '1'

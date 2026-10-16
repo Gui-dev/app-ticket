@@ -21,10 +21,8 @@ export class RedisHoldRepository implements HoldRepository {
       'NX',
     );
     if (result === 'OK') return 'claimed';
-    const owner = await this.redis.get(seatKey);
-    if (owner !== userId) return 'held';
-    await this.redis.expire(seatKey, ttlSeconds);
-    return 'owned';
+    if (await this.renew(seatKey, userId, ttlSeconds)) return 'owned';
+    return 'held';
   }
 
   async renew(
