@@ -10,6 +10,7 @@ test('card da home navega para a página de evento', async ({ page }) => {
     page.getByRole('heading', { level: 1, name: 'O Fantasma da Ópera' }),
   ).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Setores' })).toBeVisible();
+  await expect(page.getByText('91 lugares disponíveis')).toBeVisible();
   await expect(page.getByRole('list')).toHaveCount(1);
   await expect(
     page.getByRole('link', { name: 'Escolher ingressos' }),
