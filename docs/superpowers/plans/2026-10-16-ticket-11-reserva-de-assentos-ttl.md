@@ -619,7 +619,9 @@ export class InMemoryHoldRepository implements HoldRepository {
   ): Promise<HoldClaimResult> {
     const hold = this.activeHold(seatKey);
     if (hold) {
-      return hold.userId === userId ? 'owned' : 'held';
+      if (hold.userId !== userId) return 'held';
+      hold.expiresAtMs = this.now().getTime() + ttlSeconds * 1000;
+      return 'owned';
     }
     this.holds.set(seatKey, {
       userId,
@@ -997,7 +999,9 @@ export class RedisHoldRepository implements HoldRepository {
     const result = await this.redis.set(seatKey, userId, 'EX', ttlSeconds, 'NX');
     if (result === 'OK') return 'claimed';
     const owner = await this.redis.get(seatKey);
-    return owner === userId ? 'owned' : 'held';
+    if (owner !== userId) return 'held';
+    await this.redis.expire(seatKey, ttlSeconds);
+    return 'owned';
   }
 
   async renew(
