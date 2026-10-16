@@ -4,6 +4,7 @@ import { sql } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { Client } from 'pg';
 
+import { createRedis, TEST_REDIS_URL } from '../redis/client.js';
 import { type Db, TEST_DATABASE_URL } from './client.js';
 
 const MIGRATIONS_FOLDER = fileURLToPath(
@@ -59,4 +60,14 @@ export async function resetDatabase(db: Db): Promise<void> {
   await db.execute(
     sql`TRUNCATE TABLE "user", session, account, verification, event_artists, seat_rows, seats, sectors, events, artists, venues, categories RESTART IDENTITY CASCADE`,
   );
+}
+
+export async function flushTestRedis(url = TEST_REDIS_URL): Promise<void> {
+  const redis = createRedis(url);
+  await redis.connect();
+  try {
+    await redis.flushdb();
+  } finally {
+    await redis.quit();
+  }
 }
