@@ -26,6 +26,7 @@ export function registerSeatmapRoutes(
     const sectors = seatmap.sectors.filter((sector) => sector.rows.length > 0);
     const payload = seatmapResponseSchema.parse({
       seatmap: { eventSlug: seatmap.eventSlug, sectors },
+      holds: [],
     });
     return reply.send(payload);
   });

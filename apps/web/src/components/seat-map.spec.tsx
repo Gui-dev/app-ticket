@@ -57,6 +57,7 @@ const seatmapPayload = {
       },
     ],
   },
+  holds: [],
 };
 
 function useSeatmap() {
@@ -184,6 +185,7 @@ describe('SeatMap', () => {
       http.get(/\/api\/events\/.+\/seatmap$/, () =>
         HttpResponse.json({
           seatmap: { eventSlug: 'corrida-de-rua-sp', sectors: [] },
+          holds: [],
         }),
       ),
     );

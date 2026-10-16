@@ -36,6 +36,7 @@ const validPayload = {
       },
     ],
   },
+  holds: [],
 };
 
 describe('GET /api/events/[slug]/seatmap', () => {

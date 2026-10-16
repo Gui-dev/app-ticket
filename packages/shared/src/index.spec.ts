@@ -8,9 +8,14 @@ import {
   eventDetailSchema,
   eventSchema,
   healthResponseSchema,
+  holdRequestSchema,
+  holdResponseSchema,
   listCategoriesResponseSchema,
   listEventsQuerySchema,
   listEventsResponseSchema,
+  releaseResponseSchema,
+  SEAT_HOLD_RENEW_AFTER_SECONDS,
+  SEAT_HOLD_TTL_SECONDS,
   searchFiltersSchema,
   seatmapResponseSchema,
   sectorSchema,
@@ -427,6 +432,7 @@ describe('seatmapResponseSchema', () => {
           },
         ],
       },
+      holds: [],
     };
     expect(seatmapResponseSchema.parse(payload)).toEqual(payload);
   });
@@ -439,6 +445,7 @@ describe('seatmapResponseSchema', () => {
           { slug: 'pista', name: 'Pista', priceFromCents: 15000, rows: [] },
         ],
       },
+      holds: [],
     };
     expect(seatmapResponseSchema.parse(payload)).toEqual(payload);
   });
@@ -456,6 +463,7 @@ describe('seatmapResponseSchema', () => {
           },
         ],
       },
+      holds: [],
     };
     expect(() => seatmapResponseSchema.parse(payload)).toThrow();
   });
@@ -497,5 +505,74 @@ describe('bestSeatResponseSchema', () => {
         },
       }),
     ).toThrow();
+  });
+});
+
+describe('seat hold contracts', () => {
+  it('exposes hold ttl constants', () => {
+    expect(SEAT_HOLD_TTL_SECONDS).toBe(600);
+    expect(SEAT_HOLD_RENEW_AFTER_SECONDS).toBe(120);
+    expect(SEAT_HOLD_RENEW_AFTER_SECONDS).toBeLessThan(SEAT_HOLD_TTL_SECONDS);
+  });
+
+  it('parses a hold request', () => {
+    const parsed = holdRequestSchema.safeParse({
+      sectorSlug: ' plateia ',
+      rowLabel: 'A',
+      seatLabel: '6',
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.sectorSlug).toBe('plateia');
+    }
+  });
+
+  it('rejects a hold request with empty coords', () => {
+    const parsed = holdRequestSchema.safeParse({
+      sectorSlug: '',
+      rowLabel: 'A',
+      seatLabel: '6',
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it('parses a hold response', () => {
+    const parsed = holdResponseSchema.safeParse({
+      hold: {
+        sectorSlug: 'plateia',
+        rowLabel: 'A',
+        seatLabel: '6',
+        expiresAt: '2026-10-16T12:00:00.000Z',
+      },
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it('parses a release response', () => {
+    expect(releaseResponseSchema.safeParse({ released: true }).success).toBe(
+      true,
+    );
+    expect(releaseResponseSchema.safeParse({ released: false }).success).toBe(
+      false,
+    );
+  });
+
+  it('requires holds in the seatmap response', () => {
+    const parsed = seatmapResponseSchema.safeParse({
+      seatmap: {
+        eventSlug: 'o-fantasma-da-opera',
+        sectors: [],
+      },
+    });
+    expect(parsed.success).toBe(false);
+
+    const withHolds = seatmapResponseSchema.safeParse({
+      seatmap: {
+        eventSlug: 'o-fantasma-da-opera',
+        sectors: [],
+      },
+      holds: [],
+    });
+    expect(withHolds.success).toBe(true);
   });
 });

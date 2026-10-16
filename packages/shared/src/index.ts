@@ -131,7 +131,34 @@ export const seatmapSchema = z.object({
   sectors: z.array(seatmapSectorSchema),
 });
 
-export const seatmapResponseSchema = z.object({ seatmap: seatmapSchema });
+export const SEAT_HOLD_TTL_SECONDS = 600;
+export const SEAT_HOLD_RENEW_AFTER_SECONDS = 120;
+
+export const holdSchema = z.object({
+  sectorSlug: z.string().min(1),
+  rowLabel: z.string().min(1),
+  seatLabel: z.string().min(1),
+  expiresAt: z.iso.datetime(),
+});
+
+export type HoldDto = z.infer<typeof holdSchema>;
+
+export const holdRequestSchema = z.object({
+  sectorSlug: z.string().trim().min(1),
+  rowLabel: z.string().trim().min(1),
+  seatLabel: z.string().trim().min(1),
+});
+
+export type HoldRequest = z.infer<typeof holdRequestSchema>;
+
+export const holdResponseSchema = z.object({ hold: holdSchema });
+
+export const releaseResponseSchema = z.object({ released: z.literal(true) });
+
+export const seatmapResponseSchema = z.object({
+  seatmap: seatmapSchema,
+  holds: z.array(holdSchema),
+});
 
 export type SeatmapDto = z.infer<typeof seatmapSchema>;
 
