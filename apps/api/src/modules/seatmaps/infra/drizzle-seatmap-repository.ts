@@ -46,7 +46,7 @@ export class DrizzleSeatmapRepository implements SeatmapRepository {
           .select()
           .from(seats)
           .where(inArray(seats.rowId, rowIds))
-          .orderBy(asc(seats.position))
+          .orderBy(asc(seats.rowId), asc(seats.position))
       : [];
 
     const seatsByRow = new Map<string, SeatmapSeat[]>();

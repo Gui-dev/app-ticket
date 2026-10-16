@@ -357,6 +357,24 @@ describe('GET /events/:slug (postgres integration)', () => {
     expect(availability).toEqual({ plateia: 91, balcao: 39 });
   });
 
+  it('returns zero seats available when every seat is taken', async () => {
+    await testDb.execute(
+      sql`update seats set status = 'occupied' where seats.row_id in (select sr.id from seat_rows sr join sectors s on s.id = sr.sector_id join events e on e.id = s.event_id where e.slug = 'o-fantasma-da-opera')`,
+    );
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/events/o-fantasma-da-opera',
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = eventDetailResponseSchema.parse(response.json());
+    const availability = Object.fromEntries(
+      body.event.sectors.map((sector) => [sector.slug, sector.seatsAvailable]),
+    );
+    expect(availability).toEqual({ plateia: 0, balcao: 0 });
+  });
+
   it('returns 404 for an unknown slug', async () => {
     const response = await app.inject({
       method: 'GET',
