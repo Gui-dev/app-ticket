@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { holdSeatKey } from '../domain/hold-entity.js';
 import { InMemoryHoldRepository } from './in-memory-hold-repository.js';
@@ -13,8 +13,8 @@ describe('InMemoryHoldRepository', () => {
     repository = new InMemoryHoldRepository(() => new Date(nowMs));
   });
 
-  afterEach(() => {
-    nowMs = 0;
+  it('builds the seat key in the hold key format', () => {
+    expect(holdSeatKey('e', 'r', 's')).toBe('hold:seat:e:r:s');
   });
 
   it('claims a free seat', async () => {
@@ -28,6 +28,14 @@ describe('InMemoryHoldRepository', () => {
 
   it('reports owned when the same user claims again', async () => {
     await repository.claim(key, 'user-a', 600);
+    expect(await repository.claim(key, 'user-a', 600)).toBe('owned');
+  });
+
+  it('renews the ttl when the same user claims again', async () => {
+    await repository.claim(key, 'user-a', 600);
+    nowMs += 5 * 60_000;
+    expect(await repository.claim(key, 'user-a', 600)).toBe('owned');
+    nowMs += 9 * 60_000;
     expect(await repository.claim(key, 'user-a', 600)).toBe('owned');
   });
 

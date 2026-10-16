@@ -28,7 +28,9 @@ export class InMemoryHoldRepository implements HoldRepository {
   ): Promise<HoldClaimResult> {
     const hold = this.activeHold(seatKey);
     if (hold) {
-      return hold.userId === userId ? 'owned' : 'held';
+      if (hold.userId !== userId) return 'held';
+      hold.expiresAtMs = this.now().getTime() + ttlSeconds * 1000;
+      return 'owned';
     }
     this.holds.set(seatKey, {
       userId,

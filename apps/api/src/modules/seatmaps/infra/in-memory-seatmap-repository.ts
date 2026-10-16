@@ -12,9 +12,13 @@ interface SeededUserHold extends SeatHoldRecord {
 
 export class InMemorySeatmapRepository implements SeatmapRepository {
   private readonly seatmaps = new Map<string, SeatmapEntity>();
-  private readonly userHolds: SeededUserHold[];
+  private userHolds: SeededUserHold[];
 
-  constructor(seed: SeatmapEntity[] = [], holds: SeededUserHold[] = []) {
+  constructor(
+    seed: SeatmapEntity[] = [],
+    holds: SeededUserHold[] = [],
+    private readonly now: () => Date = () => new Date(),
+  ) {
     for (const seatmap of seed) {
       this.seatmaps.set(seatmap.eventSlug, seatmap);
     }
@@ -63,7 +67,9 @@ export class InMemorySeatmapRepository implements SeatmapRepository {
     return this.userHolds
       .filter(
         (hold) =>
-          hold.eventSlug === input.eventSlug && hold.userId === input.userId,
+          hold.eventSlug === input.eventSlug &&
+          hold.userId === input.userId &&
+          hold.expiresAt.getTime() > this.now().getTime(),
       )
       .map(({ sectorSlug, rowLabel, seatLabel, expiresAt }) => ({
         sectorSlug,
@@ -73,5 +79,10 @@ export class InMemorySeatmapRepository implements SeatmapRepository {
       }));
   }
 
-  async expireHolds(): Promise<void> {}
+  async expireHolds(): Promise<void> {
+    const nowMs = this.now().getTime();
+    this.userHolds = this.userHolds.filter(
+      (hold) => hold.expiresAt.getTime() > nowMs,
+    );
+  }
 }
