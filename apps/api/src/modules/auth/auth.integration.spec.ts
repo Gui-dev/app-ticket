@@ -11,7 +11,8 @@ import {
 } from 'vitest';
 import { buildApp } from '../../app.js';
 import { createDb, type Db, TEST_DATABASE_URL } from '../../db/client.js';
-import { account, user } from '../../db/schema.js';
+import { account, seatRows, seats, user } from '../../db/schema.js';
+import { seedFixtures } from '../../db/seed-fixtures.js';
 import {
   ensureTestDatabase,
   migrateTestDatabase,
@@ -26,6 +27,7 @@ import {
 let app: Awaited<ReturnType<typeof buildApp>>;
 let testDb: Db;
 let sentEmails: SendEmailInput[];
+let seedRowId: string;
 
 function collectEmail(input: SendEmailInput): Promise<void> {
   sentEmails.push(input);
@@ -91,7 +93,10 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await resetDatabase(testDb);
+  await seedFixtures(testDb);
   sentEmails = [];
+  const [row] = await testDb.select().from(seatRows).limit(1);
+  seedRowId = row.id;
 });
 
 afterAll(async () => {
@@ -547,5 +552,73 @@ describe('callback do Google (simulado)', () => {
     expect(callback.statusCode).toBe(302);
     expect(callback.headers.location).toContain('/api/auth/error');
     expect(await findUserByEmail('nunca-criado@test.dev')).toBeUndefined();
+  });
+});
+
+describe('sessão anônima', () => {
+  it('migra os holds do assento quando o usuário anônimo vincula uma conta', async () => {
+    const anonymousResponse = await app.inject({
+      method: 'POST',
+      url: '/api/auth/sign-in/anonymous',
+    });
+    expect(anonymousResponse.statusCode).toBe(200);
+    const anonymousCookie = anonymousResponse.cookies.find(
+      (cookie) => cookie.name === 'better-auth.session_token',
+    );
+    expect(anonymousCookie).toBeDefined();
+    const cookieHeader = `better-auth.session_token=${anonymousCookie?.value}`;
+
+    const sessionResponse = await app.inject({
+      method: 'GET',
+      url: '/api/auth/get-session',
+      headers: { cookie: cookieHeader },
+    });
+    expect(sessionResponse.statusCode).toBe(200);
+    const sessionBody = sessionResponse.json() as { user?: { id: string } };
+    const anonymousUserId = sessionBody.user?.id;
+    expect(anonymousUserId).toBeDefined();
+
+    await testDb.insert(seats).values({
+      rowId: seedRowId,
+      label: 'H1',
+      position: 99,
+      status: 'reserved',
+      holdUserId: anonymousUserId,
+      holdExpiresAt: new Date(Date.now() + 600_000),
+    });
+
+    const email = `link-${Date.now()}@ticketvibe.test`;
+    const signUpResponse = await app.inject({
+      method: 'POST',
+      url: '/api/auth/sign-up/email',
+      headers: { cookie: cookieHeader, origin: 'http://localhost:3000' },
+      payload: { name: 'Comprador Link', email, password: 'senha-forte-123' },
+    });
+    expect(signUpResponse.statusCode).toBe(200);
+
+    const parsed = new URL(extractUrl(sentEmails[0].text));
+    const verify = await app.inject({
+      method: 'GET',
+      url: `${parsed.pathname}${parsed.search}`,
+    });
+    expect([300, 302]).toContain(verify.statusCode);
+
+    const login = await app.inject({
+      method: 'POST',
+      url: '/api/auth/sign-in/email',
+      headers: { cookie: cookieHeader, origin: 'http://localhost:3000' },
+      payload: { email, password: 'senha-forte-123' },
+    });
+    expect(login.statusCode).toBe(200);
+
+    const linkedUser = await findUserByEmail(email);
+    expect(linkedUser).toBeDefined();
+
+    const heldRows = await testDb
+      .select()
+      .from(seats)
+      .where(eq(seats.holdUserId, linkedUser.id));
+    expect(heldRows).toHaveLength(1);
+    expect(heldRows[0].label).toBe('H1');
   });
 });

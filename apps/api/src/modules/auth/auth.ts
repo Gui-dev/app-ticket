@@ -1,8 +1,11 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+import { anonymous } from 'better-auth/plugins';
+import { eq } from 'drizzle-orm';
 
 import type { Db } from '../../db/client.js';
 import * as schema from '../../db/schema.js';
+import { seats } from '../../db/schema.js';
 import type { SendEmailFn } from './email.js';
 
 export type { SendEmailInput } from './email.js';
@@ -54,6 +57,16 @@ export function createAuth(db: Db, deps: { sendEmail: SendEmailFn }) {
         });
       },
     },
+    plugins: [
+      anonymous({
+        onLinkAccount: async ({ anonymousUser, newUser }) => {
+          await db
+            .update(seats)
+            .set({ holdUserId: newUser.user.id })
+            .where(eq(seats.holdUserId, anonymousUser.user.id));
+        },
+      }),
+    ],
   });
 }
 

@@ -19,7 +19,11 @@ export function registerAuthRoutes(
         headers.delete('content-length');
         headers.delete('host');
 
-        const hasBody = request.method !== 'GET' && request.method !== 'HEAD';
+        const hasBody =
+          request.method !== 'GET' &&
+          request.method !== 'HEAD' &&
+          request.body !== undefined &&
+          request.body !== null;
         const response = await auth.handler(
           new Request(url.toString(), {
             method: request.method,

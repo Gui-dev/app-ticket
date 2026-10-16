@@ -126,9 +126,14 @@ export const seats = pgTable(
     label: text('label').notNull(),
     position: integer('position').notNull(),
     status: text('status')
-      .$type<'available' | 'occupied' | 'unavailable'>()
+      .$type<'available' | 'occupied' | 'unavailable' | 'reserved'>()
       .notNull()
       .default('available'),
+    holdUserId: text('hold_user_id'),
+    holdExpiresAt: timestamp('hold_expires_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
   },
   (table) => [
     unique('seats_row_id_label_unique').on(table.rowId, table.label),
@@ -142,6 +147,7 @@ export const user = pgTable('user', {
   email: text('email').notNull().unique(),
   emailVerified: boolean('email_verified').default(false).notNull(),
   image: text('image'),
+  isAnonymous: boolean('is_anonymous').default(false),
   createdAt: timestamp('created_at', { withTimezone: true })
     .defaultNow()
     .notNull(),

@@ -43,6 +43,13 @@
       "when": 1792101837239,
       "tag": "0005_clever_zeigeist",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792171649980,
+      "tag": "0006_concerned_leper_queen",
+      "breakpoints": true
     }
   ]
 }
