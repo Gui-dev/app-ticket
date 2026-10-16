@@ -1,6 +1,6 @@
 import type { SeatStatus } from '@ticketvibe/shared';
 
-export type SeatStatusValue = SeatStatus;
+export type SeatStatusValue = SeatStatus | 'reserved';
 
 export interface SeatmapSeat {
   label: string;

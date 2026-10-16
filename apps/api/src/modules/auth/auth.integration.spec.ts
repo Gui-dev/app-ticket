@@ -96,6 +96,7 @@ beforeEach(async () => {
   await seedFixtures(testDb);
   sentEmails = [];
   const [row] = await testDb.select().from(seatRows).limit(1);
+  expect(row).toBeDefined();
   seedRowId = row.id;
 });
 
@@ -587,7 +588,7 @@ describe('sessão anônima', () => {
       holdExpiresAt: new Date(Date.now() + 600_000),
     });
 
-    const email = `link-${Date.now()}@ticketvibe.test`;
+    const email = 'link@ticketvibe.test';
     const signUpResponse = await app.inject({
       method: 'POST',
       url: '/api/auth/sign-up/email',

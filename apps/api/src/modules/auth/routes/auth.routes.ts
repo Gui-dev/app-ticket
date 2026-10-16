@@ -28,7 +28,7 @@ export function registerAuthRoutes(
           new Request(url.toString(), {
             method: request.method,
             headers,
-            ...(hasBody ? { body: JSON.stringify(request.body ?? {}) } : {}),
+            ...(hasBody ? { body: JSON.stringify(request.body) } : {}),
           }),
         );
 
