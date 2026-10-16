@@ -24,7 +24,7 @@ export class InMemorySeatmapRepository implements SeatmapRepository {
     private readonly now: () => Date = () => new Date(),
   ) {
     for (const seatmap of seed) {
-      this.seatmaps.set(seatmap.eventSlug, seatmap);
+      this.seatmaps.set(seatmap.eventSlug, structuredClone(seatmap));
     }
     this.userHolds = holds;
   }
@@ -135,6 +135,8 @@ export class InMemorySeatmapRepository implements SeatmapRepository {
   }
 
   async releaseSeat(input: { seatId: string; userId: string }): Promise<void> {
+    const hold = this.seatHolds.get(input.seatId);
+    if (!hold || hold.userId !== input.userId) return;
     for (const { id, seat } of this.seats()) {
       if (id === input.seatId) {
         seat.status = 'available';

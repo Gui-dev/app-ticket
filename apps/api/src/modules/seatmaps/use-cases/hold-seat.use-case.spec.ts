@@ -1,5 +1,7 @@
+import { SEAT_HOLD_TTL_SECONDS } from '@ticketvibe/shared';
 import { describe, expect, it } from 'vitest';
 
+import { holdSeatKey } from '../domain/hold-entity.js';
 import type { SeatmapEntity } from '../domain/seatmap-entity.js';
 import { InMemoryHoldRepository } from '../infra/in-memory-hold-repository.js';
 import { InMemorySeatmapRepository } from '../infra/in-memory-seatmap-repository.js';
@@ -63,7 +65,10 @@ describe('HoldSeatUseCase', () => {
 
   it('renews when the same user claims again', async () => {
     const { useCase } = createUseCase();
-    await useCase.execute({ userId: 'user-a', ...baseInput });
+    const first = await useCase.execute({ userId: 'user-a', ...baseInput });
+    expect(first.kind).toBe('held');
+    if (first.kind !== 'held') return;
+    expect(first.renewed).toBe(false);
     const result = await useCase.execute({ userId: 'user-a', ...baseInput });
     expect(result.kind).toBe('held');
     if (result.kind !== 'held') return;
@@ -91,6 +96,24 @@ describe('HoldSeatUseCase', () => {
       seatLabel: '3',
     });
     expect(reserved.kind).toBe('seat_unavailable');
+  });
+
+  it('rolls back the redis claim when the mirror rejects the seat', async () => {
+    const { useCase, holdRepository } = createUseCase();
+    const result = await useCase.execute({
+      userId: 'user-a',
+      ...baseInput,
+      seatLabel: '3',
+    });
+    expect(result.kind).toBe('seat_unavailable');
+    const seatKey = holdSeatKey(
+      'o-fantasma-da-opera',
+      'o-fantasma-da-opera:plateia:A',
+      'o-fantasma-da-opera:plateia:A:3',
+    );
+    await expect(
+      holdRepository.claim(seatKey, 'user-b', SEAT_HOLD_TTL_SECONDS),
+    ).resolves.toBe('claimed');
   });
 
   it('distinguishes event, sector and seat misses', async () => {

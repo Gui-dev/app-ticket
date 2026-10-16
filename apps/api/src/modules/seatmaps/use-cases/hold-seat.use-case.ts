@@ -66,14 +66,19 @@ export class HoldSeatUseCase {
         expiresAt,
       });
       if (!mirrored) {
+        await this.holdRepository.release(seatKey, input.userId);
         return { kind: 'seat_unavailable' };
       }
     } else {
-      await this.seatmapRepository.renewSeatHold({
+      const renewedInDb = await this.seatmapRepository.renewSeatHold({
         seatId: seat.seatId,
         userId: input.userId,
         expiresAt,
       });
+      if (!renewedInDb) {
+        await this.holdRepository.release(seatKey, input.userId);
+        return { kind: 'seat_unavailable' };
+      }
     }
 
     return {

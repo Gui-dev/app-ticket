@@ -59,15 +59,23 @@ describe('ReleaseHoldUseCase', () => {
   it('reports hold_not_found for foreign or missing holds', async () => {
     const seatmapRepository = new InMemorySeatmapRepository([seatmap]);
     const holdRepository = new InMemoryHoldRepository();
+    const holdSeat = new HoldSeatUseCase(seatmapRepository, holdRepository);
     const release = new ReleaseHoldUseCase(seatmapRepository, holdRepository);
-
-    const result = await release.execute({
-      userId: 'user-a',
+    const coords = {
       eventSlug: 'o-fantasma-da-opera',
       sectorSlug: 'plateia',
       rowLabel: 'A',
       seatLabel: '1',
-    });
-    expect(result.kind).toBe('hold_not_found');
+    };
+
+    const missing = await release.execute({ userId: 'user-a', ...coords });
+    expect(missing.kind).toBe('hold_not_found');
+
+    await holdSeat.execute({ userId: 'user-a', ...coords });
+    const foreign = await release.execute({ userId: 'user-b', ...coords });
+    expect(foreign.kind).toBe('hold_not_found');
+
+    const owned = await release.execute({ userId: 'user-a', ...coords });
+    expect(owned.kind).toBe('released');
   });
 });
