@@ -72,6 +72,47 @@ describe('RedisCartRepository', () => {
     ).toBe(0);
   });
 
+  it('refreshes the ttl on a new write', async () => {
+    await repository.setType({
+      userId: 'user-a',
+      eventSlug: 'gig',
+      itemKey: cartItemKey('plateia', 'A', '6'),
+      ticketType: 'meia',
+      ttlSeconds: 600,
+    });
+    const firstTtl = await redis.ttl('cart:user-a:gig');
+    expect(firstTtl).toBeGreaterThan(0);
+    expect(firstTtl).toBeLessThanOrEqual(600);
+    await repository.setType({
+      userId: 'user-a',
+      eventSlug: 'gig',
+      itemKey: cartItemKey('plateia', 'A', '6'),
+      ticketType: 'meia',
+      ttlSeconds: 600,
+    });
+    const secondTtl = await redis.ttl('cart:user-a:gig');
+    expect(secondTtl).toBeGreaterThan(0);
+    expect(secondTtl).toBeLessThanOrEqual(600);
+  });
+
+  it('drops the cart after the ttl expires', async () => {
+    await repository.setType({
+      userId: 'user-a',
+      eventSlug: 'gig',
+      itemKey: cartItemKey('plateia', 'A', '6'),
+      ticketType: 'meia',
+      ttlSeconds: 1,
+    });
+    await redis.pexpire('cart:user-a:gig', 50);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(await redis.exists('cart:user-a:gig')).toBe(0);
+    const types = await repository.getTypes({
+      userId: 'user-a',
+      eventSlug: 'gig',
+    });
+    expect(types.size).toBe(0);
+  });
+
   it('ignores values that are not ticket types', async () => {
     await redis.hset('cart:user-a:gig', 'plateia:A:6', 'leilao');
     const types = await repository.getTypes({

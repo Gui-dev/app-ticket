@@ -18,8 +18,11 @@ export class RedisCartRepository implements CartRepository {
     ttlSeconds: number;
   }): Promise<void> {
     const key = this.key(input.userId, input.eventSlug);
-    await this.redis.hset(key, input.itemKey, input.ticketType);
-    await this.redis.expire(key, input.ttlSeconds);
+    await this.redis
+      .multi()
+      .hset(key, input.itemKey, input.ticketType)
+      .expire(key, input.ttlSeconds)
+      .exec();
   }
 
   async getTypes(input: {
