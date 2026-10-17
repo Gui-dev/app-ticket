@@ -69,10 +69,15 @@ const seatmapPayload = {
       },
     ],
   },
-  holds: [],
+  holds: [] as {
+    sectorSlug: string;
+    rowLabel: string;
+    seatLabel: string;
+    expiresAt: string;
+  }[],
 };
 
-function useSeatmap() {
+function mockSeatmap() {
   server.use(
     http.get(/\/api\/events\/o-fantasma-da-opera\/seatmap$/, () =>
       HttpResponse.json(seatmapPayload),
@@ -80,7 +85,34 @@ function useSeatmap() {
   );
 }
 
-function useHold(seatLabel = '6', status: number = 201) {
+function mockCart(
+  items: {
+    sectorSlug: string;
+    rowLabel: string;
+    seatLabel: string;
+    ticketType: string;
+    priceCents: number;
+  }[] = [],
+) {
+  server.use(
+    http.get(/\/api\/events\/o-fantasma-da-opera\/cart$/, () =>
+      HttpResponse.json({
+        eventSlug: 'o-fantasma-da-opera',
+        items: items.map((item) => ({
+          ...item,
+          expiresAt: new Date(Date.now() + 600_000).toISOString(),
+        })),
+        expiresAt:
+          items.length > 0
+            ? new Date(Date.now() + 600_000).toISOString()
+            : null,
+        totalCents: 0,
+      }),
+    ),
+  );
+}
+
+function mockHold(seatLabel = '6', status: number = 201) {
   server.use(
     http.post(/\/api\/events\/o-fantasma-da-opera\/holds$/, () =>
       HttpResponse.json(
@@ -98,7 +130,7 @@ function useHold(seatLabel = '6', status: number = 201) {
   );
 }
 
-function useRelease() {
+function mockRelease() {
   server.use(
     http.post(/\/api\/events\/o-fantasma-da-opera\/holds\/release$/, () =>
       HttpResponse.json({ released: true }),
@@ -106,9 +138,11 @@ function useRelease() {
   );
 }
 
+const CART_ITEM_6 = 'Plateia · Fila A · Cadeira 6 · R$ 120,00';
+
 describe('SeatMap', () => {
   it('renders sectors, rows and seat states', async () => {
-    useSeatmap();
+    mockSeatmap();
     render(<SeatMap eventSlug="o-fantasma-da-opera" />);
 
     expect(
@@ -136,42 +170,56 @@ describe('SeatMap', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('selects a free seat and shows the summary', async () => {
-    useSeatmap();
-    useHold('1');
+  it('adds a free seat to the cart', async () => {
+    mockSeatmap();
+    mockHold('1');
     render(<SeatMap eventSlug="o-fantasma-da-opera" />);
 
     fireEvent.click(
       await screen.findByRole('button', { name: 'Cadeira 1, fila A' }),
     );
 
-    expect(await screen.findByRole('status')).toHaveTextContent(
-      'Você selecionou: Plateia · Fila A · Cadeira 1 · R$ 120,00',
-    );
+    expect(
+      await screen.findByText('Plateia · Fila A · Cadeira 1 · R$ 120,00'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Total: R$ 120,00')).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Cadeira 1, fila A' }),
     ).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('clears the selection when switching sectors', async () => {
-    useSeatmap();
-    useHold('1');
-    useRelease();
+  it('keeps the cart when switching sectors', async () => {
+    mockSeatmap();
+    mockHold('1');
+    const releasedLabels: string[] = [];
+    server.use(
+      http.post(
+        /\/api\/events\/o-fantasma-da-opera\/holds\/release$/,
+        async ({ request }) => {
+          const body = (await request.json()) as { seatLabel: string };
+          releasedLabels.push(body.seatLabel);
+          return HttpResponse.json({ released: true });
+        },
+      ),
+    );
     render(<SeatMap eventSlug="o-fantasma-da-opera" />);
 
     fireEvent.click(
       await screen.findByRole('button', { name: 'Cadeira 1, fila A' }),
     );
-    expect(await screen.findByRole('status')).toBeInTheDocument();
+    await screen.findByText('Plateia · Fila A · Cadeira 1 · R$ 120,00');
 
     fireEvent.click(screen.getByRole('button', { name: 'Balcão' }));
 
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(
+      screen.getByText('Plateia · Fila A · Cadeira 1 · R$ 120,00'),
+    ).toBeInTheDocument();
+    expect(releasedLabels).toEqual([]);
   });
 
   it('picks the best available seat in one click', async () => {
-    useSeatmap();
-    useHold('1');
+    mockSeatmap();
+    mockHold('1');
     server.use(
       http.get(/\/api\/events\/.+\/best-seat$/, () =>
         HttpResponse.json({
@@ -190,11 +238,13 @@ describe('SeatMap', () => {
       await screen.findByRole('button', { name: 'Melhor lugar disponível' }),
     );
 
-    expect(await screen.findByRole('status')).toHaveTextContent('Cadeira 1');
+    expect(
+      await screen.findByText('Plateia · Fila A · Cadeira 1 · R$ 120,00'),
+    ).toBeInTheDocument();
   });
 
   it('warns when the sector has no free seats', async () => {
-    useSeatmap();
+    mockSeatmap();
     server.use(
       http.get(/\/api\/events\/.+\/best-seat$/, () =>
         HttpResponse.json({ error: 'no_available_seat' }, { status: 404 }),
@@ -240,30 +290,27 @@ describe('SeatMap', () => {
     ).toBeInTheDocument();
   });
 
-  it('holds the seat on selection and shows the countdown', async () => {
-    useSeatmap();
-    useHold();
-    useRelease();
+  it('shows the countdown and lets the buyer give up', async () => {
+    mockSeatmap();
+    mockHold();
+    mockRelease();
     render(<SeatMap eventSlug="o-fantasma-da-opera" />);
 
     fireEvent.click(
       await screen.findByRole('button', { name: 'Cadeira 6, fila A' }),
     );
 
+    expect(await screen.findByText(CART_ITEM_6)).toBeInTheDocument();
     expect(
       await screen.findByText(/Reserva expira em \d{2}:\d{2}/),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'Desistir da reserva' }),
+      screen.getByRole('button', { name: 'Desistir de todos' }),
     ).toBeInTheDocument();
-    expect(
-      await screen.findByText(
-        'Você selecionou: Plateia · Fila A · Cadeira 6 · R$ 120,00',
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByText('Total: R$ 120,00')).toBeInTheDocument();
   });
 
-  it('restores the hold from the seatmap response', async () => {
+  it('restores holds and ticket types from the server', async () => {
     server.use(
       http.get(/\/api\/events\/o-fantasma-da-opera\/seatmap$/, () =>
         HttpResponse.json({
@@ -279,17 +326,23 @@ describe('SeatMap', () => {
         }),
       ),
     );
+    mockCart([
+      {
+        sectorSlug: 'plateia',
+        rowLabel: 'A',
+        seatLabel: '1',
+        ticketType: 'meia',
+        priceCents: 6000,
+      },
+    ]);
     render(<SeatMap eventSlug="o-fantasma-da-opera" />);
 
     expect(
-      await screen.findByText(
-        'Você selecionou: Plateia · Fila A · Cadeira 1 · R$ 120,00',
-      ),
+      await screen.findByText('Plateia · Fila A · Cadeira 1 · R$ 60,00'),
     ).toBeInTheDocument();
     expect(screen.getByText(/Reserva expira em/)).toBeInTheDocument();
+    expect(screen.getByText('Total: R$ 60,00')).toBeInTheDocument();
 
-    // The owner's own hold maps back to occupied; the seat must stay
-    // clickable and pressed so the buyer can still release it.
     const seatOne = screen.getByRole('button', { name: 'Cadeira 1, fila A' });
     expect(seatOne).toBeEnabled();
     expect(seatOne).toHaveAttribute('aria-pressed', 'true');
@@ -313,6 +366,7 @@ describe('SeatMap', () => {
           }),
         ),
       );
+      mockCart();
       let renewCalls = 0;
       server.use(
         http.post(/\/api\/events\/o-fantasma-da-opera\/holds$/, () => {
@@ -345,39 +399,10 @@ describe('SeatMap', () => {
     }
   });
 
-  it('releases the hold when the buyer gives up', async () => {
-    useSeatmap();
-    useHold();
-    let released = false;
-    server.use(
-      http.post(/\/api\/events\/o-fantasma-da-opera\/holds\/release$/, () => {
-        released = true;
-        return HttpResponse.json({ released: true });
-      }),
-    );
-    render(<SeatMap eventSlug="o-fantasma-da-opera" />);
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'Cadeira 6, fila A' }),
-    );
-    await screen.findByText(/Reserva expira em/);
-
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Desistir da reserva' }),
-    );
-    await vi.waitFor(() => expect(released).toBe(true));
-    expect(screen.queryByText(/Reserva expira em/)).not.toBeInTheDocument();
-  });
-
-  it('releases the previous hold when selecting a different seat', async () => {
-    useSeatmap();
-    let gets = 0;
-    server.use(
-      http.get(/\/api\/events\/o-fantasma-da-opera\/seatmap$/, () => {
-        gets += 1;
-        return HttpResponse.json(seatmapPayload);
-      }),
-    );
+  it('releases every seat when the buyer gives up', async () => {
+    mockSeatmap();
     const heldLabels: string[] = [];
+    const releasedLabels: string[] = [];
     server.use(
       http.post(
         /\/api\/events\/o-fantasma-da-opera\/holds$/,
@@ -394,7 +419,35 @@ describe('SeatMap', () => {
           });
         },
       ),
+      http.post(
+        /\/api\/events\/o-fantasma-da-opera\/holds\/release$/,
+        async ({ request }) => {
+          const body = (await request.json()) as { seatLabel: string };
+          releasedLabels.push(body.seatLabel);
+          return HttpResponse.json({ released: true });
+        },
+      ),
     );
+    render(<SeatMap eventSlug="o-fantasma-da-opera" />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Cadeira 6, fila A' }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Cadeira 7, fila A' }));
+    await screen.findByText('Total: R$ 240,00');
+    expect(heldLabels).toEqual(['6', '7']);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Desistir de todos' }));
+    await vi.waitFor(() => expect(releasedLabels.sort()).toEqual(['6', '7']));
+    expect(
+      await screen.findByText('Nenhum assento no carrinho.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Reserva expira em/)).not.toBeInTheDocument();
+  });
+
+  it('releases a seat when clicking it again', async () => {
+    mockSeatmap();
+    mockHold('6');
     const releasedLabels: string[] = [];
     server.use(
       http.post(
@@ -407,36 +460,130 @@ describe('SeatMap', () => {
       ),
     );
     render(<SeatMap eventSlug="o-fantasma-da-opera" />);
+
     fireEvent.click(
       await screen.findByRole('button', { name: 'Cadeira 6, fila A' }),
     );
-    await screen.findByText(/Reserva expira em/);
+    await screen.findByText(CART_ITEM_6);
+    fireEvent.click(screen.getByRole('button', { name: 'Cadeira 6, fila A' }));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Cadeira 7, fila A' }));
-    await vi.waitFor(() =>
-      expect(screen.getByText(/Cadeira 7/)).toBeInTheDocument(),
-    );
-    await vi.waitFor(() => expect(releasedLabels).toContain('6'));
-    expect(heldLabels).toEqual(['6', '7']);
-    expect(screen.queryByText(/Cadeira 6/)).not.toBeInTheDocument();
+    await vi.waitFor(() => expect(releasedLabels).toEqual(['6']));
+    expect(screen.queryByText(CART_ITEM_6)).not.toBeInTheDocument();
+    expect(screen.getByText('Nenhum assento no carrinho.')).toBeInTheDocument();
+  });
 
-    // Give up the new hold; a later seatmap GET that only lists the old
-    // seat must not resurrect it as a zombie selection.
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Desistir da reserva' }),
-    );
-    gets = 0;
+  it('adds a second seat without releasing the first', async () => {
+    mockSeatmap();
+    const heldLabels: string[] = [];
+    const releasedLabels: string[] = [];
     server.use(
-      http.get(/\/api\/events\/o-fantasma-da-opera\/seatmap$/, () => {
-        gets += 1;
-        return HttpResponse.json(seatmapPayload);
-      }),
+      http.post(
+        /\/api\/events\/o-fantasma-da-opera\/holds$/,
+        async ({ request }) => {
+          const body = (await request.json()) as { seatLabel: string };
+          heldLabels.push(body.seatLabel);
+          return HttpResponse.json({
+            hold: {
+              sectorSlug: 'plateia',
+              rowLabel: 'A',
+              seatLabel: body.seatLabel,
+              expiresAt: new Date(Date.now() + 600_000).toISOString(),
+            },
+          });
+        },
+      ),
+      http.post(
+        /\/api\/events\/o-fantasma-da-opera\/holds\/release$/,
+        async ({ request }) => {
+          const body = (await request.json()) as { seatLabel: string };
+          releasedLabels.push(body.seatLabel);
+          return HttpResponse.json({ released: true });
+        },
+      ),
     );
-    await vi.waitFor(() =>
-      expect(screen.queryByText(/Cadeira 7/)).not.toBeInTheDocument(),
+    render(<SeatMap eventSlug="o-fantasma-da-opera" />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Cadeira 6, fila A' }),
     );
-    await vi.waitFor(() => expect(gets).toBeGreaterThan(0));
-    expect(screen.queryByText(/Cadeira 6/)).not.toBeInTheDocument();
+    await screen.findByText(CART_ITEM_6);
+    fireEvent.click(screen.getByRole('button', { name: 'Cadeira 7, fila A' }));
+
+    expect(
+      await screen.findByText('Plateia · Fila A · Cadeira 7 · R$ 120,00'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Total: R$ 240,00')).toBeInTheDocument();
+    expect(heldLabels).toEqual(['6', '7']);
+    expect(releasedLabels).toEqual([]);
+    expect(
+      screen.getByRole('button', { name: 'Cadeira 6, fila A' }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    expect(
+      screen.getByRole('button', { name: 'Cadeira 7, fila A' }),
+    ).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('updates the ticket type through the cart', async () => {
+    mockSeatmap();
+    mockHold('6');
+    const putBodies: {
+      sectorSlug: string;
+      rowLabel: string;
+      seatLabel: string;
+      ticketType: string;
+    }[] = [];
+    server.use(
+      http.put(
+        /\/api\/events\/o-fantasma-da-opera\/cart\/items$/,
+        async ({ request }) => {
+          const body = (await request.json()) as (typeof putBodies)[number];
+          putBodies.push(body);
+          return HttpResponse.json({ item: body });
+        },
+      ),
+    );
+    render(<SeatMap eventSlug="o-fantasma-da-opera" />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Cadeira 6, fila A' }),
+    );
+    await screen.findByText(CART_ITEM_6);
+
+    fireEvent.change(
+      screen.getByLabelText('Tipo de ingresso — Plateia, fila A, cadeira 6'),
+      { target: { value: 'meia' } },
+    );
+
+    expect(
+      await screen.findByText('Plateia · Fila A · Cadeira 6 · R$ 60,00'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Total: R$ 60,00')).toBeInTheDocument();
+    await vi.waitFor(() => expect(putBodies).toHaveLength(1));
+    expect(putBodies[0]).toMatchObject({
+      sectorSlug: 'plateia',
+      rowLabel: 'A',
+      seatLabel: '6',
+      ticketType: 'meia',
+    });
+  });
+
+  it('shows the cart limit message when the server rejects the seat', async () => {
+    mockSeatmap();
+    server.use(
+      http.post(/\/api\/events\/o-fantasma-da-opera\/holds$/, () =>
+        HttpResponse.json({ error: 'cart_limit' }, { status: 409 }),
+      ),
+    );
+    render(<SeatMap eventSlug="o-fantasma-da-opera" />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Cadeira 6, fila A' }),
+    );
+
+    expect(
+      await screen.findByText('Você já reservou o número máximo de assentos.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(CART_ITEM_6)).not.toBeInTheDocument();
   });
 
   it('keeps the map rendered when a later poll fails', async () => {
@@ -466,9 +613,9 @@ describe('SeatMap', () => {
     }
   });
 
-  it('reverts the selection when the seat was just taken', async () => {
-    useSeatmap();
-    useHold('6', 409);
+  it('reverts when the seat was just taken', async () => {
+    mockSeatmap();
+    mockHold('6', 409);
     render(<SeatMap eventSlug="o-fantasma-da-opera" />);
     fireEvent.click(
       await screen.findByRole('button', { name: 'Cadeira 6, fila A' }),
@@ -479,15 +626,11 @@ describe('SeatMap', () => {
         'Este assento acabou de ser reservado por outro comprador.',
       ),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByText(
-        'Você selecionou: Plateia · Fila A · Cadeira 6 · R$ 120,00',
-      ),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(CART_ITEM_6)).not.toBeInTheDocument();
   });
 
   it('signs in anonymously and retries when the hold gets a 401', async () => {
-    useSeatmap();
+    mockSeatmap();
     let anonymousCalls = 0;
     let holdCalls = 0;
     server.use(
@@ -518,13 +661,43 @@ describe('SeatMap', () => {
       await screen.findByRole('button', { name: 'Cadeira 6, fila A' }),
     );
 
-    expect(
-      await screen.findByText(
-        'Você selecionou: Plateia · Fila A · Cadeira 6 · R$ 120,00',
-      ),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(CART_ITEM_6)).toBeInTheDocument();
     expect(anonymousCalls).toBe(1);
     expect(holdCalls).toBe(2);
+  });
+
+  it('does not resurrect a seat after the buyer gives up', async () => {
+    mockSeatmap();
+    let gets = 0;
+    server.use(
+      http.get(/\/api\/events\/o-fantasma-da-opera\/seatmap$/, () => {
+        gets += 1;
+        return HttpResponse.json({
+          ...seatmapPayload,
+          holds: [
+            {
+              sectorSlug: 'plateia',
+              rowLabel: 'A',
+              seatLabel: '6',
+              expiresAt: new Date(Date.now() + 600_000).toISOString(),
+            },
+          ],
+        });
+      }),
+    );
+    mockHold('6');
+    mockRelease();
+    render(<SeatMap eventSlug="o-fantasma-da-opera" />);
+
+    expect(await screen.findByText(CART_ITEM_6)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Desistir de todos' }));
+    await vi.waitFor(() =>
+      expect(screen.queryByText(CART_ITEM_6)).not.toBeInTheDocument(),
+    );
+    expect(gets).toBeGreaterThan(1);
+    expect(screen.queryByText(CART_ITEM_6)).not.toBeInTheDocument();
+    expect(screen.getByText('Nenhum assento no carrinho.')).toBeInTheDocument();
   });
 
   it('polls the seatmap while mounted', async () => {
