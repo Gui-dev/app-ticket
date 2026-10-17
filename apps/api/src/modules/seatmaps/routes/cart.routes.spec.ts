@@ -106,6 +106,31 @@ describe('cart routes (unit)', () => {
         ticketType: 'meia',
       },
     });
+    expect(setCartItem.execute).toHaveBeenCalledWith({
+      userId: 'user-a',
+      eventSlug: 'o-fantasma-da-opera',
+      sectorSlug: 'plateia',
+      rowLabel: 'A',
+      seatLabel: '6',
+      ticketType: 'meia',
+    });
+    await app.close();
+  });
+
+  it('returns 401 without a session on PUT', async () => {
+    const app = buildTestApp(async () => null);
+    const response = await app.inject({
+      method: 'PUT',
+      url: '/events/o-fantasma-da-opera/cart/items',
+      payload: {
+        sectorSlug: 'plateia',
+        rowLabel: 'A',
+        seatLabel: '6',
+        ticketType: 'meia',
+      },
+    });
+    expect(response.statusCode).toBe(401);
+    expect(setCartItem.execute).not.toHaveBeenCalled();
     await app.close();
   });
 
@@ -149,6 +174,53 @@ describe('cart routes (unit)', () => {
     expect(response.statusCode).toBe(400);
     expect(response.json().error).toBe('invalid_body');
     expect(setCartItem.execute).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it('serializes item dates to iso strings on GET', async () => {
+    vi.mocked(getCart.execute).mockResolvedValueOnce({
+      kind: 'cart',
+      cart: {
+        eventSlug: 'o-fantasma-da-opera',
+        items: [
+          {
+            sectorSlug: 'plateia',
+            rowLabel: 'A',
+            seatLabel: '6',
+            ticketType: 'meia',
+            priceCents: 6000,
+            expiresAt: new Date('2026-10-16T12:10:00.000Z'),
+          },
+        ],
+        expiresAt: new Date('2026-10-16T12:10:00.000Z'),
+        totalCents: 6000,
+      },
+    });
+    const app = buildTestApp(async () => ({ userId: 'user-a' }));
+    const response = await app.inject({
+      method: 'GET',
+      url: '/events/o-fantasma-da-opera/cart',
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      eventSlug: 'o-fantasma-da-opera',
+      items: [
+        {
+          sectorSlug: 'plateia',
+          rowLabel: 'A',
+          seatLabel: '6',
+          ticketType: 'meia',
+          priceCents: 6000,
+          expiresAt: '2026-10-16T12:10:00.000Z',
+        },
+      ],
+      expiresAt: '2026-10-16T12:10:00.000Z',
+      totalCents: 6000,
+    });
+    expect(getCart.execute).toHaveBeenCalledWith(
+      'user-a',
+      'o-fantasma-da-opera',
+    );
     await app.close();
   });
 });

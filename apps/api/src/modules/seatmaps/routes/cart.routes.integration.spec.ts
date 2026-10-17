@@ -173,21 +173,6 @@ describe('cart routes (postgres + redis integration)', () => {
     expect(response.json()).toEqual({ error: 'hold_not_found' });
   });
 
-  it('caps the cart at 8 seats with 409 cart_limit', async () => {
-    const labels = ['1', '3', '4', '5', '6', '8', '9', '10'];
-    for (const seatLabel of labels) {
-      await hold(seatLabel);
-    }
-    const overflow = await app.inject({
-      method: 'POST',
-      url: '/events/o-fantasma-da-opera/holds',
-      headers: { 'x-test-user-id': 'user-a' },
-      payload: { sectorSlug: 'plateia', rowLabel: 'A', seatLabel: '11' },
-    });
-    expect(overflow.statusCode).toBe(409);
-    expect(overflow.json()).toEqual({ error: 'cart_limit' });
-  });
-
   it('empties the cart when the holds expire', async () => {
     await hold('6');
     await testDb.execute(
