@@ -8,4 +8,5 @@ export interface HoldRepository {
   ): Promise<HoldClaimResult>;
   renew(seatKey: string, userId: string, ttlSeconds: number): Promise<boolean>;
   release(seatKey: string, userId: string): Promise<boolean>;
+  owns(seatKey: string, userId: string): Promise<boolean>;
 }

@@ -58,4 +58,10 @@ describe('RedisHoldRepository (redis integration)', () => {
     expect(await repository.release(key, 'user-a')).toBe(true);
     expect(await redis.get(key)).toBeNull();
   });
+
+  it('reports ownership via the stored user id', async () => {
+    await repository.claim(key, 'user-a', 600);
+    expect(await repository.owns(key, 'user-a')).toBe(true);
+    expect(await repository.owns(key, 'user-b')).toBe(false);
+  });
 });

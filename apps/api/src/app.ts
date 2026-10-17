@@ -81,6 +81,7 @@ export function buildApp(
     renew: (seatKey, userId, ttlSeconds) =>
       getHoldRepository().renew(seatKey, userId, ttlSeconds),
     release: (seatKey, userId) => getHoldRepository().release(seatKey, userId),
+    owns: (seatKey, userId) => getHoldRepository().owns(seatKey, userId),
   };
 
   app.addHook('onClose', async () => {

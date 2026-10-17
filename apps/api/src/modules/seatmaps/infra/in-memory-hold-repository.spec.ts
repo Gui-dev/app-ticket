@@ -66,4 +66,16 @@ describe('InMemoryHoldRepository', () => {
     nowMs += 601_000;
     expect(await repository.claim(key, 'user-b', 600)).toBe('claimed');
   });
+
+  it('reports ownership of an active hold', async () => {
+    await repository.claim(key, 'user-a', 600);
+    expect(await repository.owns(key, 'user-a')).toBe(true);
+    expect(await repository.owns(key, 'user-b')).toBe(false);
+  });
+
+  it('does not report ownership after expiry', async () => {
+    await repository.claim(key, 'user-a', 600);
+    nowMs += 601 * 1000;
+    expect(await repository.owns(key, 'user-a')).toBe(false);
+  });
 });

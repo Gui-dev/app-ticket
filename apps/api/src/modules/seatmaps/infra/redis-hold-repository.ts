@@ -44,4 +44,8 @@ export class RedisHoldRepository implements HoldRepository {
     const result = await this.redis.eval(RELEASE_SCRIPT, 1, seatKey, userId);
     return result === 1;
   }
+
+  async owns(seatKey: string, userId: string): Promise<boolean> {
+    return (await this.redis.get(seatKey)) === userId;
+  }
 }

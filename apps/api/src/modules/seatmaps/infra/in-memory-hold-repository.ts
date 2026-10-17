@@ -56,4 +56,8 @@ export class InMemoryHoldRepository implements HoldRepository {
     this.holds.delete(seatKey);
     return true;
   }
+
+  async owns(seatKey: string, userId: string): Promise<boolean> {
+    return this.activeHold(seatKey)?.userId === userId;
+  }
 }
