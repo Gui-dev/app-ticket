@@ -50,7 +50,13 @@ export class GetCartUseCase {
     const types = await this.cartRepository.getTypes({ userId, eventSlug });
     let totalCents = 0;
     let earliest: Date | null = null;
-    const items = holds.map((hold) => {
+    const sortedHolds = [...holds].sort(
+      (a, b) =>
+        a.sectorSlug.localeCompare(b.sectorSlug) ||
+        a.rowLabel.localeCompare(b.rowLabel) ||
+        a.seatLabel.localeCompare(b.seatLabel),
+    );
+    const items = sortedHolds.map((hold) => {
       const ticketType: TicketType =
         types.get(
           cartItemKey(hold.sectorSlug, hold.rowLabel, hold.seatLabel),
