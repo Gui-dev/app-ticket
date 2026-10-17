@@ -1,7 +1,15 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 const server = setupServer();
 
@@ -29,6 +37,9 @@ const seatmapPayload = {
               { label: '1', status: 'available' },
               { label: '2', status: 'occupied' },
               { label: '3', status: 'unavailable' },
+              { label: '4', status: 'available' },
+              { label: '5', status: 'available' },
+              { label: '6', status: 'available' },
             ],
           },
           {
@@ -68,6 +79,32 @@ function useSeatmap() {
   );
 }
 
+function useHold(seatLabel = '6', status: number = 201) {
+  server.use(
+    http.post(/\/api\/events\/o-fantasma-da-opera\/holds$/, () =>
+      HttpResponse.json(
+        {
+          hold: {
+            sectorSlug: 'plateia',
+            rowLabel: 'A',
+            seatLabel,
+            expiresAt: new Date(Date.now() + 600_000).toISOString(),
+          },
+        },
+        { status },
+      ),
+    ),
+  );
+}
+
+function useRelease() {
+  server.use(
+    http.post(/\/api\/events\/o-fantasma-da-opera\/holds\/release$/, () =>
+      HttpResponse.json({ released: true }),
+    ),
+  );
+}
+
 describe('SeatMap', () => {
   it('renders sectors, rows and seat states', async () => {
     useSeatmap();
@@ -86,7 +123,7 @@ describe('SeatMap', () => {
       'aria-pressed',
       'true',
     );
-    expect(screen.getByText(/4 de 6 livres/)).toBeInTheDocument();
+    expect(screen.getByText(/7 de 9 livres/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Balcão' }));
     expect(screen.getByRole('button', { name: 'Balcão' })).toHaveAttribute(
@@ -100,6 +137,7 @@ describe('SeatMap', () => {
 
   it('selects a free seat and shows the summary', async () => {
     useSeatmap();
+    useHold('1');
     render(<SeatMap eventSlug="o-fantasma-da-opera" />);
 
     fireEvent.click(
@@ -116,6 +154,8 @@ describe('SeatMap', () => {
 
   it('clears the selection when switching sectors', async () => {
     useSeatmap();
+    useHold('1');
+    useRelease();
     render(<SeatMap eventSlug="o-fantasma-da-opera" />);
 
     fireEvent.click(
@@ -130,6 +170,7 @@ describe('SeatMap', () => {
 
   it('picks the best available seat in one click', async () => {
     useSeatmap();
+    useHold('1');
     server.use(
       http.get(/\/api\/events\/.+\/best-seat$/, () =>
         HttpResponse.json({
@@ -196,5 +237,209 @@ describe('SeatMap', () => {
         'O mapa de assentos ainda não foi publicado para este evento.',
       ),
     ).toBeInTheDocument();
+  });
+
+  it('holds the seat on selection and shows the countdown', async () => {
+    useSeatmap();
+    useHold();
+    useRelease();
+    render(<SeatMap eventSlug="o-fantasma-da-opera" />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Cadeira 6, fila A' }),
+    );
+
+    expect(
+      await screen.findByText(/Reserva expira em \d{2}:\d{2}/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Desistir da reserva' }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        'Você selecionou: Plateia · Fila A · Cadeira 6 · R$ 120,00',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('restores the hold from the seatmap response', async () => {
+    server.use(
+      http.get(/\/api\/events\/o-fantasma-da-opera\/seatmap$/, () =>
+        HttpResponse.json({
+          ...seatmapPayload,
+          holds: [
+            {
+              sectorSlug: 'plateia',
+              rowLabel: 'A',
+              seatLabel: '1',
+              expiresAt: new Date(Date.now() + 600_000).toISOString(),
+            },
+          ],
+        }),
+      ),
+    );
+    render(<SeatMap eventSlug="o-fantasma-da-opera" />);
+
+    expect(
+      await screen.findByText(
+        'Você selecionou: Plateia · Fila A · Cadeira 1 · R$ 120,00',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Reserva expira em/)).toBeInTheDocument();
+  });
+
+  it('renews automatically when the countdown is low', async () => {
+    vi.useFakeTimers();
+    try {
+      server.use(
+        http.get(/\/api\/events\/o-fantasma-da-opera\/seatmap$/, () =>
+          HttpResponse.json({
+            ...seatmapPayload,
+            holds: [
+              {
+                sectorSlug: 'plateia',
+                rowLabel: 'A',
+                seatLabel: '1',
+                expiresAt: new Date(Date.now() + 100_000).toISOString(),
+              },
+            ],
+          }),
+        ),
+      );
+      let renewCalls = 0;
+      server.use(
+        http.post(/\/api\/events\/o-fantasma-da-opera\/holds$/, () => {
+          renewCalls += 1;
+          return HttpResponse.json(
+            {
+              hold: {
+                sectorSlug: 'plateia',
+                rowLabel: 'A',
+                seatLabel: '1',
+                expiresAt: new Date(Date.now() + 600_000).toISOString(),
+              },
+            },
+            { status: 200 },
+          );
+        }),
+      );
+      render(<SeatMap eventSlug="o-fantasma-da-opera" />);
+      for (let i = 0; i < 10; i += 1) {
+        await vi.advanceTimersByTimeAsync(0);
+        if (screen.queryByText(/Reserva expira em/)) break;
+      }
+      expect(screen.getByText(/Reserva expira em/)).toBeInTheDocument();
+
+      await vi.advanceTimersByTimeAsync(1_500);
+      expect(renewCalls).toBe(1);
+      expect(screen.getByText('Reserva renovada')).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('releases the hold when the buyer gives up', async () => {
+    useSeatmap();
+    useHold();
+    let released = false;
+    server.use(
+      http.post(/\/api\/events\/o-fantasma-da-opera\/holds\/release$/, () => {
+        released = true;
+        return HttpResponse.json({ released: true });
+      }),
+    );
+    render(<SeatMap eventSlug="o-fantasma-da-opera" />);
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Cadeira 6, fila A' }),
+    );
+    await screen.findByText(/Reserva expira em/);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Desistir da reserva' }),
+    );
+    await vi.waitFor(() => expect(released).toBe(true));
+    expect(screen.queryByText(/Reserva expira em/)).not.toBeInTheDocument();
+  });
+
+  it('reverts the selection when the seat was just taken', async () => {
+    useSeatmap();
+    useHold('6', 409);
+    render(<SeatMap eventSlug="o-fantasma-da-opera" />);
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Cadeira 6, fila A' }),
+    );
+
+    expect(
+      await screen.findByText(
+        'Este assento acabou de ser reservado por outro comprador.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'Você selecionou: Plateia · Fila A · Cadeira 6 · R$ 120,00',
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  it('signs in anonymously and retries when the hold gets a 401', async () => {
+    useSeatmap();
+    let anonymousCalls = 0;
+    let holdCalls = 0;
+    server.use(
+      http.post(/\/api\/auth\/sign-in\/anonymous$/, () => {
+        anonymousCalls += 1;
+        return HttpResponse.json({ token: 'anonymous-token' });
+      }),
+      http.post(/\/api\/events\/o-fantasma-da-opera\/holds$/, () => {
+        holdCalls += 1;
+        if (holdCalls === 1) {
+          return HttpResponse.json({ error: 'unauthorized' }, { status: 401 });
+        }
+        return HttpResponse.json(
+          {
+            hold: {
+              sectorSlug: 'plateia',
+              rowLabel: 'A',
+              seatLabel: '6',
+              expiresAt: new Date(Date.now() + 600_000).toISOString(),
+            },
+          },
+          { status: 201 },
+        );
+      }),
+    );
+    render(<SeatMap eventSlug="o-fantasma-da-opera" />);
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Cadeira 6, fila A' }),
+    );
+
+    expect(
+      await screen.findByText(
+        'Você selecionou: Plateia · Fila A · Cadeira 6 · R$ 120,00',
+      ),
+    ).toBeInTheDocument();
+    expect(anonymousCalls).toBe(1);
+    expect(holdCalls).toBe(2);
+  });
+
+  it('polls the seatmap while mounted', async () => {
+    vi.useFakeTimers();
+    try {
+      let gets = 0;
+      server.use(
+        http.get(/\/api\/events\/o-fantasma-da-opera\/seatmap$/, () => {
+          gets += 1;
+          return HttpResponse.json(seatmapPayload);
+        }),
+      );
+      render(<SeatMap eventSlug="o-fantasma-da-opera" />);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(gets).toBe(1);
+
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(gets).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
