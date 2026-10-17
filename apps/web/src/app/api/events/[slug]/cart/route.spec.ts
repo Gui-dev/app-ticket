@@ -111,4 +111,29 @@ describe('GET /api/events/[slug]/cart', () => {
     const res = await GET(request('o-fantasma-da-opera'), context);
     expect(res.status).toBe(502);
   });
+
+  it('returns 401 when upstream rejects the session', async () => {
+    server.use(
+      http.get('http://localhost:3001/events/o-fantasma-da-opera/cart', () =>
+        HttpResponse.json({ error: 'unauthorized' }, { status: 401 }),
+      ),
+    );
+
+    const res = await GET(request('o-fantasma-da-opera'), context);
+    expect(res.status).toBe(401);
+    expect((await res.json()).error).toBe('unauthorized');
+  });
+
+  it('returns 502 when upstream responds with an error status', async () => {
+    server.use(
+      http.get('http://localhost:3001/events/o-fantasma-da-opera/cart', () =>
+        HttpResponse.json({ error: 'boom' }, { status: 500 }),
+      ),
+    );
+
+    const res = await GET(request('o-fantasma-da-opera'), context);
+    expect(res.status).toBe(502);
+    expect((await res.json()).error).toBe('upstream_error');
+    expect(console.error).toHaveBeenCalled();
+  });
 });

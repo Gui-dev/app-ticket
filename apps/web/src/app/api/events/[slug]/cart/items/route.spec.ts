@@ -131,4 +131,32 @@ describe('PUT /api/events/[slug]/cart/items', () => {
     expect(res.status).toBe(502);
     expect(console.error).toHaveBeenCalled();
   });
+
+  it('returns 502 when the upstream request rejects', async () => {
+    server.use(
+      http.put(
+        'http://localhost:3001/events/o-fantasma-da-opera/cart/items',
+        () => HttpResponse.error(),
+      ),
+    );
+
+    const res = await PUT(request('o-fantasma-da-opera', item), context);
+    expect(res.status).toBe(502);
+    expect((await res.json()).error).toBe('upstream_error');
+    expect(console.error).toHaveBeenCalled();
+  });
+
+  it('returns 502 when upstream responds with an error status', async () => {
+    server.use(
+      http.put(
+        'http://localhost:3001/events/o-fantasma-da-opera/cart/items',
+        () => HttpResponse.json({ error: 'boom' }, { status: 500 }),
+      ),
+    );
+
+    const res = await PUT(request('o-fantasma-da-opera', item), context);
+    expect(res.status).toBe(502);
+    expect((await res.json()).error).toBe('upstream_error');
+    expect(console.error).toHaveBeenCalled();
+  });
 });
