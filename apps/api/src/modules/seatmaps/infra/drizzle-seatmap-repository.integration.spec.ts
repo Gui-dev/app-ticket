@@ -84,6 +84,7 @@ describe('DrizzleSeatmapRepository (postgres integration)', () => {
       sectorSlug: 'plateia',
       rowLabel: 'A',
       seatLabel: '6',
+      priceFromCents: 12000,
     });
 
     await testDb.execute(sql`
