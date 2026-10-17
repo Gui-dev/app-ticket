@@ -35,6 +35,14 @@ interface SelectedSeat {
 
 class HoldConflictError extends Error {}
 
+function seatDiffers(a: SelectedSeat, b: SelectedSeat): boolean {
+  return (
+    a.sectorSlug !== b.sectorSlug ||
+    a.rowLabel !== b.rowLabel ||
+    a.seatLabel !== b.seatLabel
+  );
+}
+
 const TICK_MS = 1_000;
 const POLL_MS = 10_000;
 
@@ -72,7 +80,7 @@ function formatCountdown(totalSeconds: number): string {
 }
 
 function secondsUntil(expiresAt: string): number {
-  return Math.max(0, Math.round((Date.parse(expiresAt) - Date.now()) / 1000));
+  return Math.max(0, Math.floor((Date.parse(expiresAt) - Date.now()) / 1000));
 }
 
 async function postHold(
@@ -124,6 +132,7 @@ export function SeatMap({ eventSlug }: SeatMapProps) {
   const [bestError, setBestError] = useState<string | null>(null);
   const renewingRef = useRef(false);
   const holdExpiresAtRef = useRef<string | null>(null);
+  const hasLoadedRef = useRef(false);
 
   const applyHoldExpiry = useCallback((expiresAt: string | null) => {
     holdExpiresAtRef.current = expiresAt;
@@ -144,6 +153,8 @@ export function SeatMap({ eventSlug }: SeatMapProps) {
       const payload = seatmapResponseSchema.parse(await response.json());
       setSeatmap(payload.seatmap);
       setLoading(false);
+      hasLoadedRef.current = true;
+      setError(false);
       const hold = payload.holds[0];
       if (hold) {
         const restored = toSelectedSeat(payload.seatmap, hold);
@@ -154,8 +165,8 @@ export function SeatMap({ eventSlug }: SeatMapProps) {
         }
       }
     } catch {
-      setError(true);
       setLoading(false);
+      if (!hasLoadedRef.current) setError(true);
     }
   }, [eventSlug, applyHoldExpiry]);
 
@@ -181,8 +192,15 @@ export function SeatMap({ eventSlug }: SeatMapProps) {
 
   async function ensureHold(seat: SelectedSeat) {
     if (holdPending) return;
+    const previous =
+      selected && holdExpiresAt && seatDiffers(selected, seat)
+        ? selected
+        : null;
     setHoldPending(true);
     setHoldError(null);
+    if (previous) {
+      postRelease(eventSlug, previous).catch(() => {});
+    }
     try {
       const expiresAt = await sendHold(seat);
       setSelected(seat);
@@ -212,6 +230,7 @@ export function SeatMap({ eventSlug }: SeatMapProps) {
     const seat = selected;
     try {
       await postRelease(eventSlug, seat);
+    } catch {
     } finally {
       setSelected(null);
       applyHoldExpiry(null);
@@ -407,7 +426,7 @@ export function SeatMap({ eventSlug }: SeatMapProps) {
                     <button
                       key={seat.label}
                       type="button"
-                      disabled={seat.status !== 'available'}
+                      disabled={!isSelected && seat.status !== 'available'}
                       aria-label={`Cadeira ${seat.label}, fila ${row.label}`}
                       aria-pressed={isSelected}
                       onClick={() =>
@@ -424,8 +443,10 @@ export function SeatMap({ eventSlug }: SeatMapProps) {
                         seat.status === 'available' &&
                           'bg-secondary border-border hover:border-primary',
                         seat.status === 'occupied' &&
+                          !isSelected &&
                           'cursor-not-allowed bg-muted text-muted-foreground line-through opacity-60',
                         seat.status === 'unavailable' &&
+                          !isSelected &&
                           'cursor-not-allowed bg-destructive/10 text-muted-foreground opacity-60',
                         isSelected &&
                           'bg-primary text-primary-foreground border-primary',
