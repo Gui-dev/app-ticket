@@ -51,4 +51,17 @@ export class InMemoryCartRepository implements CartRepository {
     }
     return result;
   }
+
+  async refreshTtl(input: {
+    userId: string;
+    eventSlug: string;
+    ttlSeconds: number;
+  }): Promise<void> {
+    const cart = this.carts.get(`${input.userId}:${input.eventSlug}`);
+    if (!cart) return;
+    const expiresAtMs = this.now().getTime() + input.ttlSeconds * 1000;
+    for (const entry of cart.values()) {
+      entry.expiresAtMs = expiresAtMs;
+    }
+  }
 }

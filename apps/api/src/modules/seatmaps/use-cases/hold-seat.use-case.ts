@@ -1,5 +1,6 @@
 import { CART_MAX_ITEMS, SEAT_HOLD_TTL_SECONDS } from '@ticketvibe/shared';
 
+import type { CartRepository } from '../domain/cart-repository.js';
 import { type Hold, holdSeatKey } from '../domain/hold-entity.js';
 import type { HoldRepository } from '../domain/hold-repository.js';
 import type { SeatmapRepository } from '../domain/seatmap-repository.js';
@@ -17,6 +18,7 @@ export class HoldSeatUseCase {
   constructor(
     private readonly seatmapRepository: SeatmapRepository,
     private readonly holdRepository: HoldRepository,
+    private readonly cartRepository: CartRepository,
     private readonly now: () => Date = () => new Date(),
   ) {}
 
@@ -91,6 +93,12 @@ export class HoldSeatUseCase {
         return { kind: 'seat_unavailable' };
       }
     }
+
+    await this.cartRepository.refreshTtl({
+      userId: input.userId,
+      eventSlug: input.eventSlug,
+      ttlSeconds: SEAT_HOLD_TTL_SECONDS,
+    });
 
     return {
       kind: 'held',

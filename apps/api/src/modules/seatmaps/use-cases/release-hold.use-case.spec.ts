@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { SeatmapEntity } from '../domain/seatmap-entity.js';
+import { InMemoryCartRepository } from '../infra/in-memory-cart-repository.js';
 import { InMemoryHoldRepository } from '../infra/in-memory-hold-repository.js';
 import { InMemorySeatmapRepository } from '../infra/in-memory-seatmap-repository.js';
 import { HoldSeatUseCase } from './hold-seat.use-case.js';
@@ -22,7 +23,11 @@ describe('ReleaseHoldUseCase', () => {
   it('releases an owned hold and frees the seat', async () => {
     const seatmapRepository = new InMemorySeatmapRepository([seatmap]);
     const holdRepository = new InMemoryHoldRepository();
-    const holdSeat = new HoldSeatUseCase(seatmapRepository, holdRepository);
+    const holdSeat = new HoldSeatUseCase(
+      seatmapRepository,
+      holdRepository,
+      new InMemoryCartRepository(),
+    );
     const release = new ReleaseHoldUseCase(seatmapRepository, holdRepository);
 
     await holdSeat.execute({
@@ -59,7 +64,11 @@ describe('ReleaseHoldUseCase', () => {
   it('reports hold_not_found for foreign or missing holds', async () => {
     const seatmapRepository = new InMemorySeatmapRepository([seatmap]);
     const holdRepository = new InMemoryHoldRepository();
-    const holdSeat = new HoldSeatUseCase(seatmapRepository, holdRepository);
+    const holdSeat = new HoldSeatUseCase(
+      seatmapRepository,
+      holdRepository,
+      new InMemoryCartRepository(),
+    );
     const release = new ReleaseHoldUseCase(seatmapRepository, holdRepository);
     const coords = {
       eventSlug: 'o-fantasma-da-opera',

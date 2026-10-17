@@ -95,6 +95,34 @@ describe('RedisCartRepository', () => {
     expect(secondTtl).toBeLessThanOrEqual(600);
   });
 
+  it('refreshes the key ttl', async () => {
+    await repository.setType({
+      userId: 'user-a',
+      eventSlug: 'gig',
+      itemKey: cartItemKey('plateia', 'A', '6'),
+      ticketType: 'meia',
+      ttlSeconds: 600,
+    });
+    await repository.refreshTtl({
+      userId: 'user-a',
+      eventSlug: 'gig',
+      ttlSeconds: 300,
+    });
+    const ttl = await redis.ttl('cart:user-a:gig');
+    expect(ttl).toBeGreaterThan(0);
+    expect(ttl).toBeLessThanOrEqual(300);
+  });
+
+  it('does not throw when refreshing a missing cart', async () => {
+    await expect(
+      repository.refreshTtl({
+        userId: 'user-a',
+        eventSlug: 'gig',
+        ttlSeconds: 600,
+      }),
+    ).resolves.toBeUndefined();
+  });
+
   it('drops the cart after the ttl expires', async () => {
     await repository.setType({
       userId: 'user-a',

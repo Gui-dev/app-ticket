@@ -12,6 +12,11 @@ export interface CartRepository {
     userId: string;
     eventSlug: string;
   }): Promise<Map<string, TicketType>>;
+  refreshTtl(input: {
+    userId: string;
+    eventSlug: string;
+    ttlSeconds: number;
+  }): Promise<void>;
 }
 
 export function cartItemKey(

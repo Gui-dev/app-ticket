@@ -16,9 +16,11 @@ import { registerCategoryRoutes } from './modules/categories/routes/categories.r
 import type { EventsRepository } from './modules/events/domain/events-repository.js';
 import { DrizzleEventsRepository } from './modules/events/infra/drizzle-events-repository.js';
 import { registerEventRoutes } from './modules/events/routes/events.routes.js';
+import type { CartRepository } from './modules/seatmaps/domain/cart-repository.js';
 import type { HoldRepository } from './modules/seatmaps/domain/hold-repository.js';
 import type { SeatmapRepository } from './modules/seatmaps/domain/seatmap-repository.js';
 import { DrizzleSeatmapRepository } from './modules/seatmaps/infra/drizzle-seatmap-repository.js';
+import { RedisCartRepository } from './modules/seatmaps/infra/redis-cart-repository.js';
 import { RedisHoldRepository } from './modules/seatmaps/infra/redis-hold-repository.js';
 import { registerHoldRoutes } from './modules/seatmaps/routes/holds.routes.js';
 import { registerSeatmapRoutes } from './modules/seatmaps/routes/seatmap.routes.js';
@@ -66,13 +68,17 @@ export function buildApp(
     options.seatmapRepository ?? new DrizzleSeatmapRepository(getDefaultDb());
 
   let defaultRedis: RedisClient | null = null;
-  const getHoldRepository = (): HoldRepository => {
-    if (options.holdRepository) return options.holdRepository;
+  const getRedis = (): RedisClient => {
     if (!defaultRedis) {
       defaultRedis = createRedis();
       defaultRedis.connect().catch(() => {});
     }
-    return new RedisHoldRepository(defaultRedis);
+    return defaultRedis;
+  };
+
+  const getHoldRepository = (): HoldRepository => {
+    if (options.holdRepository) return options.holdRepository;
+    return new RedisHoldRepository(getRedis());
   };
 
   const lazyHoldRepository: HoldRepository = {
@@ -82,6 +88,13 @@ export function buildApp(
       getHoldRepository().renew(seatKey, userId, ttlSeconds),
     release: (seatKey, userId) => getHoldRepository().release(seatKey, userId),
     owns: (seatKey, userId) => getHoldRepository().owns(seatKey, userId),
+  };
+
+  const lazyCartRepository: CartRepository = {
+    setType: (input) => new RedisCartRepository(getRedis()).setType(input),
+    getTypes: (input) => new RedisCartRepository(getRedis()).getTypes(input),
+    refreshTtl: (input) =>
+      new RedisCartRepository(getRedis()).refreshTtl(input),
   };
 
   app.addHook('onClose', async () => {
@@ -113,7 +126,11 @@ export function buildApp(
     getSession,
     holdSeat:
       options.holdSeat ??
-      new HoldSeatUseCase(seatmapRepository, lazyHoldRepository),
+      new HoldSeatUseCase(
+        seatmapRepository,
+        lazyHoldRepository,
+        lazyCartRepository,
+      ),
     releaseHold:
       options.releaseHold ??
       new ReleaseHoldUseCase(seatmapRepository, lazyHoldRepository),

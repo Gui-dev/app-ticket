@@ -41,4 +41,15 @@ export class RedisCartRepository implements CartRepository {
     }
     return result;
   }
+
+  async refreshTtl(input: {
+    userId: string;
+    eventSlug: string;
+    ttlSeconds: number;
+  }): Promise<void> {
+    await this.redis.expire(
+      this.key(input.userId, input.eventSlug),
+      input.ttlSeconds,
+    );
+  }
 }

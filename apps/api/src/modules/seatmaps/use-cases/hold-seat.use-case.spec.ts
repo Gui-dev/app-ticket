@@ -1,8 +1,10 @@
 import { CART_MAX_ITEMS, SEAT_HOLD_TTL_SECONDS } from '@ticketvibe/shared';
 import { describe, expect, it } from 'vitest';
 
+import { cartItemKey } from '../domain/cart-repository.js';
 import { holdSeatKey } from '../domain/hold-entity.js';
 import type { SeatmapEntity } from '../domain/seatmap-entity.js';
+import { InMemoryCartRepository } from '../infra/in-memory-cart-repository.js';
 import { InMemoryHoldRepository } from '../infra/in-memory-hold-repository.js';
 import { InMemorySeatmapRepository } from '../infra/in-memory-seatmap-repository.js';
 import { HoldSeatUseCase } from './hold-seat.use-case.js';
@@ -31,9 +33,11 @@ const seatmap: SeatmapEntity = {
 function createUseCase(nowMs = Date.parse('2026-10-16T12:00:00.000Z')) {
   const seatmapRepository = new InMemorySeatmapRepository([seatmap]);
   const holdRepository = new InMemoryHoldRepository(() => new Date(nowMs));
+  const cartRepository = new InMemoryCartRepository(() => new Date(nowMs));
   const useCase = new HoldSeatUseCase(
     seatmapRepository,
     holdRepository,
+    cartRepository,
     () => new Date(nowMs),
   );
   return { useCase, holdRepository };
@@ -73,6 +77,46 @@ describe('HoldSeatUseCase', () => {
     expect(result.kind).toBe('held');
     if (result.kind !== 'held') return;
     expect(result.renewed).toBe(true);
+  });
+
+  it('keeps the ticket type alive across hold renewals', async () => {
+    let nowMs = Date.parse('2026-10-16T12:00:00.000Z');
+    const now = () => new Date(nowMs);
+    const seatmapRepository = new InMemorySeatmapRepository(
+      [seatmap],
+      undefined,
+      now,
+    );
+    const holdRepository = new InMemoryHoldRepository(now);
+    const cartRepository = new InMemoryCartRepository(now);
+    const useCase = new HoldSeatUseCase(
+      seatmapRepository,
+      holdRepository,
+      cartRepository,
+      now,
+    );
+    const input = { userId: 'user-a', ...baseInput };
+    await useCase.execute(input);
+    await cartRepository.setType({
+      userId: 'user-a',
+      eventSlug: baseInput.eventSlug,
+      itemKey: cartItemKey(
+        baseInput.sectorSlug,
+        baseInput.rowLabel,
+        baseInput.seatLabel,
+      ),
+      ticketType: 'meia',
+      ttlSeconds: 600,
+    });
+    nowMs += 500 * 1000;
+    const renewed = await useCase.execute(input);
+    expect(renewed.kind).toBe('held');
+    nowMs += 150 * 1000;
+    const types = await cartRepository.getTypes({
+      userId: 'user-a',
+      eventSlug: baseInput.eventSlug,
+    });
+    expect(types.get('plateia:A:1')).toBe('meia');
   });
 
   it('reports seat_held when another user owns the hold', async () => {
@@ -185,6 +229,7 @@ describe('HoldSeatUseCase', () => {
     const limitedUseCase = new HoldSeatUseCase(
       repositoryWithCart,
       new InMemoryHoldRepository(() => new Date(nowMs)),
+      new InMemoryCartRepository(() => new Date(nowMs)),
       () => new Date(nowMs),
     );
     const result = await limitedUseCase.execute({
@@ -234,6 +279,7 @@ describe('HoldSeatUseCase', () => {
     const limitedUseCase = new HoldSeatUseCase(
       repositoryWithCart,
       holdRepository,
+      new InMemoryCartRepository(() => new Date(nowMs)),
       () => new Date(nowMs),
     );
     await holdRepository.claim(

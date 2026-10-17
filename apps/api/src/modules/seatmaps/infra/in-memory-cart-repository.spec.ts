@@ -62,6 +62,37 @@ describe('InMemoryCartRepository', () => {
     ).toBe(0);
   });
 
+  it('extends item expiry when refreshing the ttl', async () => {
+    await repository.setType({
+      userId: 'user-a',
+      eventSlug: 'gig',
+      itemKey: cartItemKey('plateia', 'A', '6'),
+      ticketType: 'meia',
+      ttlSeconds: 600,
+    });
+    nowMs += 500 * 1000;
+    await repository.refreshTtl({
+      userId: 'user-a',
+      eventSlug: 'gig',
+      ttlSeconds: 600,
+    });
+    nowMs += 150 * 1000;
+    expect(
+      (await repository.getTypes({ userId: 'user-a', eventSlug: 'gig' })).size,
+    ).toBe(1);
+  });
+
+  it('does not create a cart when refreshing a missing one', async () => {
+    await repository.refreshTtl({
+      userId: 'user-a',
+      eventSlug: 'gig',
+      ttlSeconds: 600,
+    });
+    expect(
+      (await repository.getTypes({ userId: 'user-a', eventSlug: 'gig' })).size,
+    ).toBe(0);
+  });
+
   it('refreshes the ttl on a new write', async () => {
     await repository.setType({
       userId: 'user-a',
