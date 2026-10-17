@@ -1,4 +1,4 @@
-import { SEAT_HOLD_TTL_SECONDS } from '@ticketvibe/shared';
+import { CART_MAX_ITEMS, SEAT_HOLD_TTL_SECONDS } from '@ticketvibe/shared';
 import { describe, expect, it } from 'vitest';
 
 import { holdSeatKey } from '../domain/hold-entity.js';
@@ -145,5 +145,116 @@ describe('HoldSeatUseCase', () => {
         })
       ).kind,
     ).toBe('seat_not_found');
+  });
+
+  it('rejects a new seat when the cart is full', async () => {
+    const nowMs = Date.parse('2026-10-16T12:00:00.000Z');
+    const fillers = Array.from({ length: CART_MAX_ITEMS }, (_, index) => ({
+      eventSlug: 'o-fantasma-da-opera',
+      userId: 'user-a',
+      sectorSlug: 'plateia',
+      rowLabel: 'B',
+      seatLabel: String(index + 1),
+      priceFromCents: 12000,
+      expiresAt: new Date('2026-10-16T12:10:00.000Z'),
+    }));
+    const repositoryWithCart = new InMemorySeatmapRepository(
+      [
+        {
+          ...seatmap,
+          sectors: [
+            {
+              ...seatmap.sectors[0],
+              rows: [
+                ...seatmap.sectors[0].rows,
+                {
+                  label: 'B',
+                  seats: Array.from({ length: CART_MAX_ITEMS }, (_, i) => ({
+                    label: String(i + 1),
+                    status: 'reserved' as const,
+                  })),
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      fillers,
+      () => new Date(nowMs),
+    );
+    const limitedUseCase = new HoldSeatUseCase(
+      repositoryWithCart,
+      new InMemoryHoldRepository(() => new Date(nowMs)),
+      () => new Date(nowMs),
+    );
+    const result = await limitedUseCase.execute({
+      userId: 'user-a',
+      ...baseInput,
+      seatLabel: '1',
+    });
+    expect(result.kind).toBe('cart_limit');
+  });
+
+  it('still renews the same seat when the cart is full', async () => {
+    const nowMs = Date.parse('2026-10-16T12:00:00.000Z');
+    const fillers = Array.from({ length: CART_MAX_ITEMS }, (_, index) => ({
+      eventSlug: 'o-fantasma-da-opera',
+      userId: 'user-a',
+      sectorSlug: 'plateia',
+      rowLabel: 'B',
+      seatLabel: String(index + 1),
+      priceFromCents: 12000,
+      expiresAt: new Date('2026-10-16T12:10:00.000Z'),
+    }));
+    const repositoryWithCart = new InMemorySeatmapRepository(
+      [
+        {
+          ...seatmap,
+          sectors: [
+            {
+              ...seatmap.sectors[0],
+              rows: [
+                ...seatmap.sectors[0].rows,
+                {
+                  label: 'B',
+                  seats: Array.from({ length: CART_MAX_ITEMS }, (_, i) => ({
+                    label: String(i + 1),
+                    status: 'reserved' as const,
+                  })),
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      fillers,
+      () => new Date(nowMs),
+    );
+    const holdRepository = new InMemoryHoldRepository(() => new Date(nowMs));
+    const limitedUseCase = new HoldSeatUseCase(
+      repositoryWithCart,
+      holdRepository,
+      () => new Date(nowMs),
+    );
+    await holdRepository.claim(
+      holdSeatKey(
+        'o-fantasma-da-opera',
+        'o-fantasma-da-opera:plateia:A',
+        'o-fantasma-da-opera:plateia:A:1',
+      ),
+      'user-a',
+      SEAT_HOLD_TTL_SECONDS,
+    );
+    await repositoryWithCart.reserveSeat({
+      seatId: 'o-fantasma-da-opera:plateia:A:1',
+      userId: 'user-a',
+      expiresAt: new Date('2026-10-16T12:10:00.000Z'),
+    });
+    const result = await limitedUseCase.execute({
+      userId: 'user-a',
+      ...baseInput,
+      seatLabel: '1',
+    });
+    expect(result.kind).toBe('held');
   });
 });

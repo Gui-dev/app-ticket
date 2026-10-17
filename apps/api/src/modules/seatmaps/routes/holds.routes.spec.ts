@@ -97,6 +97,19 @@ describe('hold routes (unit)', () => {
     await app.close();
   });
 
+  it('maps cart_limit to 409', async () => {
+    vi.mocked(holdSeat.execute).mockResolvedValueOnce({ kind: 'cart_limit' });
+    const app = buildTestApp(async () => ({ userId: 'user-a' }));
+    const response = await app.inject({
+      method: 'POST',
+      url: '/events/o-fantasma-da-opera/holds',
+      payload: { sectorSlug: 'plateia', rowLabel: 'A', seatLabel: '6' },
+    });
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({ error: 'cart_limit' });
+    await app.close();
+  });
+
   it('releases with 200 and 404s hold_not_found', async () => {
     vi.mocked(releaseHold.execute).mockResolvedValueOnce({ kind: 'released' });
     const app = buildTestApp(async () => ({ userId: 'user-a' }));

@@ -43,6 +43,8 @@ export function registerHoldRoutes(
       case 'sector_not_found':
       case 'seat_not_found':
         return reply.code(404).send({ error: result.kind });
+      case 'cart_limit':
+        return reply.code(409).send({ error: 'cart_limit' });
       case 'seat_unavailable':
         return reply.code(409).send({ error: 'seat_unavailable' });
       case 'seat_held':

@@ -1,4 +1,4 @@
-import { SEAT_HOLD_TTL_SECONDS } from '@ticketvibe/shared';
+import { CART_MAX_ITEMS, SEAT_HOLD_TTL_SECONDS } from '@ticketvibe/shared';
 
 import { type Hold, holdSeatKey } from '../domain/hold-entity.js';
 import type { HoldRepository } from '../domain/hold-repository.js';
@@ -10,7 +10,8 @@ export type HoldSeatResult =
   | { kind: 'sector_not_found' }
   | { kind: 'seat_not_found' }
   | { kind: 'seat_unavailable' }
-  | { kind: 'seat_held' };
+  | { kind: 'seat_held' }
+  | { kind: 'cart_limit' };
 
 export class HoldSeatUseCase {
   constructor(
@@ -46,6 +47,16 @@ export class HoldSeatUseCase {
     }
 
     const seatKey = holdSeatKey(seat.eventId, seat.rowId, seat.seatId);
+    const alreadyOwned = await this.holdRepository.owns(seatKey, input.userId);
+    if (!alreadyOwned) {
+      const activeHolds = await this.seatmapRepository.findHoldsByUser({
+        eventSlug: input.eventSlug,
+        userId: input.userId,
+      });
+      if (activeHolds.length >= CART_MAX_ITEMS) {
+        return { kind: 'cart_limit' };
+      }
+    }
     const claim = await this.holdRepository.claim(
       seatKey,
       input.userId,
