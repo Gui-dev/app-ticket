@@ -48,7 +48,7 @@ export default async function IngressosPage({ params }: IngressosPageProps) {
           <h1 className="font-heading text-3xl font-bold">Escolha seu lugar</h1>
           <p className="text-muted-foreground">{event.title}</p>
         </div>
-        <SeatMap eventSlug={slug} />
+        <SeatMap key={slug} eventSlug={slug} />
       </main>
     </>
   );

@@ -720,4 +720,65 @@ describe('SeatMap', () => {
       vi.useRealTimers();
     }
   });
+
+  it('rolls back the ticket type when the update fails', async () => {
+    mockSeatmap();
+    mockHold('6');
+    mockCart();
+    server.use(
+      http.put(/\/api\/events\/o-fantasma-da-opera\/cart\/items$/, () =>
+        HttpResponse.json({ error: 'server_error' }, { status: 500 }),
+      ),
+    );
+    render(<SeatMap eventSlug="o-fantasma-da-opera" />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Cadeira 6, fila A' }),
+    );
+    await screen.findByText(CART_ITEM_6);
+
+    fireEvent.change(
+      screen.getByLabelText('Tipo de ingresso — Plateia, fila A, cadeira 6'),
+      { target: { value: 'meia' } },
+    );
+
+    expect(await screen.findByText(CART_ITEM_6)).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Não foi possível atualizar o tipo de ingresso.',
+    );
+    expect(screen.getByText('Total: R$ 120,00')).toBeInTheDocument();
+  });
+
+  it('removes a seat through the cart remove button', async () => {
+    mockSeatmap();
+    mockHold('6');
+    const releasedLabels: string[] = [];
+    server.use(
+      http.post(
+        /\/api\/events\/o-fantasma-da-opera\/holds\/release$/,
+        async ({ request }) => {
+          const body = (await request.json()) as { seatLabel: string };
+          releasedLabels.push(body.seatLabel);
+          return HttpResponse.json({ released: true });
+        },
+      ),
+    );
+    render(<SeatMap eventSlug="o-fantasma-da-opera" />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Cadeira 6, fila A' }),
+    );
+    await screen.findByText(CART_ITEM_6);
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Remover Plateia, fila A, cadeira 6',
+      }),
+    );
+
+    await vi.waitFor(() => expect(releasedLabels).toEqual(['6']));
+    expect(
+      await screen.findByText('Nenhum assento no carrinho.'),
+    ).toBeInTheDocument();
+  });
 });

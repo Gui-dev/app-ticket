@@ -149,6 +149,7 @@ export function SeatMap({ eventSlug }: SeatMapProps) {
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
   const [renewedNotice, setRenewedNotice] = useState(false);
   const [holdPending, setHoldPending] = useState(false);
+  const [giveUpPending, setGiveUpPending] = useState(false);
   const [holdError, setHoldError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -158,6 +159,7 @@ export function SeatMap({ eventSlug }: SeatMapProps) {
   const pendingKeysRef = useRef<Set<string>>(new Set());
   const renewingRef = useRef<Set<string>>(new Set());
   const dismissedRef = useRef<Set<string>>(new Set());
+  const cancelledDuringPendingRef = useRef<Set<string>>(new Set());
   const typesFetchedRef = useRef(false);
   const hasLoadedRef = useRef(false);
 
@@ -191,6 +193,7 @@ export function SeatMap({ eventSlug }: SeatMapProps) {
           return ticketType ? { ...item, ticketType } : item;
         }),
       );
+      typesFetchedRef.current = true;
     } catch {}
   }, [eventSlug, applyItems]);
 
@@ -240,7 +243,6 @@ export function SeatMap({ eventSlug }: SeatMapProps) {
       }
       applyItems(next);
       if (!typesFetchedRef.current && payload.holds.length > 0) {
-        typesFetchedRef.current = true;
         void fetchTypes();
       }
     } catch {
@@ -286,6 +288,9 @@ export function SeatMap({ eventSlug }: SeatMapProps) {
     setHoldError(null);
     try {
       const expiresAt = await sendHold(seat);
+      if (cancelledDuringPendingRef.current.delete(key)) {
+        return;
+      }
       dismissedRef.current.delete(key);
       const existing = itemsRef.current.find(
         (item) => cartSeatKey(item) === key,
@@ -315,6 +320,7 @@ export function SeatMap({ eventSlug }: SeatMapProps) {
       );
       fetchSeatmap();
     } finally {
+      cancelledDuringPendingRef.current.delete(key);
       pendingKeysRef.current.delete(key);
       setHoldPending(pendingKeysRef.current.size > 0);
     }
@@ -323,10 +329,14 @@ export function SeatMap({ eventSlug }: SeatMapProps) {
   function removeItem(seat: SelectedSeat) {
     const key = cartSeatKey(seat);
     dismissedRef.current.add(key);
+    if (pendingKeysRef.current.has(key)) {
+      cancelledDuringPendingRef.current.add(key);
+    }
     pendingKeysRef.current.delete(key);
     setHoldPending(pendingKeysRef.current.size > 0);
     applyItems(itemsRef.current.filter((item) => cartSeatKey(item) !== key));
     setRenewedNotice(false);
+    setHoldError(null);
     postRelease(eventSlug, seat)
       .catch(() => {})
       .finally(() => {
@@ -346,20 +356,26 @@ export function SeatMap({ eventSlug }: SeatMapProps) {
   }
 
   async function giveUpAll() {
-    const current = itemsRef.current;
-    for (const item of current) {
-      dismissedRef.current.add(cartSeatKey(item));
+    if (giveUpPending) return;
+    setGiveUpPending(true);
+    try {
+      const current = itemsRef.current;
+      for (const item of current) {
+        dismissedRef.current.add(cartSeatKey(item));
+      }
+      pendingKeysRef.current.clear();
+      setHoldPending(false);
+      setRemainingSeconds(null);
+      setRenewedNotice(false);
+      setHoldError(null);
+      await Promise.all(
+        current.map((item) => postRelease(eventSlug, item).catch(() => {})),
+      );
+      await fetchSeatmap();
+      applyItems([]);
+    } finally {
+      setGiveUpPending(false);
     }
-    pendingKeysRef.current.clear();
-    setHoldPending(false);
-    setRemainingSeconds(null);
-    setRenewedNotice(false);
-    setHoldError(null);
-    await Promise.all(
-      current.map((item) => postRelease(eventSlug, item).catch(() => {})),
-    );
-    await fetchSeatmap();
-    applyItems([]);
   }
 
   async function changeType(seat: CartPanelItem, ticketType: TicketType) {
@@ -379,6 +395,7 @@ export function SeatMap({ eventSlug }: SeatMapProps) {
         response = await putCartItem(eventSlug, current, ticketType);
       }
       if (!response.ok) throw new Error('cart_item_failed');
+      setHoldError(null);
     } catch {
       applyItems(
         itemsRef.current.map((item) =>
@@ -667,7 +684,7 @@ export function SeatMap({ eventSlug }: SeatMapProps) {
           totalCents={totalCents}
           remainingSeconds={remainingSeconds}
           renewedNotice={renewedNotice}
-          pending={holdPending}
+          pending={holdPending || giveUpPending}
           error={holdError}
           onTypeChange={changeType}
           onRemove={(seat) => {
