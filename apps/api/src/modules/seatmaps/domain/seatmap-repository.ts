@@ -26,6 +26,7 @@ export interface SeatHoldRecord {
   sectorSlug: string;
   rowLabel: string;
   seatLabel: string;
+  priceFromCents: number;
   expiresAt: Date;
 }
 

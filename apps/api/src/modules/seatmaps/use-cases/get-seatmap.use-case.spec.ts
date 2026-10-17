@@ -49,6 +49,7 @@ describe('GetSeatmapUseCase', () => {
       sectorSlug: 'pista',
       rowLabel: 'A',
       seatLabel: '1',
+      priceFromCents: 15000,
       expiresAt: new Date('2026-10-16T12:10:00.000Z'),
     };
     const holdsSpy = vi.fn(async () => [hold]);

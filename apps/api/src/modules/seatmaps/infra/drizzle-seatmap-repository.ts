@@ -148,6 +148,7 @@ export class DrizzleSeatmapRepository implements SeatmapRepository {
         sectorSlug: sectors.slug,
         rowLabel: seatRows.label,
         seatLabel: seats.label,
+        priceFromCents: sectors.priceFromCents,
         expiresAt: seats.holdExpiresAt,
       })
       .from(seats)
@@ -168,6 +169,7 @@ export class DrizzleSeatmapRepository implements SeatmapRepository {
         sectorSlug: row.sectorSlug,
         rowLabel: row.rowLabel,
         seatLabel: row.seatLabel,
+        priceFromCents: row.priceFromCents,
         expiresAt: row.expiresAt as Date,
       }));
   }

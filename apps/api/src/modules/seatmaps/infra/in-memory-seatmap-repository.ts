@@ -75,12 +75,15 @@ export class InMemorySeatmapRepository implements SeatmapRepository {
           hold.userId === input.userId &&
           hold.expiresAt.getTime() > this.now().getTime(),
       )
-      .map(({ sectorSlug, rowLabel, seatLabel, expiresAt }) => ({
-        sectorSlug,
-        rowLabel,
-        seatLabel,
-        expiresAt,
-      }));
+      .map(
+        ({ sectorSlug, rowLabel, seatLabel, priceFromCents, expiresAt }) => ({
+          sectorSlug,
+          rowLabel,
+          seatLabel,
+          priceFromCents,
+          expiresAt,
+        }),
+      );
   }
 
   async expireHolds(): Promise<void> {
