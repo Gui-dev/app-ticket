@@ -155,6 +155,62 @@ export const holdResponseSchema = z.object({ hold: holdSchema });
 
 export const releaseResponseSchema = z.object({ released: z.literal(true) });
 
+export const ticketTypeSchema = z.enum(['inteira', 'meia', 'vip']);
+
+export type TicketType = z.infer<typeof ticketTypeSchema>;
+
+export const CART_MAX_ITEMS = 8;
+
+const TICKET_TYPE_MULTIPLIERS: Record<TicketType, number> = {
+  inteira: 1,
+  meia: 0.5,
+  vip: 2,
+};
+
+export function ticketPriceCents(type: TicketType, baseCents: number): number {
+  return Math.round(baseCents * TICKET_TYPE_MULTIPLIERS[type]);
+}
+
+export const cartItemSchema = z.object({
+  sectorSlug: z.string().min(1),
+  rowLabel: z.string().min(1),
+  seatLabel: z.string().min(1),
+  ticketType: ticketTypeSchema,
+  priceCents: z.number().int().min(0),
+  expiresAt: z.iso.datetime(),
+});
+
+export type CartItemDto = z.infer<typeof cartItemSchema>;
+
+export const cartSchema = z.object({
+  eventSlug: z.string().min(1),
+  items: z.array(cartItemSchema),
+  expiresAt: z.iso.datetime().nullable(),
+  totalCents: z.number().int().min(0),
+});
+
+export type CartDto = z.infer<typeof cartSchema>;
+
+export const cartItemRequestSchema = z.object({
+  sectorSlug: z.string().trim().min(1),
+  rowLabel: z.string().trim().min(1),
+  seatLabel: z.string().trim().min(1),
+  ticketType: ticketTypeSchema,
+});
+
+export type CartItemRequest = z.infer<typeof cartItemRequestSchema>;
+
+export const setCartItemResponseSchema = z.object({
+  item: z.object({
+    sectorSlug: z.string().min(1),
+    rowLabel: z.string().min(1),
+    seatLabel: z.string().min(1),
+    ticketType: ticketTypeSchema,
+  }),
+});
+
+export type SetCartItemResponse = z.infer<typeof setCartItemResponseSchema>;
+
 export const seatmapResponseSchema = z.object({
   seatmap: seatmapSchema,
   holds: z.array(holdSchema),

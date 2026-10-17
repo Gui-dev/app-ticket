@@ -4,6 +4,9 @@ import {
   artistDetailSchema,
   bestSeatQuerySchema,
   bestSeatResponseSchema,
+  CART_MAX_ITEMS,
+  cartItemRequestSchema,
+  cartSchema,
   eventDetailResponseSchema,
   eventDetailSchema,
   eventSchema,
@@ -19,8 +22,10 @@ import {
   searchFiltersSchema,
   seatmapResponseSchema,
   sectorSchema,
+  setCartItemResponseSchema,
   suggestQuerySchema,
   suggestResponseSchema,
+  ticketPriceCents,
   venueDetailResponseSchema,
   venueDetailSchema,
 } from './index';
@@ -574,5 +579,113 @@ describe('seat hold contracts', () => {
       holds: [],
     });
     expect(withHolds.success).toBe(true);
+  });
+});
+
+describe('ticket pricing', () => {
+  it('prices inteira at the full sector price', () => {
+    expect(ticketPriceCents('inteira', 12000)).toBe(12000);
+  });
+
+  it('prices meia at half price rounding to the nearest cent', () => {
+    expect(ticketPriceCents('meia', 12000)).toBe(6000);
+    expect(ticketPriceCents('meia', 12001)).toBe(6001);
+  });
+
+  it('prices vip at double the sector price', () => {
+    expect(ticketPriceCents('vip', 12000)).toBe(24000);
+  });
+});
+
+describe('cart contracts', () => {
+  const validItem = {
+    sectorSlug: 'plateia',
+    rowLabel: 'A',
+    seatLabel: '6',
+    ticketType: 'meia',
+    priceCents: 6000,
+    expiresAt: '2026-10-16T12:10:00.000Z',
+  };
+
+  it('exposes the cart item limit', () => {
+    expect(CART_MAX_ITEMS).toBe(8);
+  });
+
+  it('parses a cart payload', () => {
+    expect(
+      cartSchema.parse({
+        eventSlug: 'o-fantasma-da-opera',
+        items: [validItem],
+        expiresAt: '2026-10-16T12:10:00.000Z',
+        totalCents: 6000,
+      }),
+    ).toEqual({
+      eventSlug: 'o-fantasma-da-opera',
+      items: [validItem],
+      expiresAt: '2026-10-16T12:10:00.000Z',
+      totalCents: 6000,
+    });
+  });
+
+  it('accepts a cart without a deadline', () => {
+    expect(
+      cartSchema.parse({
+        eventSlug: 'o-fantasma-da-opera',
+        items: [],
+        expiresAt: null,
+        totalCents: 0,
+      }).expiresAt,
+    ).toBeNull();
+  });
+
+  it('rejects an unknown ticket type in the cart', () => {
+    expect(() =>
+      cartSchema.parse({
+        eventSlug: 'o-fantasma-da-opera',
+        items: [{ ...validItem, ticketType: 'pista' }],
+        expiresAt: null,
+        totalCents: 0,
+      }),
+    ).toThrow();
+  });
+
+  it('parses a cart item request', () => {
+    expect(
+      cartItemRequestSchema.parse({
+        sectorSlug: 'plateia',
+        rowLabel: 'A',
+        seatLabel: '6',
+        ticketType: 'vip',
+      }),
+    ).toEqual({
+      sectorSlug: 'plateia',
+      rowLabel: 'A',
+      seatLabel: '6',
+      ticketType: 'vip',
+    });
+  });
+
+  it('rejects a cart item request with empty coords', () => {
+    expect(() =>
+      cartItemRequestSchema.parse({
+        sectorSlug: '',
+        rowLabel: 'A',
+        seatLabel: '6',
+        ticketType: 'inteira',
+      }),
+    ).toThrow();
+  });
+
+  it('parses a set cart item response', () => {
+    expect(
+      setCartItemResponseSchema.parse({
+        item: {
+          sectorSlug: 'plateia',
+          rowLabel: 'A',
+          seatLabel: '6',
+          ticketType: 'meia',
+        },
+      }).item.ticketType,
+    ).toBe('meia');
   });
 });
