@@ -245,4 +245,25 @@ describe('hold routes (postgres + redis integration)', () => {
     expect(seatSix.status).toBe('available');
     expect(map.json().holds).toHaveLength(0);
   });
+
+  it('caps the cart at 8 seats with 409 cart_limit', async () => {
+    const labels = ['1', '3', '4', '5', '6', '8', '9', '10'];
+    for (const seatLabel of labels) {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/events/o-fantasma-da-opera/holds',
+        headers: { 'x-test-user-id': 'user-a' },
+        payload: { sectorSlug: 'plateia', rowLabel: 'A', seatLabel },
+      });
+      expect(response.statusCode).toBe(201);
+    }
+    const overflow = await app.inject({
+      method: 'POST',
+      url: '/events/o-fantasma-da-opera/holds',
+      headers: { 'x-test-user-id': 'user-a' },
+      payload: { sectorSlug: 'plateia', rowLabel: 'A', seatLabel: '11' },
+    });
+    expect(overflow.statusCode).toBe(409);
+    expect(overflow.json()).toEqual({ error: 'cart_limit' });
+  });
 });

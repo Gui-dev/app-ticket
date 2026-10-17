@@ -22,12 +22,15 @@ import type { SeatmapRepository } from './modules/seatmaps/domain/seatmap-reposi
 import { DrizzleSeatmapRepository } from './modules/seatmaps/infra/drizzle-seatmap-repository.js';
 import { RedisCartRepository } from './modules/seatmaps/infra/redis-cart-repository.js';
 import { RedisHoldRepository } from './modules/seatmaps/infra/redis-hold-repository.js';
+import { registerCartRoutes } from './modules/seatmaps/routes/cart.routes.js';
 import { registerHoldRoutes } from './modules/seatmaps/routes/holds.routes.js';
 import { registerSeatmapRoutes } from './modules/seatmaps/routes/seatmap.routes.js';
 import { FindBestSeatUseCase } from './modules/seatmaps/use-cases/find-best-seat.use-case.js';
+import { GetCartUseCase } from './modules/seatmaps/use-cases/get-cart.use-case.js';
 import { GetSeatmapUseCase } from './modules/seatmaps/use-cases/get-seatmap.use-case.js';
 import { HoldSeatUseCase } from './modules/seatmaps/use-cases/hold-seat.use-case.js';
 import { ReleaseHoldUseCase } from './modules/seatmaps/use-cases/release-hold.use-case.js';
+import { SetCartItemUseCase } from './modules/seatmaps/use-cases/set-cart-item.use-case.js';
 import type { VenuesRepository } from './modules/venues/domain/venues-repository.js';
 import { DrizzleVenuesRepository } from './modules/venues/infra/drizzle-venues-repository.js';
 import { registerVenueRoutes } from './modules/venues/routes/venues.routes.js';
@@ -45,6 +48,9 @@ export function buildApp(
     releaseHold?: ReleaseHoldUseCase;
     getSession?: GetSessionFn;
     holdRepository?: HoldRepository;
+    getCart?: GetCartUseCase;
+    setCartItem?: SetCartItemUseCase;
+    cartRepository?: CartRepository;
   } = {},
 ): FastifyInstance {
   const app = Fastify({ logger: false });
@@ -81,6 +87,11 @@ export function buildApp(
     return new RedisHoldRepository(getRedis());
   };
 
+  const getCartRepository = (): CartRepository => {
+    if (options.cartRepository) return options.cartRepository;
+    return new RedisCartRepository(getRedis());
+  };
+
   const lazyHoldRepository: HoldRepository = {
     claim: (seatKey, userId, ttlSeconds) =>
       getHoldRepository().claim(seatKey, userId, ttlSeconds),
@@ -91,10 +102,9 @@ export function buildApp(
   };
 
   const lazyCartRepository: CartRepository = {
-    setType: (input) => new RedisCartRepository(getRedis()).setType(input),
-    getTypes: (input) => new RedisCartRepository(getRedis()).getTypes(input),
-    refreshTtl: (input) =>
-      new RedisCartRepository(getRedis()).refreshTtl(input),
+    setType: (input) => getCartRepository().setType(input),
+    getTypes: (input) => getCartRepository().getTypes(input),
+    refreshTtl: (input) => getCartRepository().refreshTtl(input),
   };
 
   app.addHook('onClose', async () => {
@@ -134,6 +144,20 @@ export function buildApp(
     releaseHold:
       options.releaseHold ??
       new ReleaseHoldUseCase(seatmapRepository, lazyHoldRepository),
+  });
+
+  registerCartRoutes(app, {
+    getSession,
+    getCart:
+      options.getCart ??
+      new GetCartUseCase(seatmapRepository, lazyCartRepository),
+    setCartItem:
+      options.setCartItem ??
+      new SetCartItemUseCase(
+        seatmapRepository,
+        lazyHoldRepository,
+        lazyCartRepository,
+      ),
   });
 
   app.get('/health', async () => ({ status: 'ok' }));
