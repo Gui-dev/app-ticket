@@ -80,7 +80,7 @@ describe('CartPanel', () => {
     );
 
     fireEvent.change(
-      screen.getByLabelText('Tipo de ingresso — Cadeira 6, fila A'),
+      screen.getByLabelText('Tipo de ingresso — Plateia, fila A, cadeira 6'),
       { target: { value: 'meia' } },
     );
     expect(onTypeChange).toHaveBeenCalledWith(
@@ -107,7 +107,9 @@ describe('CartPanel', () => {
     );
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Remover Cadeira 6, fila A' }),
+      screen.getByRole('button', {
+        name: 'Remover Plateia, fila A, cadeira 6',
+      }),
     );
     expect(onRemove).toHaveBeenCalledWith(
       expect.objectContaining({ seatLabel: '6' }),
@@ -115,6 +117,37 @@ describe('CartPanel', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Desistir de todos' }));
     expect(onGiveUpAll).toHaveBeenCalledOnce();
+  });
+
+  it('distinguishes same-numbered seats across sectors', () => {
+    const onRemove = vi.fn();
+    render(
+      <CartPanel
+        items={[
+          baseItem(),
+          baseItem({ sectorSlug: 'balcony', sectorName: 'Balcony' }),
+        ]}
+        totalCents={24000}
+        remainingSeconds={599}
+        renewedNotice={false}
+        pending={false}
+        error={null}
+        onTypeChange={vi.fn()}
+        onRemove={onRemove}
+        onGiveUpAll={vi.fn()}
+      />,
+    );
+
+    const balconyRemove = screen.getByRole('button', {
+      name: 'Remover Balcony, fila A, cadeira 6',
+    });
+    fireEvent.click(balconyRemove);
+    expect(onRemove).toHaveBeenCalledWith(
+      expect.objectContaining({ sectorSlug: 'balcony' }),
+    );
+    expect(
+      screen.getByLabelText('Tipo de ingresso — Plateia, fila A, cadeira 6'),
+    ).toBeInTheDocument();
   });
 
   it('shows the renewed notice, the error and disables while pending', () => {
