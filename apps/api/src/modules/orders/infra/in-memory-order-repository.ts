@@ -122,7 +122,7 @@ export class InMemoryOrderRepository implements OrderRepository {
 
   private terminalize(orderId: string, status: 'failed' | 'expired'): void {
     const order = this.orders.get(orderId);
-    if (!order || order.status === 'paid') return;
+    if (order?.status !== 'pending') return;
     order.status = status;
   }
 }

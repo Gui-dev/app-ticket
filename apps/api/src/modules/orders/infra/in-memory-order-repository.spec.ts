@@ -156,6 +156,7 @@ describe('InMemoryOrderRepository', () => {
 
     await repository.markFailed({ orderId: failed.id, now: LATER });
     await repository.markExpired({ orderId: expired.id, now: LATER });
+    await repository.markExpired({ orderId: failed.id, now: LATER });
 
     expect((await repository.findById(failed.id))?.status).toBe('failed');
     expect((await repository.findById(expired.id))?.status).toBe('expired');

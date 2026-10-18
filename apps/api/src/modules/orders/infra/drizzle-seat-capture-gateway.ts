@@ -1,4 +1,4 @@
-import { eq, inArray } from 'drizzle-orm';
+import { asc, eq, inArray } from 'drizzle-orm';
 
 import type { Db } from '../../../db/client.js';
 import { orderItems, orders, seats } from '../../../db/schema.js';
@@ -79,14 +79,15 @@ export class DrizzleSeatCaptureGateway implements SeatCaptureGateway {
         .where(eq(orders.id, input.orderId))
         .for('update');
       if (!order) return { seatKeys: [] };
-      if (order.status !== 'pending' && order.status !== 'failed') {
+      if (order.status === 'paid') {
         return { seatKeys: [] };
       }
 
       const items = await tx
         .select()
         .from(orderItems)
-        .where(eq(orderItems.orderId, order.id));
+        .where(eq(orderItems.orderId, order.id))
+        .orderBy(asc(orderItems.seatLabel));
       const seatIds = items.map((item) => item.seatId);
       if (seatIds.length === 0) return { seatKeys: [] };
 

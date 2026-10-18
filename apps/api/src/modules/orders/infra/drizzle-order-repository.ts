@@ -85,14 +85,14 @@ export class DrizzleOrderRepository implements OrderRepository {
     await this.db
       .update(orders)
       .set({ status: 'failed' })
-      .where(eq(orders.id, input.orderId));
+      .where(and(eq(orders.id, input.orderId), eq(orders.status, 'pending')));
   }
 
   async markExpired(input: { orderId: string; now: Date }): Promise<void> {
     await this.db
       .update(orders)
       .set({ status: 'expired' })
-      .where(eq(orders.id, input.orderId));
+      .where(and(eq(orders.id, input.orderId), eq(orders.status, 'pending')));
   }
 
   async listStalePending(input: {

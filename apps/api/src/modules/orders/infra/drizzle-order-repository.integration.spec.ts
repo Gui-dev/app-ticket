@@ -383,6 +383,51 @@ describe('ordens (postgres integration)', () => {
     });
   });
 
+  it('libera os assentos de um pedido expirado', async () => {
+    const seat6 = await findSeat('6');
+    const seat7 = await findSeat('7');
+    const now = new Date('2026-10-18T12:00:00.000Z');
+    await reserve(seat6.seatId, 'user-a', new Date('2026-10-18T11:59:00.000Z'));
+    await reserve(seat7.seatId, 'user-a', new Date('2026-10-18T11:59:00.000Z'));
+    const created = await repository.create({
+      userId: 'user-a',
+      eventId,
+      paymentMethod: 'card',
+      provider: 'fake',
+      subtotalCents: 18000,
+      serviceFeeCents: 1800,
+      totalCents: 19800,
+      items: [
+        item(seat6, '6', 'inteira', 12000),
+        item(seat7, '7', 'meia', 6000),
+      ],
+    });
+    await repository.markExpired({ orderId: created.id, now });
+
+    const released = await gateway.releaseOrderSeats({
+      orderId: created.id,
+      now,
+    });
+
+    expect((await repository.findById(created.id))?.status).toBe('expired');
+    expect(released).toEqual({
+      seatKeys: [
+        holdSeatKey(eventId, seat6.rowId, seat6.seatId),
+        holdSeatKey(eventId, seat7.rowId, seat7.seatId),
+      ],
+    });
+    expect(await readSeat(seat6.seatId)).toMatchObject({
+      status: 'available',
+      holdUserId: null,
+      holdExpiresAt: null,
+    });
+    expect(await readSeat(seat7.seatId)).toMatchObject({
+      status: 'available',
+      holdUserId: null,
+      holdExpiresAt: null,
+    });
+  });
+
   it('não toca nos assentos de um pedido pago', async () => {
     const seat6 = await findSeat('6');
     await reserve(seat6.seatId, 'user-a', new Date('2026-10-18T12:05:00.000Z'));
@@ -448,12 +493,42 @@ describe('ordens (postgres integration)', () => {
 
     await repository.markFailed({ orderId: failed.id, now });
     await repository.markExpired({ orderId: expired.id, now });
+    await repository.markExpired({ orderId: failed.id, now });
 
     expect((await repository.findById(failed.id))?.status).toBe('failed');
     expect((await repository.findById(expired.id))?.status).toBe('expired');
     expect(
       await repository.findPendingByUserEvent({ userId: 'user-a', eventId }),
     ).toBeNull();
+  });
+
+  it('não rebaixa um pedido pago em markFailed nem em markExpired', async () => {
+    const seat6 = await findSeat('6');
+    const created = await repository.create({
+      userId: 'user-a',
+      eventId,
+      paymentMethod: 'card',
+      provider: 'fake',
+      subtotalCents: 12000,
+      serviceFeeCents: 1200,
+      totalCents: 13200,
+      items: [item(seat6, '6', 'inteira', 12000)],
+    });
+    const paidAt = new Date('2026-10-18T12:00:00.000Z');
+    await testDb
+      .update(orders)
+      .set({ status: 'paid', paidAt })
+      .where(eq(orders.id, created.id));
+    const now = new Date('2026-10-18T12:01:00.000Z');
+
+    await repository.markFailed({ orderId: created.id, now });
+    await repository.markExpired({ orderId: created.id, now });
+
+    expect(await repository.findById(created.id)).toMatchObject({
+      status: 'paid',
+      paidAt,
+      providerRef: null,
+    });
   });
 
   it('lista apenas pendentes anteriores ao limite', async () => {
