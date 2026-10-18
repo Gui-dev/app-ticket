@@ -289,3 +289,85 @@ export const venueDetailResponseSchema = z.object({
 });
 
 export type VenueDetailResponse = z.infer<typeof venueDetailResponseSchema>;
+
+export const SERVICE_FEE_BPS = 1000;
+
+export function serviceFeeCents(subtotalCents: number): number {
+  return Math.round((subtotalCents * SERVICE_FEE_BPS) / 10_000);
+}
+
+export function orderTotals(items: { priceCents: number }[]): {
+  subtotalCents: number;
+  serviceFeeCents: number;
+  totalCents: number;
+} {
+  const subtotalCents = items.reduce((sum, item) => sum + item.priceCents, 0);
+  const fee = serviceFeeCents(subtotalCents);
+  return {
+    subtotalCents,
+    serviceFeeCents: fee,
+    totalCents: subtotalCents + fee,
+  };
+}
+
+export const paymentMethodSchema = z.enum(['card', 'boleto']);
+export type PaymentMethod = z.infer<typeof paymentMethodSchema>;
+
+export const orderStatusSchema = z.enum([
+  'pending',
+  'paid',
+  'failed',
+  'expired',
+]);
+export type OrderStatus = z.infer<typeof orderStatusSchema>;
+
+export const orderItemSchema = z.object({
+  sectorSlug: z.string().min(1),
+  rowLabel: z.string().min(1),
+  seatLabel: z.string().min(1),
+  ticketType: ticketTypeSchema,
+  priceCents: z.number().int().min(0),
+});
+
+export type OrderItemDto = z.infer<typeof orderItemSchema>;
+
+export const orderSchema = z.object({
+  id: z.uuid(),
+  eventSlug: z.string().min(1),
+  status: orderStatusSchema,
+  paymentMethod: paymentMethodSchema,
+  subtotalCents: z.number().int().min(0),
+  serviceFeeCents: z.number().int().min(0),
+  totalCents: z.number().int().min(0),
+  items: z.array(orderItemSchema),
+  createdAt: z.iso.datetime(),
+  paidAt: z.iso.datetime().nullable(),
+});
+
+export type OrderDto = z.infer<typeof orderSchema>;
+
+export const createOrderRequestSchema = z.object({
+  paymentMethod: paymentMethodSchema,
+});
+export type CreateOrderRequest = z.infer<typeof createOrderRequestSchema>;
+
+export const orderPaymentProviderSchema = z.enum(['stripe', 'fake']);
+
+export const orderPaymentSchema = z.object({
+  provider: orderPaymentProviderSchema,
+  providerRef: z.string().min(1),
+  clientSecret: z.string().nullable(),
+});
+
+export type OrderPaymentDto = z.infer<typeof orderPaymentSchema>;
+
+export const createOrderResponseSchema = z.object({
+  order: orderSchema,
+  payment: orderPaymentSchema,
+});
+
+export type CreateOrderResponse = z.infer<typeof createOrderResponseSchema>;
+
+export const orderResponseSchema = z.object({ order: orderSchema });
+
+export type OrderResponse = z.infer<typeof orderResponseSchema>;

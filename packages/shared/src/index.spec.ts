@@ -7,6 +7,8 @@ import {
   CART_MAX_ITEMS,
   cartItemRequestSchema,
   cartSchema,
+  createOrderRequestSchema,
+  createOrderResponseSchema,
   eventDetailResponseSchema,
   eventDetailSchema,
   eventSchema,
@@ -16,12 +18,18 @@ import {
   listCategoriesResponseSchema,
   listEventsQuerySchema,
   listEventsResponseSchema,
+  orderPaymentSchema,
+  orderSchema,
+  orderStatusSchema,
+  orderTotals,
   releaseResponseSchema,
   SEAT_HOLD_RENEW_AFTER_SECONDS,
   SEAT_HOLD_TTL_SECONDS,
+  SERVICE_FEE_BPS,
   searchFiltersSchema,
   seatmapResponseSchema,
   sectorSchema,
+  serviceFeeCents,
   setCartItemResponseSchema,
   suggestQuerySchema,
   suggestResponseSchema,
@@ -687,5 +695,90 @@ describe('cart contracts', () => {
         },
       }).item.ticketType,
     ).toBe('meia');
+  });
+});
+
+describe('service fee', () => {
+  it('charges 10% of the subtotal, rounded', () => {
+    expect(SERVICE_FEE_BPS).toBe(1000);
+    expect(serviceFeeCents(0)).toBe(0);
+    expect(serviceFeeCents(12000)).toBe(1200);
+    expect(serviceFeeCents(12345)).toBe(1235);
+  });
+
+  it('computes subtotal, fee and total', () => {
+    expect(orderTotals([])).toEqual({
+      subtotalCents: 0,
+      serviceFeeCents: 0,
+      totalCents: 0,
+    });
+    expect(orderTotals([{ priceCents: 12000 }, { priceCents: 6000 }])).toEqual({
+      subtotalCents: 18000,
+      serviceFeeCents: 1800,
+      totalCents: 19800,
+    });
+  });
+});
+
+describe('order contracts', () => {
+  it('parses a full order', () => {
+    const order = orderSchema.parse({
+      id: '0f0f0f0f-0f0f-4f0f-8f0f-0f0f0f0f0f0f',
+      eventSlug: 'o-fantasma-da-opera',
+      status: 'pending',
+      paymentMethod: 'boleto',
+      subtotalCents: 12000,
+      serviceFeeCents: 1200,
+      totalCents: 13200,
+      items: [
+        {
+          sectorSlug: 'plateia',
+          rowLabel: 'A',
+          seatLabel: '6',
+          ticketType: 'meia',
+          priceCents: 6000,
+        },
+      ],
+      createdAt: new Date().toISOString(),
+      paidAt: null,
+    });
+    expect(order.items[0].ticketType).toBe('meia');
+  });
+
+  it('rejects an unknown payment method and status', () => {
+    expect(
+      createOrderRequestSchema.safeParse({ paymentMethod: 'pix' }).success,
+    ).toBe(false);
+    expect(orderStatusSchema.safeParse('refunded').success).toBe(false);
+  });
+
+  it('parses the create-order response with the stripe payment block', () => {
+    const response = createOrderResponseSchema.parse({
+      order: {
+        id: '0f0f0f0f-0f0f-4f0f-8f0f-0f0f0f0f0f0f',
+        eventSlug: 'o-fantasma-da-opera',
+        status: 'pending',
+        paymentMethod: 'card',
+        subtotalCents: 12000,
+        serviceFeeCents: 1200,
+        totalCents: 13200,
+        items: [],
+        createdAt: new Date().toISOString(),
+        paidAt: null,
+      },
+      payment: {
+        provider: 'stripe',
+        providerRef: 'pi_123',
+        clientSecret: 'pi_123_secret',
+      },
+    });
+    expect(response.payment.clientSecret).toBe('pi_123_secret');
+    expect(
+      orderPaymentSchema.safeParse({
+        provider: 'pagarme',
+        providerRef: 'x',
+        clientSecret: null,
+      }).success,
+    ).toBe(false);
   });
 });
