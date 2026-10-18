@@ -50,6 +50,13 @@
       "when": 1792171649980,
       "tag": "0006_concerned_leper_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792343232232,
+      "tag": "0007_large_outlaw_kid",
+      "breakpoints": true
     }
   ]
 }

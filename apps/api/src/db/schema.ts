@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import {
   boolean,
   customType,
@@ -7,6 +8,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
 
@@ -140,6 +142,78 @@ export const seats = pgTable(
     index('seats_row_id_idx').on(table.rowId),
   ],
 );
+
+export const orders = pgTable(
+  'orders',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id),
+    eventId: uuid('event_id')
+      .notNull()
+      .references(() => events.id),
+    status: text('status')
+      .$type<'pending' | 'paid' | 'failed' | 'expired'>()
+      .notNull()
+      .default('pending'),
+    paymentMethod: text('payment_method').$type<'card' | 'boleto'>().notNull(),
+    provider: text('provider').notNull(),
+    providerRef: text('provider_ref'),
+    subtotalCents: integer('subtotal_cents').notNull(),
+    serviceFeeCents: integer('service_fee_cents').notNull(),
+    totalCents: integer('total_cents').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    paidAt: timestamp('paid_at', { withTimezone: true, mode: 'date' }),
+  },
+  (table) => [
+    uniqueIndex('orders_provider_ref_unique').on(table.providerRef),
+    uniqueIndex('orders_pending_user_event_unique')
+      .on(table.userId, table.eventId)
+      .where(sql`status = 'pending'`),
+    index('orders_user_id_idx').on(table.userId),
+  ],
+);
+
+export const orderItems = pgTable(
+  'order_items',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    orderId: uuid('order_id')
+      .notNull()
+      .references(() => orders.id, { onDelete: 'cascade' }),
+    seatId: uuid('seat_id')
+      .notNull()
+      .references(() => seats.id),
+    rowId: uuid('row_id')
+      .notNull()
+      .references(() => seatRows.id),
+    sectorSlug: text('sector_slug').notNull(),
+    rowLabel: text('row_label').notNull(),
+    seatLabel: text('seat_label').notNull(),
+    ticketType: text('ticket_type')
+      .$type<'inteira' | 'meia' | 'vip'>()
+      .notNull(),
+    priceCents: integer('price_cents').notNull(),
+  },
+  (table) => [
+    uniqueIndex('order_items_order_seat_unique').on(
+      table.orderId,
+      table.seatId,
+    ),
+  ],
+);
+
+export const paymentEvents = pgTable('payment_events', {
+  providerEventId: text('provider_event_id').primaryKey(),
+  provider: text('provider').notNull(),
+  type: text('type').notNull(),
+  receivedAt: timestamp('received_at', { withTimezone: true, mode: 'date' })
+    .notNull()
+    .defaultNow(),
+});
 
 export const user = pgTable('user', {
   id: text('id').primaryKey(),

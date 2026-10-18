@@ -66,7 +66,7 @@ export async function resetDatabase(db: Db): Promise<void> {
   assertTestDatabaseUrl(db.$client.options.connectionString ?? '');
 
   await db.execute(
-    sql`TRUNCATE TABLE "user", session, account, verification, event_artists, seat_rows, seats, sectors, events, artists, venues, categories RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE TABLE "user", session, account, verification, event_artists, order_items, orders, payment_events, seat_rows, seats, sectors, events, artists, venues, categories RESTART IDENTITY CASCADE`,
   );
 }
 
