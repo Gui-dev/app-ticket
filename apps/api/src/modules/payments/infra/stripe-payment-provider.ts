@@ -4,34 +4,13 @@ import type {
   CreatePaymentInput,
   CreatePaymentResult,
   PaymentEvent,
-  PaymentEventType,
   PaymentProvider,
 } from '../domain/payment-provider.js';
+import { mapStripeEvent } from './stripe-event-mapper.js';
 
 interface StripePaymentProviderConfig {
   secretKey: string;
   webhookSecret: string;
-}
-
-const EVENT_TYPES = new Map<string, PaymentEventType>([
-  ['payment_intent.succeeded', 'succeeded'],
-  ['payment_intent.payment_failed', 'failed'],
-  ['payment_intent.canceled', 'expired'],
-]);
-
-function mapEvent(input: {
-  providerEventId: string;
-  type: string;
-  providerRef: string | null;
-  amountCents: number | null;
-}): PaymentEvent {
-  const type = EVENT_TYPES.get(input.type) ?? 'ignored';
-  return {
-    providerEventId: input.providerEventId,
-    type,
-    providerRef: input.providerRef,
-    amountCents: type === 'succeeded' ? input.amountCents : null,
-  };
 }
 
 export class StripePaymentProvider implements PaymentProvider {
@@ -75,11 +54,10 @@ export class StripePaymentProvider implements PaymentProvider {
       id?: string;
       amount_received?: number;
     };
-    return mapEvent({
-      providerEventId: event.id,
+    return mapStripeEvent({
+      id: event.id,
       type: event.type,
-      providerRef: object.id ?? null,
-      amountCents: object.amount_received ?? null,
+      data: { object },
     });
   }
 

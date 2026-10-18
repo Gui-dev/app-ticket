@@ -4,9 +4,9 @@ import type {
   CreatePaymentInput,
   CreatePaymentResult,
   PaymentEvent,
-  PaymentEventType,
   PaymentProvider,
 } from '../domain/payment-provider.js';
+import { mapStripeEvent } from './stripe-event-mapper.js';
 import { verifyStripeSignature } from './stripe-signature.js';
 
 interface StripeWebhookPayload {
@@ -15,33 +15,12 @@ interface StripeWebhookPayload {
   data?: { object?: { id?: string; amount_received?: number } };
 }
 
-const EVENT_TYPES = new Map<string, PaymentEventType>([
-  ['payment_intent.succeeded', 'succeeded'],
-  ['payment_intent.payment_failed', 'failed'],
-  ['payment_intent.canceled', 'expired'],
-]);
-
 function parsePayload(rawBody: string): StripeWebhookPayload | null {
   try {
     return JSON.parse(rawBody) as StripeWebhookPayload;
   } catch {
     return null;
   }
-}
-
-function mapEvent(input: {
-  providerEventId: string;
-  type: string;
-  providerRef: string | null;
-  amountCents: number | null;
-}): PaymentEvent {
-  const type = EVENT_TYPES.get(input.type) ?? 'ignored';
-  return {
-    providerEventId: input.providerEventId,
-    type,
-    providerRef: input.providerRef,
-    amountCents: type === 'succeeded' ? input.amountCents : null,
-  };
 }
 
 export class FakePaymentProvider implements PaymentProvider {
@@ -74,11 +53,10 @@ export class FakePaymentProvider implements PaymentProvider {
     }
     const payload = parsePayload(input.rawBody);
     if (!payload) return null;
-    return mapEvent({
-      providerEventId: payload.id ?? '',
+    return mapStripeEvent({
+      id: payload.id ?? '',
       type: payload.type ?? '',
-      providerRef: payload.data?.object?.id ?? null,
-      amountCents: payload.data?.object?.amount_received ?? null,
+      data: { object: payload.data?.object ?? {} },
     });
   }
 

@@ -88,6 +88,25 @@ describe('FakePaymentProvider', () => {
     expect(event?.type).toBe('ignored');
   });
 
+  it('mapeia evento sem id no objeto com providerRef nulo', async () => {
+    const provider = new FakePaymentProvider();
+    const payload = JSON.stringify({
+      id: 'evt_6',
+      type: 'payment_intent.succeeded',
+      data: { object: { amount_received: 5000 } },
+    });
+    const event = await provider.parseWebhook({
+      rawBody: payload,
+      signature: signStripeWebhook(payload, secret),
+    });
+    expect(event).toEqual({
+      providerEventId: 'evt_6',
+      type: 'succeeded',
+      providerRef: null,
+      amountCents: 5000,
+    });
+  });
+
   it('registra estornos em memória', async () => {
     const provider = new FakePaymentProvider();
     await provider.refund('pi_fake_1');
