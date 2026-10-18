@@ -23,7 +23,7 @@ import {
 import { CartPanel, type CartPanelItem } from '@/components/cart-panel';
 import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
-import { authClient } from '@/lib/auth-client';
+import { ensureAnonymousSession } from '@/lib/auth-client';
 import { formatBRL } from '@/lib/format';
 
 interface SeatMapProps {
@@ -262,7 +262,7 @@ export function SeatMap({ eventSlug }: SeatMapProps) {
   async function sendHold(seat: SeatCandidate): Promise<string> {
     let response = await postHold(eventSlug, seat);
     if (response.status === 401) {
-      await authClient.signIn.anonymous();
+      await ensureAnonymousSession();
       response = await postHold(eventSlug, seat);
     }
     if (response.status === 409) {
@@ -391,7 +391,7 @@ export function SeatMap({ eventSlug }: SeatMapProps) {
     try {
       let response = await putCartItem(eventSlug, current, ticketType);
       if (response.status === 401) {
-        await authClient.signIn.anonymous();
+        await ensureAnonymousSession();
         response = await putCartItem(eventSlug, current, ticketType);
       }
       if (!response.ok) throw new Error('cart_item_failed');

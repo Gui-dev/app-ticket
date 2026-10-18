@@ -4,3 +4,14 @@ import { createAuthClient } from 'better-auth/react';
 export const authClient = createAuthClient({
   plugins: [anonymousClient()],
 });
+
+let pendingAnonymousSignIn: Promise<unknown> | null = null;
+
+export function ensureAnonymousSession(): Promise<unknown> {
+  if (!pendingAnonymousSignIn) {
+    pendingAnonymousSignIn = authClient.signIn.anonymous().finally(() => {
+      pendingAnonymousSignIn = null;
+    });
+  }
+  return pendingAnonymousSignIn;
+}

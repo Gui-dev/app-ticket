@@ -666,6 +666,66 @@ describe('SeatMap', () => {
     expect(holdCalls).toBe(2);
   });
 
+  it('dedupes concurrent anonymous sign-ins across seats', async () => {
+    mockSeatmap();
+    let anonymousCalls = 0;
+    const attempts = new Map<string, number>();
+    let releaseSignIn: () => void = () => {};
+    const bothAttempted = new Promise<void>((resolve) => {
+      releaseSignIn = resolve;
+    });
+    server.use(
+      http.post(/\/api\/auth\/sign-in\/anonymous$/, async () => {
+        anonymousCalls += 1;
+        await bothAttempted;
+        return HttpResponse.json({ token: 'anonymous-token' });
+      }),
+      http.post(
+        /\/api\/events\/o-fantasma-da-opera\/holds$/,
+        async ({ request }) => {
+          const body = (await request.json()) as { seatLabel: string };
+          const count = attempts.get(body.seatLabel) ?? 0;
+          attempts.set(body.seatLabel, count + 1);
+          if (attempts.size >= 2) releaseSignIn();
+          if (count === 0) {
+            return HttpResponse.json(
+              { error: 'unauthorized' },
+              { status: 401 },
+            );
+          }
+          return HttpResponse.json(
+            {
+              hold: {
+                sectorSlug: 'plateia',
+                rowLabel: 'A',
+                seatLabel: body.seatLabel,
+                expiresAt: new Date(Date.now() + 600_000).toISOString(),
+              },
+            },
+            { status: 201 },
+          );
+        },
+      ),
+    );
+    render(<SeatMap eventSlug="o-fantasma-da-opera" />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Cadeira 6, fila A' }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Cadeira 7, fila A' }));
+
+    expect(
+      await screen.findByText('Plateia · Fila A · Cadeira 6 · R$ 120,00'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Plateia · Fila A · Cadeira 7 · R$ 120,00'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Total: R$ 240,00')).toBeInTheDocument();
+    await vi.waitFor(() => expect(anonymousCalls).toBe(1));
+    expect(attempts.get('6')).toBe(2);
+    expect(attempts.get('7')).toBe(2);
+  });
+
   it('does not resurrect a seat after the buyer gives up', async () => {
     mockSeatmap();
     let gets = 0;
