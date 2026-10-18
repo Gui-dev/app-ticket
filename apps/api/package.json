@@ -19,7 +19,8 @@
     "fastify": "^5.12.5",
     "ioredis": "^6.0.0",
     "nodemailer": "^10.1.0",
-    "pg": "^8.23.1"
+    "pg": "^8.23.1",
+    "stripe": "^23.0.0"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",
