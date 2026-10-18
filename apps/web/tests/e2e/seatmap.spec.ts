@@ -11,14 +11,14 @@ test('exibe o mapa e permite selecionar um assento livre', async ({ page }) => {
   await expect(seat).toBeEnabled();
   await seat.click();
 
-  await expect(page.getByRole('status')).toHaveText(
-    'Você selecionou: Plateia · Fila A · Cadeira 6 · R$ 120,00',
-  );
-
-  await page.getByRole('button', { name: 'Desistir da reserva' }).click();
-  await expect(page.getByText('Você selecionou')).toHaveCount(0);
   await expect(
-    page.getByRole('button', { name: 'Desistir da reserva' }),
+    page.getByText('Plateia · Fila A · Cadeira 6 · R$ 120,00'),
+  ).toBeVisible();
+
+  await page.getByRole('button', { name: 'Desistir de todos' }).click();
+  await expect(page.getByText('Nenhum assento no carrinho.')).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Desistir de todos' }),
   ).toHaveCount(0);
 
   await expect(
@@ -31,15 +31,12 @@ test('escolhe o melhor lugar disponível com um clique', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Melhor lugar disponível' }).click();
 
-  await expect(page.getByRole('status')).toHaveText(
-    'Você selecionou: Plateia · Fila A · Cadeira 6 · R$ 120,00',
-  );
-
-  await page.getByRole('button', { name: 'Desistir da reserva' }).click();
-  await expect(page.getByText('Você selecionou')).toHaveCount(0);
   await expect(
-    page.getByRole('button', { name: 'Desistir da reserva' }),
-  ).toHaveCount(0);
+    page.getByText('Plateia · Fila A · Cadeira 6 · R$ 120,00'),
+  ).toBeVisible();
+
+  await page.getByRole('button', { name: 'Desistir de todos' }).click();
+  await expect(page.getByText('Nenhum assento no carrinho.')).toBeVisible();
 });
 
 test('mostra o estado vazio para eventos sem mapa de assentos', async ({
@@ -61,12 +58,12 @@ test('reserva tem contagem regressiva e desistir libera o assento', async ({
 
   await page.getByRole('button', { name: 'Cadeira 8, fila A' }).click();
 
-  await expect(page.getByRole('status')).toHaveText(
-    'Você selecionou: Plateia · Fila A · Cadeira 8 · R$ 120,00',
-  );
+  await expect(
+    page.getByText('Plateia · Fila A · Cadeira 8 · R$ 120,00'),
+  ).toBeVisible();
   await expect(page.getByText(/Reserva expira em 09:5\d/)).toBeVisible();
 
-  await page.getByRole('button', { name: 'Desistir da reserva' }).click();
+  await page.getByRole('button', { name: 'Desistir de todos' }).click();
   await expect(page.getByText(/Reserva expira em/)).toHaveCount(0);
 
   await page.reload();
@@ -90,7 +87,7 @@ test('assento reservado aparece ocupado para outro comprador', async ({
     buyer2.getByRole('button', { name: 'Cadeira 10, fila A' }),
   ).toBeDisabled();
 
-  await buyer1.getByRole('button', { name: 'Desistir da reserva' }).click();
+  await buyer1.getByRole('button', { name: 'Desistir de todos' }).click();
   await buyer2.reload();
   await expect(
     buyer2.getByRole('button', { name: 'Cadeira 10, fila A' }),
@@ -107,10 +104,10 @@ test('recupera a reserva após atualizar a página', async ({ page }) => {
   await expect(page.getByText(/Reserva expira em/)).toBeVisible();
 
   await page.reload();
-  await expect(page.getByRole('status')).toHaveText(
-    'Você selecionou: Plateia · Fila A · Cadeira 12 · R$ 120,00',
-  );
+  await expect(
+    page.getByText('Plateia · Fila A · Cadeira 12 · R$ 120,00'),
+  ).toBeVisible();
   await expect(page.getByText(/Reserva expira em/)).toBeVisible();
 
-  await page.getByRole('button', { name: 'Desistir da reserva' }).click();
+  await page.getByRole('button', { name: 'Desistir de todos' }).click();
 });
