@@ -757,7 +757,7 @@ export type PaymentEventType = 'succeeded' | 'failed' | 'expired' | 'ignored';
 export interface PaymentEvent {
   providerEventId: string;
   type: PaymentEventType;
-  providerRef: string;
+  providerRef: string | null;
   amountCents: number | null;
 }
 
@@ -771,7 +771,7 @@ export interface PaymentProvider {
 
 Ambos os providers expõem `readonly providerName` (`'stripe'`/`'fake'`); o teste do fake deve assertar `expect(provider.providerName).toBe('fake')`. O helper de assinatura fica em `apps/api/src/modules/payments/infra/stripe-signature.ts` e é importado no spec como `import { signStripeWebhook } from './stripe-signature.js';`.
 
-`fake-payment-provider.ts`: `createPayment` → `{ providerRef: 'pi_fake_' + randomUUID(), clientSecret: null }`; `parseWebhook` valida a assinatura com o mesmo esquema do Stripe (`verifyStripeSignature(rawBody, signature, secret)` em `stripe-signature.ts`, usando `createHmac` + `timingSafeEqual`, tolerância de 300s) e mapeia: `payment_intent.succeeded → succeeded` (com `data.object.amount_received`), `payment_intent.payment_failed → failed`, `payment_intent.canceled → expired`, qualquer outro → `ignored` (usa `data.object.id` como `providerRef`; se ausente → `null`); assinatura inválida/ausente → `null`. Guarda `refundedRefs: string[]` e o `secret` no construtor (`new FakePaymentProvider(secret = process.env.STRIPE_WEBHOOK_SECRET ?? 'whsec_test')`).
+`fake-payment-provider.ts`: `createPayment` → `{ providerRef: 'pi_fake_' + randomUUID(), clientSecret: null }`; `parseWebhook` valida a assinatura com o mesmo esquema do Stripe (`verifyStripeSignature(rawBody, signature, secret)` em `stripe-signature.ts`, usando `createHmac` + `timingSafeEqual`, tolerância de 300s) e mapeia: `payment_intent.succeeded → succeeded` (com `data.object.amount_received`), `payment_intent.payment_failed → failed`, `payment_intent.canceled → expired`, qualquer outro → `ignored` (use `data.object.id ?? null` como `providerRef`); assinatura inválida/ausente → `null`. Guarda `refundedRefs: string[]` e o `secret` no construtor (`new FakePaymentProvider(secret = process.env.STRIPE_WEBHOOK_SECRET ?? 'whsec_test')`).
 
 - [ ] **Step 5: Implementar o Stripe provider (green parcial)**
 
@@ -970,21 +970,23 @@ export const EXPIRE_ORDERS_EVERY_MS = 30_000;
 export interface PaymentEventJobData {
   providerEventId: string;
   type: PaymentEventType;
-  providerRef: string;
+  providerRef: string | null;
   amountCents: number | null;
 }
 
 export function createProcessPaymentEventJob(deps: {
   confirmOrderPayment: ConfirmOrderPaymentUseCase;
   failOrder: FailOrderUseCase;
-}): (data: PaymentEventJobData) => Promise<void> { /* switch por type */ }
+}): (data: PaymentEventJobData) => Promise<void> { /* switch por type; succeeded/failed/expired com providerRef null ⇒ return */ }
 
 export function createExpirePendingOrdersJob(deps: { expirePendingOrders: ExpirePendingOrdersUseCase }): () => Promise<number> { /* devolve expired */ }
 ```
 
 - [ ] **Step 5: Registro no worker + integração da corrida**
 
-Em `apps/api/src/worker.ts`, além do worker de seat-holds existente, crie a fila `PAYMENTS_QUEUE_NAME` (`new Queue(...)`), o `new Worker<PaymentEventJobData>(PAYMENTS_QUEUE_NAME, (job) => createProcessPaymentEventJob(deps)(job.data), { connection })` e `queue.upsertJobScheduler(EXPIRE_ORDERS_JOB_ID, { every: EXPIRE_ORDERS_EVERY_MS }, { name: EXPIRE_ORDERS_JOB_ID })` chamando `createExpirePendingOrdersJob`. Instancie os deps com `DrizzleOrderRepository`, `DrizzleSeatCaptureGateway`, `DrizzlePaymentEventRepository`, `getCartRepository`/`RedisCartRepository`, `RedisHoldRepository`, `createPaymentProvider()`.
+Em `apps/api/src/worker.ts`, além do worker de seat-holds existente, crie a fila `PAYMENTS_QUEUE_NAME` (`new Queue(...)`), o `new Worker<PaymentEventJobData>(PAYMENTS_QUEUE_NAME, (job) => createProcessPaymentEventJob(deps)(job.data), { connection })` e `queue.upsertJobScheduler(EXPIRE_ORDERS_JOB_ID, { every: EXPIRE_ORDERS_EVERY_MS }, { name: EXPIRE_ORDERS_JOB_ID })` chamando `createExpirePendingOrdersJob`.
+
+**Ruling (evita duplicação entre T6 e T7):** o wiring dos deps fica numa factory compartilhada criada nesta task — `apps/api/src/modules/payments/create-payments-worker-deps.ts` exportando `createPaymentsWorkerDeps({ db, redis }): { confirmOrderPayment, failOrder, expirePendingOrders, connection }`, construída com `DrizzleOrderRepository`, `DrizzleSeatCaptureGateway`, `DrizzlePaymentEventRepository`, `RedisCartRepository`/`getCartRepository`, `RedisHoldRepository`, `createPaymentProvider()` e uma conexão Redis dedicada (`maxRetriesPerRequest: null`). **Tanto `worker.ts` quanto o `index.ts` da Task 7 consomem essa factory** — nunca duplique o wiring.
 
 `confirm-order-payment.integration.spec.ts` (Postgres + Redis reais, `seedFixtures`) — a corrida **pagamento × expiração**:
 - cria hold real (via `HoldSeatUseCase` ou `app.inject POST /holds`), cria pedido `pending` (via repos Drizzle), e então:
@@ -1090,7 +1092,7 @@ app.addContentTypeParser('application/json', { parseAs: 'string' }, (request, bo
 
 Novas opções de `buildApp`: `paymentProvider?: PaymentProvider`, `orderRepository?: OrderRepository`, `seatCaptureGateway?: SeatCaptureGateway`, `paymentEventRepository?: PaymentEventRepository`, `paymentEventQueue?: PaymentEventQueue`, `createOrder?`, `confirmOrderPayment?`, `failOrder?`, `expirePendingOrders?`. Defaults: provider via `createPaymentProvider()`, repos Drizzle, fila BullMQ (`new Queue(PAYMENTS_QUEUE_NAME, { connection: getRedis() })` — reutilize a conexão lazy; BullMQ exige `maxRetriesPerRequest: null`, então crie uma conexão dedicada em `getPaymentsConnection()` com `createRedis()` e `options.maxRetriesPerRequest = null`). Registre `registerWebhookRoutes(app, { ... })`.
 
-Em `index.ts`, após `buildApp()`, inicie o worker in-process (D8): `new Worker<PaymentEventJobData>(PAYMENTS_QUEUE_NAME, (job) => createProcessPaymentEventJob({ confirmOrderPayment, failOrder })(job.data), { connection })` — reaproveite os use-cases do app via `app.getX`? Como `buildApp` não expõe deps, exporte de `app.ts` uma factory `createPaymentsWorkerDeps(db, redis)` usada tanto por `index.ts` quanto por `worker.ts` para não duplicar wiring.
+Em `index.ts`, após `buildApp()`, inicie o worker in-process (D8): consuma a factory `createPaymentsWorkerDeps({ db, redis })` criada na Task 6 (`apps/api/src/modules/payments/create-payments-worker-deps.ts`) e registre `new Worker<PaymentEventJobData>(PAYMENTS_QUEUE_NAME, (job) => createProcessPaymentEventJob({ confirmOrderPayment, failOrder })(job.data), { connection })` mais o scheduler `EXPIRE_ORDERS_JOB_ID`; `worker.ts` consome **a mesma** factory. Não duplique o wiring.
 
 - [ ] **Step 4: Teste de integração da rota**
 
