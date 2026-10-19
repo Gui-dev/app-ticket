@@ -160,4 +160,20 @@ describe('StripePaymentProvider', () => {
 
     expect(await provider.retrieveClientSecret('pi_1')).toBeNull();
   });
+
+  it('reembolsa com a chave de idempotência derivada da referência', async () => {
+    const provider = buildProvider();
+    const create = vi
+      .spyOn(stripeClientOf(provider).refunds, 'create')
+      .mockResolvedValue({
+        id: 're_1',
+      } as unknown as Stripe.Response<Stripe.Refund>);
+
+    await provider.refund('pi_1');
+
+    expect(create).toHaveBeenCalledWith(
+      { payment_intent: 'pi_1' },
+      { idempotencyKey: 'refund-pi_1' },
+    );
+  });
 });

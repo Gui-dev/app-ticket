@@ -71,6 +71,9 @@ export class StripePaymentProvider implements PaymentProvider {
   }
 
   async refund(providerRef: string): Promise<void> {
-    await this.stripe.refunds.create({ payment_intent: providerRef });
+    await this.stripe.refunds.create(
+      { payment_intent: providerRef },
+      { idempotencyKey: `refund-${providerRef}` },
+    );
   }
 }

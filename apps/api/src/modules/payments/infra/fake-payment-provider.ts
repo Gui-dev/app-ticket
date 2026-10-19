@@ -27,6 +27,7 @@ export class FakePaymentProvider implements PaymentProvider {
   readonly providerName = 'fake';
   readonly refundedRefs: string[] = [];
   private readonly clientSecrets = new Map<string, string>();
+  private readonly refunded = new Set<string>();
 
   constructor(
     private readonly webhookSecret = process.env.STRIPE_WEBHOOK_SECRET ??
@@ -70,6 +71,8 @@ export class FakePaymentProvider implements PaymentProvider {
   }
 
   async refund(providerRef: string): Promise<void> {
+    if (this.refunded.has(providerRef)) return;
+    this.refunded.add(providerRef);
     this.refundedRefs.push(providerRef);
   }
 }

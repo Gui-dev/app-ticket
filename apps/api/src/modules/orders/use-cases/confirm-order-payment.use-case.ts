@@ -32,11 +32,27 @@ export class ConfirmOrderPaymentUseCase {
       input.providerRef,
     );
     if (!order) return { kind: 'ignored' };
-    if (order.status !== 'pending') {
-      return { kind: 'already', status: order.status };
-    }
 
     const now = this.now();
+
+    if (order.status !== 'pending') {
+      if (order.status === 'paid') {
+        return { kind: 'already', status: 'paid' };
+      }
+      await this.paymentProvider.refund(input.providerRef);
+      await releaseOrderSeatsAndClearCart({
+        seatCaptureGateway: this.seatCaptureGateway,
+        holdRepository: this.holdRepository,
+        cartRepository: this.cartRepository,
+        order: {
+          orderId: order.id,
+          userId: order.userId,
+          eventSlug: order.eventSlug,
+        },
+        now,
+      });
+      return { kind: 'refunded' };
+    }
 
     if (input.amountCents !== null && input.amountCents !== order.totalCents) {
       await this.orderRepository.markFailed({ orderId: order.id, now });

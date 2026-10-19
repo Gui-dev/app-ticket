@@ -160,6 +160,54 @@ describe('ConfirmOrderPaymentUseCase', () => {
     expect(harness.clear).not.toHaveBeenCalled();
   });
 
+  it('reembolsa e libera os assentos quando o pagamento chega em um pedido expirado', async () => {
+    const harness = createHarness({
+      order: pendingOrder({ status: 'expired' }),
+    });
+
+    const result = await harness.useCase.execute({
+      providerRef: 'pi_1',
+      amountCents: 13200,
+    });
+
+    expect(result).toEqual({ kind: 'refunded' });
+    expect(harness.refund).toHaveBeenCalledWith('pi_1');
+    expect(harness.releaseOrderSeats).toHaveBeenCalledWith({
+      orderId: 'order-1',
+      now: NOW,
+    });
+    expect(harness.release).toHaveBeenCalledWith(SEAT_KEY, 'u1');
+    expect(harness.clear).toHaveBeenCalledWith({
+      userId: 'u1',
+      eventSlug: EVENT_SLUG,
+    });
+    expect(harness.confirmOrderPayment).not.toHaveBeenCalled();
+  });
+
+  it('reembolsa e libera os assentos quando o pagamento chega em um pedido falho', async () => {
+    const harness = createHarness({
+      order: pendingOrder({ status: 'failed' }),
+    });
+
+    const result = await harness.useCase.execute({
+      providerRef: 'pi_1',
+      amountCents: 13200,
+    });
+
+    expect(result).toEqual({ kind: 'refunded' });
+    expect(harness.refund).toHaveBeenCalledWith('pi_1');
+    expect(harness.releaseOrderSeats).toHaveBeenCalledWith({
+      orderId: 'order-1',
+      now: NOW,
+    });
+    expect(harness.release).toHaveBeenCalledWith(SEAT_KEY, 'u1');
+    expect(harness.clear).toHaveBeenCalledWith({
+      userId: 'u1',
+      eventSlug: EVENT_SLUG,
+    });
+    expect(harness.confirmOrderPayment).not.toHaveBeenCalled();
+  });
+
   it('reembolsa e libera os assentos quando a captura perde a corrida', async () => {
     const harness = createHarness({
       capture: { kind: 'seats_lost' },
