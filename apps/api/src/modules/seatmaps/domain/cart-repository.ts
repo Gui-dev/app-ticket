@@ -17,6 +17,7 @@ export interface CartRepository {
     eventSlug: string;
     ttlSeconds: number;
   }): Promise<void>;
+  clear(input: { userId: string; eventSlug: string }): Promise<void>;
 }
 
 export function cartItemKey(

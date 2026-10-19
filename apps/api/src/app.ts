@@ -105,6 +105,7 @@ export function buildApp(
     setType: (input) => getCartRepository().setType(input),
     getTypes: (input) => getCartRepository().getTypes(input),
     refreshTtl: (input) => getCartRepository().refreshTtl(input),
+    clear: (input) => getCartRepository().clear(input),
   };
 
   app.addHook('onClose', async () => {

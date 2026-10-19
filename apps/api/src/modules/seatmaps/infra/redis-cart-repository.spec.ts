@@ -141,6 +141,30 @@ describe('RedisCartRepository', () => {
     expect(types.size).toBe(0);
   });
 
+  it('deletes the cart key', async () => {
+    await repository.setType({
+      userId: 'user-a',
+      eventSlug: 'gig',
+      itemKey: cartItemKey('plateia', 'A', '6'),
+      ticketType: 'meia',
+      ttlSeconds: 600,
+    });
+    expect(await redis.exists('cart:user-a:gig')).toBe(1);
+
+    await repository.clear({ userId: 'user-a', eventSlug: 'gig' });
+
+    expect(await redis.exists('cart:user-a:gig')).toBe(0);
+    expect(
+      (await repository.getTypes({ userId: 'user-a', eventSlug: 'gig' })).size,
+    ).toBe(0);
+  });
+
+  it('does not throw when clearing a missing cart', async () => {
+    await expect(
+      repository.clear({ userId: 'user-a', eventSlug: 'gig' }),
+    ).resolves.toBeUndefined();
+  });
+
   it('ignores values that are not ticket types', async () => {
     await redis.hset('cart:user-a:gig', 'plateia:A:6', 'leilao');
     const types = await repository.getTypes({

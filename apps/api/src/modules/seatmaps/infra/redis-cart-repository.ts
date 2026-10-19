@@ -52,4 +52,8 @@ export class RedisCartRepository implements CartRepository {
       input.ttlSeconds,
     );
   }
+
+  async clear(input: { userId: string; eventSlug: string }): Promise<void> {
+    await this.redis.del(this.key(input.userId, input.eventSlug));
+  }
 }

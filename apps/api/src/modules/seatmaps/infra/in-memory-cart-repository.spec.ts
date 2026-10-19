@@ -93,6 +93,45 @@ describe('InMemoryCartRepository', () => {
     ).toBe(0);
   });
 
+  it('clears the cart of a single user and event', async () => {
+    await repository.setType({
+      userId: 'user-a',
+      eventSlug: 'gig',
+      itemKey: cartItemKey('plateia', 'A', '6'),
+      ticketType: 'meia',
+      ttlSeconds: 600,
+    });
+
+    await repository.clear({ userId: 'user-a', eventSlug: 'gig' });
+
+    expect(
+      (await repository.getTypes({ userId: 'user-a', eventSlug: 'gig' })).size,
+    ).toBe(0);
+  });
+
+  it('keeps other carts when clearing one', async () => {
+    await repository.setType({
+      userId: 'user-a',
+      eventSlug: 'gig',
+      itemKey: cartItemKey('plateia', 'A', '6'),
+      ticketType: 'meia',
+      ttlSeconds: 600,
+    });
+    await repository.setType({
+      userId: 'user-b',
+      eventSlug: 'gig',
+      itemKey: cartItemKey('plateia', 'A', '6'),
+      ticketType: 'meia',
+      ttlSeconds: 600,
+    });
+
+    await repository.clear({ userId: 'user-a', eventSlug: 'gig' });
+
+    expect(
+      (await repository.getTypes({ userId: 'user-b', eventSlug: 'gig' })).size,
+    ).toBe(1);
+  });
+
   it('refreshes the ttl on a new write', async () => {
     await repository.setType({
       userId: 'user-a',

@@ -64,4 +64,8 @@ export class InMemoryCartRepository implements CartRepository {
       entry.expiresAtMs = expiresAtMs;
     }
   }
+
+  async clear(input: { userId: string; eventSlug: string }): Promise<void> {
+    this.carts.delete(`${input.userId}:${input.eventSlug}`);
+  }
 }
