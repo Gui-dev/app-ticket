@@ -84,6 +84,7 @@ describe('rota de webhook do stripe (postgres integration)', () => {
   });
 
   afterAll(async () => {
+    await resetDatabase(testDb);
     await app.close();
     await testDb.$client.end();
   });

@@ -85,6 +85,7 @@ describe('confirmação do pagamento (postgres + redis integration)', () => {
   });
 
   afterAll(async () => {
+    await resetDatabase(testDb);
     await redis.quit();
     await testDb.$client.end();
   });

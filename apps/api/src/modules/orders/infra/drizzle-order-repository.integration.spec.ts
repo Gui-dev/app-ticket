@@ -73,6 +73,7 @@ describe('ordens (postgres integration)', () => {
   });
 
   afterAll(async () => {
+    await resetDatabase(testDb);
     await testDb.$client.end();
   });
 
