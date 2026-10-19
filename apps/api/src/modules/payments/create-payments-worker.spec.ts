@@ -3,11 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Db } from '../../db/client.js';
 import type { RedisClient } from '../../redis/client.js';
 import { createPaymentsWorker } from './create-payments-worker.js';
-import {
-  EXPIRE_ORDERS_JOB_ID,
-  PAYMENT_JOB_ATTEMPTS,
-  PAYMENT_JOB_BACKOFF_DELAY_MS,
-} from './jobs/process-payment-event.js';
+import { EXPIRE_ORDERS_JOB_ID } from './jobs/process-payment-event.js';
 
 const mocks = vi.hoisted(() => ({
   queueConstructor: vi.fn(),
@@ -52,7 +48,7 @@ const db = {} as Db;
 const connection = {} as RedisClient;
 
 describe('createPaymentsWorker', () => {
-  it('configura três tentativas com backoff exponencial na fila de pagamentos', async () => {
+  it('configura seis tentativas com backoff exponencial na fila de pagamentos', async () => {
     await createPaymentsWorker({ db, connection });
 
     const [, options] = mocks.queueConstructor.mock.calls[0] as [
@@ -60,11 +56,12 @@ describe('createPaymentsWorker', () => {
       { defaultJobOptions: unknown },
     ];
     expect(options.defaultJobOptions).toEqual({
-      attempts: PAYMENT_JOB_ATTEMPTS,
+      attempts: 6,
       backoff: {
         type: 'exponential',
-        delay: PAYMENT_JOB_BACKOFF_DELAY_MS,
+        delay: 5000,
       },
+      removeOnFail: true,
     });
   });
 
@@ -77,11 +74,12 @@ describe('createPaymentsWorker', () => {
       {
         name: EXPIRE_ORDERS_JOB_ID,
         opts: {
-          attempts: PAYMENT_JOB_ATTEMPTS,
+          attempts: 6,
           backoff: {
             type: 'exponential',
-            delay: PAYMENT_JOB_BACKOFF_DELAY_MS,
+            delay: 5000,
           },
+          removeOnFail: true,
         },
       },
     );

@@ -2,8 +2,6 @@ import type { Queue } from 'bullmq';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
-  PAYMENT_JOB_ATTEMPTS,
-  PAYMENT_JOB_BACKOFF_DELAY_MS,
   type PaymentEventJobData,
   PROCESS_PAYMENT_EVENT_JOB,
 } from '../jobs/process-payment-event.js';
@@ -26,11 +24,12 @@ describe('BullMqPaymentEventQueue (unit)', () => {
     expect(add).toHaveBeenCalledTimes(1);
     expect(add).toHaveBeenCalledWith(PROCESS_PAYMENT_EVENT_JOB, data, {
       jobId: 'evt_1',
-      attempts: PAYMENT_JOB_ATTEMPTS,
+      attempts: 6,
       backoff: {
         type: 'exponential',
-        delay: PAYMENT_JOB_BACKOFF_DELAY_MS,
+        delay: 5000,
       },
+      removeOnFail: true,
     });
   });
 });

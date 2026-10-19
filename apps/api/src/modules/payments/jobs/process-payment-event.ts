@@ -7,8 +7,8 @@ export const PAYMENTS_QUEUE_NAME = 'payments';
 export const PROCESS_PAYMENT_EVENT_JOB = 'process-payment-event';
 export const EXPIRE_ORDERS_JOB_ID = 'expire-pending-orders';
 export const EXPIRE_ORDERS_EVERY_MS = 30_000;
-export const PAYMENT_JOB_ATTEMPTS = 3;
-export const PAYMENT_JOB_BACKOFF_DELAY_MS = 1000;
+export const PAYMENT_JOB_ATTEMPTS = 6;
+export const PAYMENT_JOB_BACKOFF_DELAY_MS = 5000;
 
 export const PAYMENT_JOB_OPTIONS = {
   attempts: PAYMENT_JOB_ATTEMPTS,
@@ -16,6 +16,7 @@ export const PAYMENT_JOB_OPTIONS = {
     type: 'exponential',
     delay: PAYMENT_JOB_BACKOFF_DELAY_MS,
   },
+  removeOnFail: true,
 } as const;
 
 export interface PaymentEventJobData {
