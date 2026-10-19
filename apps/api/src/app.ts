@@ -10,6 +10,7 @@ import {
   createGetSession,
   type GetSessionFn,
 } from './modules/auth/get-session.js';
+import { migrateAnonymousRedisData } from './modules/auth/migrate-anonymous-data.js';
 import { registerAuthRoutes } from './modules/auth/routes/auth.routes.js';
 import type { CategoriesRepository } from './modules/categories/domain/categories-repository.js';
 import { DrizzleCategoriesRepository } from './modules/categories/infra/drizzle-categories-repository.js';
@@ -191,7 +192,12 @@ export function buildApp(
   registerVenueRoutes(app, venuesRepository);
 
   const authInstance =
-    options.auth ?? createAuth(getDefaultDb(), { sendEmail });
+    options.auth ??
+    createAuth(getDefaultDb(), {
+      sendEmail,
+      migrateAnonymousData: (from, to) =>
+        migrateAnonymousRedisData(getRedis(), from, to),
+    });
   registerAuthRoutes(app, authInstance);
 
   const getSession = options.getSession ?? createGetSession(authInstance);

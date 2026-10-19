@@ -19,7 +19,17 @@ function webUrl(): string {
   return process.env.BETTER_AUTH_URL ?? DEFAULT_WEB_URL;
 }
 
-export function createAuth(db: Db, deps: { sendEmail: SendEmailFn }) {
+export function createAuth(
+  db: Db,
+  deps: {
+    sendEmail: SendEmailFn;
+    migrateAnonymousData?: (
+      fromUserId: string,
+      toUserId: string,
+    ) => Promise<void>;
+  },
+) {
+  const migrateAnonymousData = deps.migrateAnonymousData ?? (async () => {});
   return betterAuth({
     database: drizzleAdapter(db, {
       provider: 'pg',
@@ -64,6 +74,11 @@ export function createAuth(db: Db, deps: { sendEmail: SendEmailFn }) {
             .update(seats)
             .set({ holdUserId: newUser.user.id })
             .where(eq(seats.holdUserId, anonymousUser.user.id));
+          try {
+            await migrateAnonymousData(anonymousUser.user.id, newUser.user.id);
+          } catch (error) {
+            console.error('[auth] anonymous data migration failed', error);
+          }
         },
       }),
     ],
