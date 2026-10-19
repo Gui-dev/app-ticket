@@ -101,7 +101,10 @@ export class CreateOrderUseCase {
       };
     }
     if (existing) {
-      return this.charge(existing, input, existing.totalCents);
+      await this.orderRepository.markFailed({
+        orderId: existing.id,
+        now: this.now(),
+      });
     }
 
     const order = await this.orderRepository.create({
@@ -131,19 +134,18 @@ export class CreateOrderUseCase {
       });
     }
 
-    return this.charge(order, input, totals.totalCents);
+    return this.charge(order, input);
   }
 
   private async charge(
     order: OrderRecord,
     input: { paymentMethod: PaymentMethod; buyerEmail: string | null },
-    amountCents: number,
   ): Promise<CreateOrderResult> {
     let payment: CreatePaymentResult;
     try {
       payment = await this.paymentProvider.createPayment({
         orderId: order.id,
-        amountCents,
+        amountCents: order.totalCents,
         method: input.paymentMethod,
         description: `Pedido ${order.id}`,
         buyerEmail: input.buyerEmail,

@@ -265,6 +265,8 @@ describe('CreateOrderUseCase', () => {
 
     expect(harness.create).not.toHaveBeenCalled();
     expect(harness.createPayment).not.toHaveBeenCalled();
+    expect(harness.renew).not.toHaveBeenCalled();
+    expect(harness.renewSeatHold).not.toHaveBeenCalled();
     expect(result.kind).toBe('created');
     if (result.kind !== 'created') return;
     expect(result.order.id).toBe('order-existing');
@@ -276,31 +278,39 @@ describe('CreateOrderUseCase', () => {
     });
   });
 
-  it('cria o pagamento para um pedido pendente sem providerRef', async () => {
+  it('abandona o pedido pendente sem providerRef e cria um novo com o total atual', async () => {
     const harness = createHarness({
       existingOrder: existingOrder({
         id: 'order-pending',
         providerRef: null,
+        subtotalCents: 9000,
+        serviceFeeCents: 900,
+        totalCents: 9900,
       }),
     });
 
     const result = await harness.useCase.execute(baseInput);
 
-    expect(harness.create).not.toHaveBeenCalled();
-    expect(harness.createPayment).toHaveBeenCalledOnce();
-    expect(harness.createPayment).toHaveBeenCalledWith({
+    expect(harness.markFailed).toHaveBeenCalledWith({
       orderId: 'order-pending',
+      now: NOW,
+    });
+    expect(harness.create).toHaveBeenCalledOnce();
+    expect(harness.createPayment).toHaveBeenCalledWith({
+      orderId: 'order-1',
       amountCents: 19800,
       method: 'card',
-      description: 'Pedido order-pending',
+      description: 'Pedido order-1',
       buyerEmail: 'b@x.com',
     });
     expect(harness.setProviderRef).toHaveBeenCalledWith({
-      orderId: 'order-pending',
+      orderId: 'order-1',
       providerRef: 'pi_1',
     });
     expect(result.kind).toBe('created');
     if (result.kind !== 'created') return;
+    expect(result.order.id).toBe('order-1');
+    expect(result.order.totalCents).toBe(19800);
     expect(result.order.providerRef).toBe('pi_1');
   });
 
@@ -381,6 +391,14 @@ describe('CreateOrderUseCase', () => {
     const result = await harness.useCase.execute(baseInput);
 
     expect(harness.create).toHaveBeenCalledOnce();
+    expect(harness.renew).toHaveBeenCalledTimes(2);
+    expect(harness.renewSeatHold).toHaveBeenCalledTimes(2);
+    expect(harness.renew.mock.invocationCallOrder[0]).toBeLessThan(
+      harness.createPayment.mock.invocationCallOrder[0],
+    );
+    expect(harness.renewSeatHold.mock.invocationCallOrder[0]).toBeLessThan(
+      harness.createPayment.mock.invocationCallOrder[0],
+    );
     expect(harness.markFailed).toHaveBeenCalledWith({
       orderId: 'order-1',
       now: NOW,
