@@ -610,7 +610,7 @@ describe('CreateOrderUseCase', () => {
     });
   });
 
-  it('repropaga o erro quando o pedido concorrente ainda não tem pagamento', async () => {
+  it('devolve o pedido concorrente sem pagamento quando ele ainda não tem providerRef', async () => {
     const harness = createHarness({
       create: async () => {
         throw new Error('unique_violation');
@@ -621,12 +621,19 @@ describe('CreateOrderUseCase', () => {
       }),
     });
 
-    await expect(harness.useCase.execute(baseInput)).rejects.toThrow(
-      'unique_violation',
-    );
+    const result = await harness.useCase.execute(baseInput);
+
     expect(harness.createPayment).not.toHaveBeenCalled();
     expect(harness.retrieveClientSecret).not.toHaveBeenCalled();
     expect(harness.markFailed).not.toHaveBeenCalled();
+    expect(result.kind).toBe('created');
+    if (result.kind !== 'created') return;
+    expect(result.order.id).toBe('order-concurrent');
+    expect(result.payment).toEqual({
+      provider: 'stripe',
+      providerRef: null,
+      clientSecret: null,
+    });
   });
 
   it('repropaga o erro quando o pedido concorrente não bate com o carrinho', async () => {
