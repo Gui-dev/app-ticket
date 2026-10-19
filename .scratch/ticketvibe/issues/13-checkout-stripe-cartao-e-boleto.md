@@ -45,6 +45,10 @@ Correções transversais (saíram das revisões por task):
 | `799010e` | O parser JSON customizado (exigido pelo rawBody do webhook) volta a devolver **400** com os códigos do Fastify para corpo vazio, JSON inválido ou com `__proto__` no topo — antes devolvia 500 em todas as rotas |
 | `8a5b7ed` | Boleto confirma com `redirect: 'always'` (voucher hospedado do Stripe) e o checkout trata o 503 `order_in_progress` com mensagem própria |
 | `ffd9b9a` | Parser JSON recusa `__proto__` no nível principal (paridade com o `secure-json-parse` padrão do Fastify) |
+| `b81c3ee` | Pagamento que chega a um pedido já terminal **dentro** da transação de captura (`{ kind: 'already', status: 'failed' \| 'expired' }`) é **reembolsado** — o comprador pagou, os assentos foram liberados e o dinheiro tinha de voltar; o caminho terminal e o caminho `already` compartilham um único `refundAndReleaseSeats` |
+| `b671724` | A recuperação do POST duplicado concorrente só reaproveita o pedido pendente que **bate com o carrinho** (mesma regra de `providerRef` da primeira leitura); quando não bate, o erro original é repassado e nenhum pedido é devolvido — assim o valor cobrado é sempre o valor exibido |
+| `3f58276` | Aposentar um pedido pendente **cancela** o `PaymentIntent` dele (`PaymentProvider.cancelPayment`, best effort) — sem isso o comprador ficava com duas intenções vivas e, ao pagar a velha, o reembolso liberava o assento que o pedido novo segurava |
+| `e31404b` | Job de pagamento com orçamento de retentativa maior (6 tentativas, base exponencial de 5 s) e `removeOnFail: true` — sem remover o job falhado o hash sobrevivia e uma reentrega legítima do Stripe não conseguia mais rodar o job |
 
 ### Gates finais (19/10/2026)
 
