@@ -23,7 +23,11 @@ const getSession: GetSessionFn = async (headers) => {
   const userId = headers['x-test-user-id'];
   if (typeof userId !== 'string') return null;
   const email = headers['x-test-user-email'];
-  return { userId, email: typeof email === 'string' ? email : null };
+  return {
+    userId,
+    email: typeof email === 'string' ? email : null,
+    isAnonymous: headers['x-test-anonymous'] === 'true',
+  };
 };
 
 function buildTestApp() {
@@ -77,6 +81,23 @@ describe('order routes (unit)', () => {
     const response = await app.inject({
       method: 'POST',
       url: '/events/o-fantasma-da-opera/orders',
+      payload: { paymentMethod: 'card' },
+    });
+    expect(response.statusCode).toBe(401);
+    expect(response.json()).toEqual({ error: 'unauthorized' });
+    expect(createOrder.execute).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it('rejeita a criação de pedido para uma sessão anônima', async () => {
+    const app = buildTestApp();
+    const response = await app.inject({
+      method: 'POST',
+      url: '/events/o-fantasma-da-opera/orders',
+      headers: {
+        'x-test-user-id': 'anon-user',
+        'x-test-anonymous': 'true',
+      },
       payload: { paymentMethod: 'card' },
     });
     expect(response.statusCode).toBe(401);

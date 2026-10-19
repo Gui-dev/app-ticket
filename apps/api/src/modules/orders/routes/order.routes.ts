@@ -50,6 +50,9 @@ export function registerOrderRoutes(
     if (!session) {
       return reply.code(401).send({ error: 'unauthorized' });
     }
+    if (session.isAnonymous) {
+      return reply.code(401).send({ error: 'unauthorized' });
+    }
     const parsed = createOrderRequestSchema.safeParse(request.body ?? {});
     if (!parsed.success) {
       return reply
