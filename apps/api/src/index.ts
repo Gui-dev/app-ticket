@@ -1,7 +1,10 @@
 import { buildApp } from './app';
 import { createDb } from './db/client';
+import { loadEnvFile } from './load-env';
 import { createPaymentsWorker } from './modules/payments/create-payments-worker';
 import { createRedis } from './redis/client';
+
+loadEnvFile();
 
 const port = Number(process.env.PORT ?? 3001);
 

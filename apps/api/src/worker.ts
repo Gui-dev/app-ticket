@@ -1,6 +1,7 @@
 import { Queue, Worker } from 'bullmq';
 
 import { createDb } from './db/client.js';
+import { loadEnvFile } from './load-env.js';
 import { createPaymentsWorker } from './modules/payments/create-payments-worker.js';
 import {
   createExpireSeatHoldsJob,
@@ -9,6 +10,8 @@ import {
   SEAT_HOLD_QUEUE_NAME,
 } from './modules/seatmaps/jobs/expire-seat-holds.js';
 import { createRedis } from './redis/client.js';
+
+loadEnvFile();
 
 const db = createDb();
 const connection = createRedis();
