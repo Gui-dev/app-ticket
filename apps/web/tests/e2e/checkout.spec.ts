@@ -1,50 +1,28 @@
-import { execSync } from 'node:child_process';
-
 import { type APIRequestContext, expect, test } from '@playwright/test';
 
 import { registerVerifiedBuyer, WEB } from './helpers/auth';
-import { readLatestOrder, readOrderStatus } from './helpers/orders';
+import { backdateHold, readSeatStatus, restoreSeat } from './helpers/db';
+import {
+  deleteOrdersByBuyer,
+  deletePaymentEvents,
+  readLatestOrder,
+  readOrderStatus,
+} from './helpers/orders';
 import { signStripeWebhook } from './helpers/stripe';
 
 const API_URL = 'http://127.0.0.1:3001';
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET ?? 'whsec_test';
-const EVENT_SLUG = 'o-fantasma-da-opera';
-const EVENT_PATH = `/events/${EVENT_SLUG}`;
-const PLATEIA_ROW_A = `row_id in (select sr.id from seat_rows sr join sectors s on s.id = sr.sector_id join events e on e.id = s.event_id where e.slug = '${EVENT_SLUG}' and s.slug = 'plateia' and sr.label = 'A')`;
-
-function psql(sql: string): string {
-  return execSync(
-    `podman exec ticketvibe-postgres psql -U ticketvibe -d ticketvibe -At -c "${sql}"`,
-    { encoding: 'utf8' },
-  ).trim();
-}
-
-function backdateHold(seatLabel: string): void {
-  psql(
-    `update seats set hold_expires_at = now() - interval '1 second' where label = '${seatLabel}' and hold_user_id is not null and ${PLATEIA_ROW_A}`,
-  );
-}
-
-function restoreSeat(seatLabel: string): void {
-  const key = psql(
-    `select e.id || ':' || sr.id || ':' || se.id from seats se join seat_rows sr on sr.id = se.row_id join sectors s on s.id = sr.sector_id join events e on e.id = s.event_id where e.slug = '${EVENT_SLUG}' and s.slug = 'plateia' and sr.label = 'A' and se.label = '${seatLabel}'`,
-  );
-  if (key) {
-    execSync(`podman exec ticketvibe-redis redis-cli del hold:seat:${key}`, {
-      stdio: 'ignore',
-    });
-  }
-  psql(
-    `update seats set status = 'available', hold_user_id = null, hold_expires_at = null where label = '${seatLabel}' and ${PLATEIA_ROW_A}`,
-  );
-}
+const EVENT_PATH = '/events/o-fantasma-da-opera';
+const buyerEmails = new Set<string>();
+const providerEventIds = new Set<string>();
 
 async function approvePayment(
   request: APIRequestContext,
   order: { providerRef: string; totalCents: number },
-): Promise<void> {
+): Promise<string> {
+  const eventId = `evt_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
   const payload = JSON.stringify({
-    id: `evt_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
+    id: eventId,
     type: 'payment_intent.succeeded',
     data: {
       object: {
@@ -60,12 +38,21 @@ async function approvePayment(
     },
     data: payload,
   });
-  expect(response.ok()).toBe(true);
+  const body = await response.text();
+  expect(
+    response.status(),
+    `webhook recusado: ${response.status()} ${body}`,
+  ).toBe(200);
+  return eventId;
 }
 
 test.afterEach(() => {
   restoreSeat('1');
   restoreSeat('4');
+  deleteOrdersByBuyer([...buyerEmails]);
+  deletePaymentEvents([...providerEventIds]);
+  buyerEmails.clear();
+  providerEventIds.clear();
 });
 
 test('completa a compra quando o webhook de pagamento é aprovado', async ({
@@ -76,6 +63,7 @@ test('completa a compra quando o webhook de pagamento é aprovado', async ({
 
   const email = `comprador-${Date.now()}@ticketvibe.test`;
   const password = 'senha-forte-123';
+  buyerEmails.add(email);
 
   await registerVerifiedBuyer(page, { email, password });
   await page.getByRole('button', { name: 'Sair' }).click();
@@ -109,13 +97,15 @@ test('completa a compra quando o webhook de pagamento é aprovado', async ({
   const order = readLatestOrder();
   await expect(panel.locator('code')).toHaveText(order.providerRef);
 
-  await approvePayment(request, order);
+  const eventId = await approvePayment(request, order);
+  providerEventIds.add(eventId);
 
   await expect(page.getByText('Pedido confirmado')).toBeVisible({
     timeout: 15_000,
   });
 
   await page.goto(`${WEB}${EVENT_PATH}/ingressos`);
+  await expect(page.getByText('Nenhum assento no carrinho.')).toBeVisible();
   await expect(
     page.getByRole('button', { name: 'Cadeira 1, fila A' }),
   ).toBeDisabled();
@@ -124,12 +114,14 @@ test('completa a compra quando o webhook de pagamento é aprovado', async ({
 test('falha e libera o assento quando o pagamento chega após a reserva expirar', async ({
   page,
   context,
+  browser,
   request,
 }) => {
   test.setTimeout(60_000);
 
   const email = `comprador-expirado-${Date.now()}@ticketvibe.test`;
   const password = 'senha-forte-123';
+  buyerEmails.add(email);
 
   await registerVerifiedBuyer(page, { email, password });
 
@@ -155,12 +147,13 @@ test('falha e libera o assento quando o pagamento chega após a reserva expirar'
 
   const seatmap = await context.newPage();
   await seatmap.goto(`${WEB}${EVENT_PATH}/ingressos`);
-  await expect(
-    seatmap.getByRole('button', { name: 'Cadeira 4, fila A' }),
-  ).toBeEnabled();
+  await expect(seatmap.getByText('Nenhum assento no carrinho.')).toBeVisible();
   await seatmap.close();
 
-  await approvePayment(request, order);
+  expect(readSeatStatus('4')).toBe('available');
+
+  const eventId = await approvePayment(request, order);
+  providerEventIds.add(eventId);
 
   await expect(page.getByText('Pagamento não confirmado')).toBeVisible({
     timeout: 15_000,
@@ -168,7 +161,12 @@ test('falha e libera o assento quando o pagamento chega após a reserva expirar'
   expect(readOrderStatus(order.id)).toBe('failed');
 
   await page.goto(`${WEB}${EVENT_PATH}/ingressos`);
+  await expect(page.getByText('Nenhum assento no carrinho.')).toBeVisible();
+
+  const anonymous = await (await browser.newContext()).newPage();
+  await anonymous.goto(`${WEB}${EVENT_PATH}/ingressos`);
   await expect(
-    page.getByRole('button', { name: 'Cadeira 4, fila A' }),
+    anonymous.getByRole('button', { name: 'Cadeira 4, fila A' }),
   ).toBeEnabled();
+  await anonymous.context().close();
 });

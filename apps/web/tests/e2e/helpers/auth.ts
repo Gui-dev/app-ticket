@@ -7,6 +7,7 @@ export const WEB = 'http://localhost:3000';
 export interface VerifiedBuyer {
   email: string;
   password: string;
+  name?: string;
 }
 
 export async function registerVerifiedBuyer(
@@ -16,7 +17,7 @@ export async function registerVerifiedBuyer(
   await clearMailbox(page.request);
 
   await page.goto(`${WEB}/cadastro`);
-  await page.getByLabel('Nome').fill('Comprador E2E');
+  await page.getByLabel('Nome').fill(buyer.name ?? 'Comprador E2E');
   await page.getByLabel('E-mail').fill(buyer.email);
   await page.getByLabel('Senha').fill(buyer.password);
   await page.getByRole('button', { name: 'Criar conta' }).click();

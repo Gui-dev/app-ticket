@@ -1,13 +1,6 @@
-import { execSync } from 'node:child_process';
-
 import { expect, test } from '@playwright/test';
 
-function backdateHold(seatLabel: string): void {
-  execSync(
-    `podman exec ticketvibe-postgres psql -U ticketvibe -d ticketvibe -c "update seats set hold_expires_at = now() - interval '1 second' where label = '${seatLabel}' and hold_user_id is not null and row_id in (select sr.id from seat_rows sr join sectors s on s.id = sr.sector_id join events e on e.id = s.event_id where e.slug = 'o-fantasma-da-opera' and s.slug = 'plateia' and sr.label = 'A')"`,
-    { stdio: 'ignore' },
-  );
-}
+import { backdateHold } from './helpers/db';
 
 test('adiciona dois assentos e mostra o total do carrinho', async ({
   page,
