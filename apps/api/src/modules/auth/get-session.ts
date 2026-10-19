@@ -5,6 +5,7 @@ import type { AuthInstance } from './auth.js';
 
 export interface SessionUser {
   userId: string;
+  email?: string | null;
 }
 
 export type GetSessionFn = (
@@ -17,6 +18,6 @@ export function createGetSession(auth: AuthInstance): GetSessionFn {
       headers: fromNodeHeaders(headers),
     });
     if (!session) return null;
-    return { userId: session.user.id };
+    return { userId: session.user.id, email: session.user.email ?? null };
   };
 }

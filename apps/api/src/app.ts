@@ -17,8 +17,12 @@ import { registerCategoryRoutes } from './modules/categories/routes/categories.r
 import type { EventsRepository } from './modules/events/domain/events-repository.js';
 import { DrizzleEventsRepository } from './modules/events/infra/drizzle-events-repository.js';
 import { registerEventRoutes } from './modules/events/routes/events.routes.js';
+import type { OrderRepository } from './modules/orders/domain/order-repository.js';
 import type { PaymentEventRepository } from './modules/orders/domain/payment-event-repository.js';
+import { DrizzleOrderRepository } from './modules/orders/infra/drizzle-order-repository.js';
 import { DrizzlePaymentEventRepository } from './modules/orders/infra/drizzle-payment-event-repository.js';
+import { registerOrderRoutes } from './modules/orders/routes/order.routes.js';
+import { CreateOrderUseCase } from './modules/orders/use-cases/create-order.use-case.js';
 import { createPaymentProvider } from './modules/payments/create-payment-provider.js';
 import type { PaymentEventQueue } from './modules/payments/domain/payment-event-queue.js';
 import type { PaymentProvider } from './modules/payments/domain/payment-provider.js';
@@ -66,6 +70,8 @@ export function buildApp(
     paymentProvider?: PaymentProvider;
     paymentEventRepository?: PaymentEventRepository;
     paymentEventQueue?: PaymentEventQueue;
+    orderRepository?: OrderRepository;
+    createOrder?: CreateOrderUseCase;
   } = {},
 ): FastifyInstance {
   const app = Fastify({ logger: false });
@@ -104,6 +110,8 @@ export function buildApp(
   const paymentEventRepository =
     options.paymentEventRepository ??
     new DrizzlePaymentEventRepository(getDefaultDb());
+  const orderRepository =
+    options.orderRepository ?? new DrizzleOrderRepository(getDefaultDb());
 
   let defaultRedis: RedisClient | null = null;
   const getRedis = (): RedisClient => {
@@ -208,17 +216,33 @@ export function buildApp(
       new ReleaseHoldUseCase(seatmapRepository, lazyHoldRepository),
   });
 
+  const getCart =
+    options.getCart ??
+    new GetCartUseCase(seatmapRepository, lazyCartRepository);
+
   registerCartRoutes(app, {
     getSession,
-    getCart:
-      options.getCart ??
-      new GetCartUseCase(seatmapRepository, lazyCartRepository),
+    getCart,
     setCartItem:
       options.setCartItem ??
       new SetCartItemUseCase(
         seatmapRepository,
         lazyHoldRepository,
         lazyCartRepository,
+      ),
+  });
+
+  registerOrderRoutes(app, {
+    getSession,
+    orderRepository,
+    createOrder:
+      options.createOrder ??
+      new CreateOrderUseCase(
+        getCart,
+        seatmapRepository,
+        lazyHoldRepository,
+        orderRepository,
+        paymentProvider,
       ),
   });
 
