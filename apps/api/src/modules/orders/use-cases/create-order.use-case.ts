@@ -40,6 +40,13 @@ export type CreateOrderResult =
     }
   | { kind: 'payment_failed' };
 
+function canReusePendingOrder(
+  order: OrderRecord,
+  items: OrderItemRecord[],
+): boolean {
+  return order.providerRef !== null && orderMatchesItems(order, items);
+}
+
 export class CreateOrderUseCase {
   constructor(
     private readonly getCart: GetCartUseCase,
@@ -99,7 +106,7 @@ export class CreateOrderUseCase {
       eventId,
     });
     if (existing) {
-      if (existing.providerRef && orderMatchesItems(existing, items)) {
+      if (canReusePendingOrder(existing, items)) {
         return this.reusePendingOrder(existing);
       }
       await this.orderRepository.markFailed({
@@ -125,7 +132,7 @@ export class CreateOrderUseCase {
         userId: input.userId,
         eventId,
       });
-      if (!concurrent) throw error;
+      if (!concurrent || !canReusePendingOrder(concurrent, items)) throw error;
       return this.reusePendingOrder(concurrent);
     }
 

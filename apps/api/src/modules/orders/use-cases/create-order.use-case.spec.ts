@@ -540,7 +540,7 @@ describe('CreateOrderUseCase', () => {
     });
   });
 
-  it('devolve o pedido concorrente sem segredo quando ele ainda não tem pagamento', async () => {
+  it('repropaga o erro quando o pedido concorrente ainda não tem pagamento', async () => {
     const harness = createHarness({
       create: async () => {
         throw new Error('unique_violation');
@@ -551,18 +551,44 @@ describe('CreateOrderUseCase', () => {
       }),
     });
 
-    const result = await harness.useCase.execute(baseInput);
-
+    await expect(harness.useCase.execute(baseInput)).rejects.toThrow(
+      'unique_violation',
+    );
     expect(harness.createPayment).not.toHaveBeenCalled();
     expect(harness.retrieveClientSecret).not.toHaveBeenCalled();
-    expect(result.kind).toBe('created');
-    if (result.kind !== 'created') return;
-    expect(result.order.id).toBe('order-concurrent');
-    expect(result.payment).toEqual({
-      provider: 'stripe',
-      providerRef: null,
-      clientSecret: null,
+    expect(harness.markFailed).not.toHaveBeenCalled();
+  });
+
+  it('repropaga o erro quando o pedido concorrente não bate com o carrinho', async () => {
+    const harness = createHarness({
+      create: async () => {
+        throw new Error('unique_violation');
+      },
+      concurrentOrder: existingOrder({
+        id: 'order-concurrent',
+        items: [
+          {
+            seatId: 'seat-7',
+            rowId: 'row-A',
+            sectorSlug: 'plateia',
+            rowLabel: 'A',
+            seatLabel: '7',
+            ticketType: 'inteira',
+            priceCents: 12000,
+          },
+        ],
+        subtotalCents: 12000,
+        serviceFeeCents: 1200,
+        totalCents: 13200,
+      }),
     });
+
+    await expect(harness.useCase.execute(baseInput)).rejects.toThrow(
+      'unique_violation',
+    );
+    expect(harness.createPayment).not.toHaveBeenCalled();
+    expect(harness.retrieveClientSecret).not.toHaveBeenCalled();
+    expect(harness.markFailed).not.toHaveBeenCalled();
   });
 
   it('repropaga o erro de criação quando não existe pedido pendente concorrente', async () => {
