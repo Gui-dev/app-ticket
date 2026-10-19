@@ -85,11 +85,16 @@ export function buildApp(
     'application/json',
     { parseAs: 'string' },
     (request, body, done) => {
-      (request as { rawBody?: string }).rawBody = body as string;
+      const rawBody = body as string;
+      (request as { rawBody?: string }).rawBody = rawBody;
+      if (rawBody.length === 0) {
+        done(new Fastify.errorCodes.FST_ERR_CTP_EMPTY_JSON_BODY(), undefined);
+        return;
+      }
       try {
-        done(null, JSON.parse(body as string));
-      } catch (error) {
-        done(error as Error, undefined);
+        done(null, JSON.parse(rawBody));
+      } catch {
+        done(new Fastify.errorCodes.FST_ERR_CTP_INVALID_JSON_BODY(), undefined);
       }
     },
   );
