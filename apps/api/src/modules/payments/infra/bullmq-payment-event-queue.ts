@@ -10,6 +10,8 @@ export class BullMqPaymentEventQueue implements PaymentEventQueue {
   constructor(private readonly queue: Queue<PaymentEventJobData>) {}
 
   async enqueue(data: PaymentEventJobData): Promise<void> {
-    await this.queue.add(PROCESS_PAYMENT_EVENT_JOB, data);
+    await this.queue.add(PROCESS_PAYMENT_EVENT_JOB, data, {
+      jobId: data.providerEventId,
+    });
   }
 }

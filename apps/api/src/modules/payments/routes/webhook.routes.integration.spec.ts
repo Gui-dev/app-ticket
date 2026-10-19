@@ -131,7 +131,7 @@ describe('rota de webhook do stripe (postgres integration)', () => {
     expect(second.statusCode).toBe(200);
     expect(second.json()).toEqual({ received: true, duplicate: true });
     expect(await countEvents()).toBe(1);
-    expect(enqueue).toHaveBeenCalledTimes(1);
+    expect(enqueue).toHaveBeenCalledTimes(2);
   });
 
   it('não grava nada com assinatura inválida', async () => {
@@ -170,22 +170,21 @@ describe('fila BullMQ de eventos de pagamento (redis integration)', () => {
     connection.disconnect();
   });
 
-  it('publica o evento como job process-payment-event', async () => {
-    await paymentEventQueue.enqueue({
+  it('publica o evento uma vez e ignora reenvios do mesmo jobId', async () => {
+    const data = {
       providerEventId: 'evt_queue_1',
-      type: 'succeeded',
+      type: 'succeeded' as const,
       providerRef: 'pi_queue_1',
       amountCents: 4200,
-    });
+    };
+
+    await paymentEventQueue.enqueue(data);
+    await paymentEventQueue.enqueue(data);
 
     const jobs = await queue.getJobs(['waiting']);
     expect(jobs).toHaveLength(1);
+    expect(jobs[0].id).toBe('evt_queue_1');
     expect(jobs[0].name).toBe(PROCESS_PAYMENT_EVENT_JOB);
-    expect(jobs[0].data).toEqual({
-      providerEventId: 'evt_queue_1',
-      type: 'succeeded',
-      providerRef: 'pi_queue_1',
-      amountCents: 4200,
-    });
+    expect(jobs[0].data).toEqual(data);
   });
 });

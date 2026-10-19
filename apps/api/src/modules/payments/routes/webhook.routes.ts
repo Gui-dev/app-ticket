@@ -27,13 +27,13 @@ export function registerWebhookRoutes(
       provider: deps.paymentProvider.providerName,
       type: event.type,
     });
-    if (!fresh) return reply.send({ received: true, duplicate: true });
     await deps.paymentEventQueue.enqueue({
       providerEventId: event.providerEventId,
       type: event.type,
       providerRef: event.providerRef,
       amountCents: event.amountCents,
     });
+    if (!fresh) return reply.send({ received: true, duplicate: true });
     return reply.send({ received: true });
   });
 }

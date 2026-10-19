@@ -170,8 +170,11 @@ export function buildApp(
   });
 
   app.addHook('onClose', async () => {
-    await paymentsQueue?.close();
-    paymentsConnection?.disconnect();
+    try {
+      await paymentsQueue?.close();
+    } finally {
+      paymentsConnection?.disconnect();
+    }
   });
 
   registerEventRoutes(app, eventsRepository);
