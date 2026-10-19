@@ -1,3 +1,4 @@
+import { Queue } from 'bullmq';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { createDb, type Db } from './db/client.js';
 import type { ArtistsRepository } from './modules/artists/domain/artists-repository.js';
@@ -16,6 +17,17 @@ import { registerCategoryRoutes } from './modules/categories/routes/categories.r
 import type { EventsRepository } from './modules/events/domain/events-repository.js';
 import { DrizzleEventsRepository } from './modules/events/infra/drizzle-events-repository.js';
 import { registerEventRoutes } from './modules/events/routes/events.routes.js';
+import type { PaymentEventRepository } from './modules/orders/domain/payment-event-repository.js';
+import { DrizzlePaymentEventRepository } from './modules/orders/infra/drizzle-payment-event-repository.js';
+import { createPaymentProvider } from './modules/payments/create-payment-provider.js';
+import type { PaymentEventQueue } from './modules/payments/domain/payment-event-queue.js';
+import type { PaymentProvider } from './modules/payments/domain/payment-provider.js';
+import { BullMqPaymentEventQueue } from './modules/payments/infra/bullmq-payment-event-queue.js';
+import {
+  PAYMENTS_QUEUE_NAME,
+  type PaymentEventJobData,
+} from './modules/payments/jobs/process-payment-event.js';
+import { registerWebhookRoutes } from './modules/payments/routes/webhook.routes.js';
 import type { CartRepository } from './modules/seatmaps/domain/cart-repository.js';
 import type { HoldRepository } from './modules/seatmaps/domain/hold-repository.js';
 import type { SeatmapRepository } from './modules/seatmaps/domain/seatmap-repository.js';
@@ -51,9 +63,25 @@ export function buildApp(
     getCart?: GetCartUseCase;
     setCartItem?: SetCartItemUseCase;
     cartRepository?: CartRepository;
+    paymentProvider?: PaymentProvider;
+    paymentEventRepository?: PaymentEventRepository;
+    paymentEventQueue?: PaymentEventQueue;
   } = {},
 ): FastifyInstance {
   const app = Fastify({ logger: false });
+
+  app.addContentTypeParser(
+    'application/json',
+    { parseAs: 'string' },
+    (request, body, done) => {
+      (request as { rawBody?: string }).rawBody = body as string;
+      try {
+        done(null, JSON.parse(body as string));
+      } catch (error) {
+        done(error as Error, undefined);
+      }
+    },
+  );
 
   let defaultDb: Db | null = null;
   const getDefaultDb = (): Db => {
@@ -72,6 +100,10 @@ export function buildApp(
     options.venuesRepository ?? new DrizzleVenuesRepository(getDefaultDb());
   const seatmapRepository =
     options.seatmapRepository ?? new DrizzleSeatmapRepository(getDefaultDb());
+  const paymentProvider = options.paymentProvider ?? createPaymentProvider();
+  const paymentEventRepository =
+    options.paymentEventRepository ??
+    new DrizzlePaymentEventRepository(getDefaultDb());
 
   let defaultRedis: RedisClient | null = null;
   const getRedis = (): RedisClient => {
@@ -108,12 +140,38 @@ export function buildApp(
     clear: (input) => getCartRepository().clear(input),
   };
 
+  let paymentsConnection: RedisClient | null = null;
+  let paymentsQueue: Queue<PaymentEventJobData> | null = null;
+  let lazyPaymentEventQueue: PaymentEventQueue | null = null;
+
+  const getPaymentEventQueue = (): PaymentEventQueue => {
+    if (!lazyPaymentEventQueue) {
+      paymentsConnection = createRedis();
+      paymentsConnection.options.maxRetriesPerRequest = null;
+      paymentsConnection.connect().catch(() => {});
+      paymentsQueue = new Queue<PaymentEventJobData>(PAYMENTS_QUEUE_NAME, {
+        connection: paymentsConnection,
+      });
+      lazyPaymentEventQueue = new BullMqPaymentEventQueue(paymentsQueue);
+    }
+    return lazyPaymentEventQueue;
+  };
+
+  const paymentEventQueue: PaymentEventQueue = options.paymentEventQueue ?? {
+    enqueue: (data) => getPaymentEventQueue().enqueue(data),
+  };
+
   app.addHook('onClose', async () => {
     await defaultDb?.$client.end();
   });
 
   app.addHook('onClose', async () => {
     await defaultRedis?.quit().catch(() => {});
+  });
+
+  app.addHook('onClose', async () => {
+    await paymentsQueue?.close();
+    paymentsConnection?.disconnect();
   });
 
   registerEventRoutes(app, eventsRepository);
@@ -159,6 +217,12 @@ export function buildApp(
         lazyHoldRepository,
         lazyCartRepository,
       ),
+  });
+
+  registerWebhookRoutes(app, {
+    paymentProvider,
+    paymentEventRepository,
+    paymentEventQueue,
   });
 
   app.get('/health', async () => ({ status: 'ok' }));
