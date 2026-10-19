@@ -15,7 +15,14 @@ import {
 
 const sessionState = vi.hoisted(() => ({
   current: {
-    data: null as { user: { id: string; name: string; email: string } } | null,
+    data: null as {
+      user: {
+        id: string;
+        name: string;
+        email: string;
+        isAnonymous?: boolean;
+      };
+    } | null,
     isPending: false,
   },
 }));
@@ -39,14 +46,20 @@ vi.mock('@stripe/stripe-js', () => ({
 }));
 
 vi.mock('@stripe/react-stripe-js', () => ({
-  Elements: ({ children }: { children: ReactNode }) => (
-    <StripeContext.Provider
-      value={{ confirmPayment: confirmPaymentMock }}
-      data-testid="stripe-elements"
-    >
-      {children}
-    </StripeContext.Provider>
-  ),
+  Elements: ({
+    stripe,
+    children,
+  }: {
+    stripe: unknown;
+    children: ReactNode;
+  }) => {
+    expect(stripe).toBe(loadStripeMock.mock.results[0]?.value);
+    return (
+      <StripeContext.Provider value={{ confirmPayment: confirmPaymentMock }}>
+        {children}
+      </StripeContext.Provider>
+    );
+  },
   PaymentElement: () => <div data-testid="payment-element" />,
   useStripe: () => useContext(StripeContext),
   useElements: () => useContext(StripeContext),
@@ -81,11 +94,19 @@ function buildOrder(status: 'pending' | 'paid' | 'failed') {
   };
 }
 
-function signIn() {
-  sessionState.current = {
-    data: { user: { id: 'u1', name: 'Maria Silva', email: 'maria@test.dev' } },
-    isPending: false,
+function signIn(isAnonymous?: boolean) {
+  const user: {
+    id: string;
+    name: string;
+    email: string;
+    isAnonymous?: boolean;
+  } = {
+    id: 'u1',
+    name: 'Maria Silva',
+    email: 'maria@test.dev',
   };
+  if (isAnonymous !== undefined) user.isAnonymous = isAnonymous;
+  sessionState.current = { data: { user }, isPending: false };
 }
 
 function mockCart(items: (typeof cartItem)[] = [cartItem]) {
@@ -155,10 +176,23 @@ describe('CheckoutFlow', () => {
     expect(
       await screen.findByText('Entre para finalizar a compra'),
     ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Entrar' })).toHaveAttribute(
-      'href',
-      '/entrar',
+    expect(
+      screen.getByRole('link', { name: 'Entrar na conta' }),
+    ).toHaveAttribute('href', '/entrar');
+  });
+
+  it('pede o login quando a sessão é anônima', async () => {
+    signIn(true);
+    render(
+      <CheckoutFlow eventSlug={EVENT_SLUG} eventTitle="O Fantasma da Ópera" />,
     );
+
+    expect(
+      await screen.findByText('Entre para finalizar a compra'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Entrar na conta' }),
+    ).toHaveAttribute('href', '/entrar');
   });
 
   it('avisa que o carrinho está vazio', async () => {
@@ -261,6 +295,58 @@ describe('CheckoutFlow', () => {
     );
   });
 
+  it('avisa quando o provedor stripe não entrega o segredo do pagamento', async () => {
+    signIn();
+    mockCart();
+    mockCreateOrder({
+      provider: 'stripe',
+      providerRef: 'pi_1',
+      clientSecret: null,
+    });
+    mockOrderGet('pending');
+    render(
+      <CheckoutFlow eventSlug={EVENT_SLUG} eventTitle="O Fantasma da Ópera" />,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Pagar' }));
+
+    expect(
+      await screen.findByText(
+        'Não foi possível iniciar o pagamento. Recarregue a página para tentar novamente.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId('payment-element')).not.toBeInTheDocument();
+  });
+
+  it('libera o botão quando a confirmação do Stripe falha', async () => {
+    signIn();
+    mockCart();
+    mockCreateOrder({
+      provider: 'stripe',
+      providerRef: 'pi_1',
+      clientSecret: 'pi_1_secret',
+    });
+    mockOrderGet('pending');
+    confirmPaymentMock.mockRejectedValueOnce(new Error('stripe_unreachable'));
+    render(
+      <CheckoutFlow eventSlug={EVENT_SLUG} eventTitle="O Fantasma da Ópera" />,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Pagar' }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Confirmar pagamento' }),
+    );
+
+    expect(
+      await screen.findByText(
+        'Não foi possível confirmar o pagamento. Tente novamente.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Confirmar pagamento' }),
+    ).toBeEnabled();
+  });
+
   it('confirma o pedido quando o pagamento é aprovado durante o polling', async () => {
     vi.useFakeTimers();
     try {
@@ -305,6 +391,28 @@ describe('CheckoutFlow', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('avisa quando não consegue atualizar o status do pagamento', async () => {
+    signIn();
+    mockCart();
+    mockCreateOrder({
+      provider: 'fake',
+      providerRef: 'pi_fake_1',
+      clientSecret: null,
+    });
+    server.use(http.get(/\/api\/orders\/.+$/, () => HttpResponse.error()));
+    render(
+      <CheckoutFlow eventSlug={EVENT_SLUG} eventTitle="O Fantasma da Ópera" />,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Pagar' }));
+
+    expect(
+      await screen.findByText(
+        'Não foi possível atualizar o status do pagamento. Tente novamente em alguns instantes.',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('pede o login de novo quando a sessão expirou na hora de pagar', async () => {

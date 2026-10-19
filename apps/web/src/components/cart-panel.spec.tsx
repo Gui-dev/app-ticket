@@ -150,7 +150,7 @@ describe('CartPanel', () => {
     ).toBeInTheDocument();
   });
 
-  it('links to checkout when items exist', () => {
+  it('oferece o link para o checkout quando há itens', () => {
     render(
       <CartPanel
         items={[baseItem()]}
@@ -171,7 +171,7 @@ describe('CartPanel', () => {
     ).toHaveAttribute('href', '/events/o-fantasma-da-opera/checkout');
   });
 
-  it('does not link to checkout when the cart is empty', () => {
+  it('não oferece o link para o checkout quando o carrinho está vazio', () => {
     render(
       <CartPanel
         items={[]}

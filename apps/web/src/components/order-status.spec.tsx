@@ -1,7 +1,15 @@
 import { render, screen } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 import { OrderStatus } from './order-status';
 
@@ -71,5 +79,39 @@ describe('OrderStatus', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Não foi possível carregar o pedido. Tente novamente.',
     );
+  });
+
+  it('não dispara um segundo poll enquanto o primeiro está em andamento', async () => {
+    vi.useFakeTimers();
+    try {
+      let requests = 0;
+      let release: () => void = () => {};
+      server.use(
+        http.get(/\/api\/orders\/.+$/, async () => {
+          requests += 1;
+          await new Promise<void>((resolve) => {
+            release = resolve;
+          });
+          return HttpResponse.json({ order: paidOrder });
+        }),
+      );
+
+      render(<OrderStatus orderId="11111111-1111-4111-8111-111111111111" />);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(requests).toBe(1);
+
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(requests).toBe(1);
+
+      release();
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        await vi.advanceTimersByTimeAsync(0);
+        if (screen.queryByText('Pedido confirmado')) break;
+      }
+      expect(requests).toBe(1);
+      expect(screen.getByText('Pedido confirmado')).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -41,6 +41,10 @@ const CONFIRM_FAILED_MESSAGE =
   'Não foi possível confirmar o pagamento. Tente novamente.';
 const STRIPE_UNAVAILABLE_MESSAGE =
   'O pagamento online está indisponível neste momento.';
+const STRIPE_NOT_STARTED_MESSAGE =
+  'Não foi possível iniciar o pagamento. Recarregue a página para tentar novamente.';
+const POLL_FAILED_MESSAGE =
+  'Não foi possível atualizar o status do pagamento. Tente novamente em alguns instantes.';
 
 export interface CheckoutFlowProps {
   eventSlug: string;
@@ -87,14 +91,19 @@ function StripePaymentFields({
   async function confirmPayment() {
     if (!stripe || !elements || confirming) return;
     setConfirming(true);
-    const result = await stripe.confirmPayment({
-      elements,
-      confirmParams: {
-        return_url: `${window.location.origin}/events/${eventSlug}/checkout/retorno?order=${orderId}`,
-      },
-      redirect: 'if_required',
-    });
-    if (result.error) {
+    try {
+      const result = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          return_url: `${window.location.origin}/events/${eventSlug}/checkout/retorno?order=${orderId}`,
+        },
+        redirect: 'if_required',
+      });
+      if (result.error) {
+        onError(CONFIRM_FAILED_MESSAGE);
+        setConfirming(false);
+      }
+    } catch {
       onError(CONFIRM_FAILED_MESSAGE);
       setConfirming(false);
     }
@@ -118,7 +127,9 @@ function StripePaymentFields({
 
 export function CheckoutFlow({ eventSlug, eventTitle }: CheckoutFlowProps) {
   const session = authClient.useSession();
-  const userId = session.data?.user?.id ?? null;
+  const sessionUser = session.data?.user ?? null;
+  const anonymous = sessionUser?.isAnonymous === true;
+  const userId = sessionUser && !anonymous ? sessionUser.id : null;
 
   const [cart, setCart] = useState<CartDto | null>(null);
   const [cartLoading, setCartLoading] = useState(true);
@@ -163,7 +174,10 @@ export function CheckoutFlow({ eventSlug, eventTitle }: CheckoutFlowProps) {
   }, [eventSlug, userId]);
 
   const orderId = createdOrder?.id ?? null;
-  const { order: polledOrder } = useOrderStatus(orderId, ORDER_POLL_MS);
+  const { order: polledOrder, failed: pollFailed } = useOrderStatus(
+    orderId,
+    ORDER_POLL_MS,
+  );
   const order = polledOrder ?? createdOrder;
 
   useEffect(() => {
@@ -229,7 +243,7 @@ export function CheckoutFlow({ eventSlug, eventTitle }: CheckoutFlowProps) {
       <section className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
         <p className="text-sm text-foreground">Entre para finalizar a compra</p>
         <Button asChild variant="outline" className="self-start">
-          <Link href="/entrar">Entrar</Link>
+          <Link href="/entrar">Entrar na conta</Link>
         </Button>
       </section>
     );
@@ -264,6 +278,7 @@ export function CheckoutFlow({ eventSlug, eventTitle }: CheckoutFlowProps) {
 
   const totals = orderTotals(cart.items);
   const waitingPayment = order?.status === 'pending';
+  const alertMessage = submitError ?? (pollFailed ? POLL_FAILED_MESSAGE : null);
 
   return (
     <div className="flex flex-col gap-6">
@@ -321,9 +336,9 @@ export function CheckoutFlow({ eventSlug, eventTitle }: CheckoutFlowProps) {
         </section>
       )}
 
-      {submitError && (
+      {alertMessage && (
         <p role="alert" className="text-sm text-destructive">
-          {submitError}
+          {alertMessage}
         </p>
       )}
 
@@ -352,7 +367,12 @@ export function CheckoutFlow({ eventSlug, eventTitle }: CheckoutFlowProps) {
               {stripeError}
             </p>
           )}
-          {stripePromise && payment.clientSecret && order && (
+          {!stripeError && !payment.clientSecret && (
+            <p role="alert" className="text-sm text-destructive">
+              {STRIPE_NOT_STARTED_MESSAGE}
+            </p>
+          )}
+          {payment.clientSecret && stripePromise && order && (
             <Elements
               stripe={stripePromise}
               options={{ clientSecret: payment.clientSecret }}

@@ -188,7 +188,7 @@ describe('SeatMap', () => {
     ).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('links to the checkout after adding a seat', async () => {
+  it('oferece o link para o checkout depois de adicionar um assento', async () => {
     mockSeatmap();
     mockHold('1');
     render(<SeatMap eventSlug="o-fantasma-da-opera" />);

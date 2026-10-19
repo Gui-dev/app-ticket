@@ -20,9 +20,12 @@ export function useOrderStatus(
     if (!orderId) return;
     const id = orderId;
     let cancelled = false;
+    let inFlight = false;
     let interval: ReturnType<typeof setInterval> | null = null;
 
     async function poll() {
+      if (inFlight) return;
+      inFlight = true;
       try {
         const response = await fetch(`/api/orders/${encodeURIComponent(id)}`, {
           cache: 'no-store',
@@ -40,6 +43,8 @@ export function useOrderStatus(
       } catch {
         if (cancelled) return;
         if (!orderRef.current) setFailed(true);
+      } finally {
+        inFlight = false;
       }
     }
 
