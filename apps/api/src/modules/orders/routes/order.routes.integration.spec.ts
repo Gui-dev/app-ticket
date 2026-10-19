@@ -23,6 +23,7 @@ import { DrizzleSeatmapRepository } from '../../seatmaps/infra/drizzle-seatmap-r
 import { RedisCartRepository } from '../../seatmaps/infra/redis-cart-repository.js';
 import { RedisHoldRepository } from '../../seatmaps/infra/redis-hold-repository.js';
 import { DrizzleOrderRepository } from '../infra/drizzle-order-repository.js';
+import { DrizzleSeatCaptureGateway } from '../infra/drizzle-seat-capture-gateway.js';
 
 const EVENT_SLUG = 'o-fantasma-da-opera';
 
@@ -49,6 +50,7 @@ describe('order routes (postgres + redis integration)', () => {
       holdRepository: new RedisHoldRepository(redis),
       cartRepository: new RedisCartRepository(redis),
       orderRepository: new DrizzleOrderRepository(testDb),
+      seatCaptureGateway: new DrizzleSeatCaptureGateway(testDb),
       paymentProvider: new FakePaymentProvider('whsec_test'),
       getSession,
     });

@@ -8,6 +8,7 @@ import type {
   CreatePaymentResult,
   PaymentProvider,
 } from '../../payments/domain/payment-provider.js';
+import type { CartRepository } from '../../seatmaps/domain/cart-repository.js';
 import { holdSeatKey } from '../../seatmaps/domain/hold-entity.js';
 import type { HoldRepository } from '../../seatmaps/domain/hold-repository.js';
 import type { SeatmapRepository } from '../../seatmaps/domain/seatmap-repository.js';
@@ -18,6 +19,8 @@ import {
   orderMatchesItems,
 } from '../domain/order-entity.js';
 import type { OrderRepository } from '../domain/order-repository.js';
+import type { SeatCaptureGateway } from '../domain/seat-capture-gateway.js';
+import { releaseOrderSeatsAndClearCart } from './release-order-seats-and-clear-cart.js';
 
 export type CreateOrderResult =
   | {
@@ -25,7 +28,7 @@ export type CreateOrderResult =
       order: OrderRecord;
       payment: {
         provider: string;
-        providerRef: string;
+        providerRef: string | null;
         clientSecret: string | null;
       };
     }
@@ -44,6 +47,8 @@ export class CreateOrderUseCase {
     private readonly holdRepository: HoldRepository,
     private readonly orderRepository: OrderRepository,
     private readonly paymentProvider: PaymentProvider,
+    private readonly seatCaptureGateway: SeatCaptureGateway,
+    private readonly cartRepository: CartRepository,
     private readonly now: () => Date = () => new Date(),
   ) {}
 
@@ -95,16 +100,7 @@ export class CreateOrderUseCase {
     });
     if (existing) {
       if (existing.providerRef && orderMatchesItems(existing, items)) {
-        const clientSecret = await this.clientSecretFor(existing.providerRef);
-        return {
-          kind: 'created',
-          order: existing,
-          payment: {
-            provider: existing.provider,
-            providerRef: existing.providerRef,
-            clientSecret,
-          },
-        };
+        return this.reusePendingOrder(existing);
       }
       await this.orderRepository.markFailed({
         orderId: existing.id,
@@ -112,34 +108,90 @@ export class CreateOrderUseCase {
       });
     }
 
-    const order = await this.orderRepository.create({
-      userId: input.userId,
-      eventId,
-      paymentMethod: input.paymentMethod,
-      provider: this.paymentProvider.providerName,
-      subtotalCents: totals.subtotalCents,
-      serviceFeeCents: totals.serviceFeeCents,
-      totalCents: totals.totalCents,
-      items,
-    });
+    let order: OrderRecord;
+    try {
+      order = await this.orderRepository.create({
+        userId: input.userId,
+        eventId,
+        paymentMethod: input.paymentMethod,
+        provider: this.paymentProvider.providerName,
+        subtotalCents: totals.subtotalCents,
+        serviceFeeCents: totals.serviceFeeCents,
+        totalCents: totals.totalCents,
+        items,
+      });
+    } catch (error) {
+      const concurrent = await this.orderRepository.findPendingByUserEvent({
+        userId: input.userId,
+        eventId,
+      });
+      if (!concurrent) throw error;
+      return this.reusePendingOrder(concurrent);
+    }
 
     const expiresAt = new Date(
       this.now().getTime() + SEAT_HOLD_TTL_SECONDS * 1000,
     );
     for (const item of items) {
-      await this.holdRepository.renew(
+      const renewed = await this.holdRepository.renew(
         holdSeatKey(eventId, item.rowId, item.seatId),
         input.userId,
         SEAT_HOLD_TTL_SECONDS,
       );
-      await this.seatmapRepository.renewSeatHold({
-        seatId: item.seatId,
-        userId: input.userId,
-        expiresAt,
-      });
+      const mirrored = renewed
+        ? await this.seatmapRepository.renewSeatHold({
+            seatId: item.seatId,
+            userId: input.userId,
+            expiresAt,
+          })
+        : false;
+      if (!renewed || !mirrored) {
+        await this.abandonOrder(order);
+        return {
+          kind: 'seat_unavailable',
+          seat: {
+            sectorSlug: item.sectorSlug,
+            rowLabel: item.rowLabel,
+            seatLabel: item.seatLabel,
+          },
+        };
+      }
     }
 
     return this.charge(order, input);
+  }
+
+  private async reusePendingOrder(
+    order: OrderRecord,
+  ): Promise<CreateOrderResult> {
+    const clientSecret = order.providerRef
+      ? await this.clientSecretFor(order.providerRef)
+      : null;
+    return {
+      kind: 'created',
+      order,
+      payment: {
+        provider: order.provider,
+        providerRef: order.providerRef,
+        clientSecret,
+      },
+    };
+  }
+
+  private async abandonOrder(order: OrderRecord): Promise<void> {
+    const now = this.now();
+    await this.orderRepository.markFailed({ orderId: order.id, now });
+    await releaseOrderSeatsAndClearCart({
+      seatCaptureGateway: this.seatCaptureGateway,
+      holdRepository: this.holdRepository,
+      cartRepository: this.cartRepository,
+      order: {
+        orderId: order.id,
+        userId: order.userId,
+        eventSlug: order.eventSlug,
+      },
+      now,
+    });
   }
 
   private async clientSecretFor(providerRef: string): Promise<string | null> {

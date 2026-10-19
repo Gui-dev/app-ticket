@@ -2,6 +2,7 @@ import { SEAT_HOLD_TTL_SECONDS } from '@ticketvibe/shared';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { PaymentProvider } from '../../payments/domain/payment-provider.js';
+import type { CartRepository } from '../../seatmaps/domain/cart-repository.js';
 import { holdSeatKey } from '../../seatmaps/domain/hold-entity.js';
 import type { HoldRepository } from '../../seatmaps/domain/hold-repository.js';
 import type { SeatmapRepository } from '../../seatmaps/domain/seatmap-repository.js';
@@ -14,6 +15,7 @@ import type {
   CreateOrderInput,
   OrderRepository,
 } from '../domain/order-repository.js';
+import type { SeatCaptureGateway } from '../domain/seat-capture-gateway.js';
 import { CreateOrderUseCase } from './create-order.use-case.js';
 
 const NOW = new Date('2026-10-18T12:00:00.000Z');
@@ -118,6 +120,10 @@ interface HarnessOptions {
     clientSecret: string | null;
   }>;
   retrieveClientSecret?: (providerRef: string) => Promise<string | null>;
+  create?: (input: CreateOrderInput) => Promise<OrderRecord>;
+  renewResult?: boolean;
+  renewSeatHoldResult?: boolean;
+  concurrentOrder?: OrderRecord | null;
 }
 
 function createHarness(options: HarnessOptions = {}) {
@@ -149,35 +155,52 @@ function createHarness(options: HarnessOptions = {}) {
       };
     },
   );
-  const renewSeatHold = vi.fn(async () => true);
+  const renewSeatHold = vi.fn(async () => options.renewSeatHoldResult ?? true);
   const seatmapRepository = {
     findSeatByCoords,
     renewSeatHold,
   } as unknown as SeatmapRepository;
 
-  const renew = vi.fn(async () => true);
-  const holdRepository = { renew } as unknown as HoldRepository;
+  const renew = vi.fn(async () => options.renewResult ?? true);
+  const release = vi.fn(async () => true);
+  const holdRepository = { renew, release } as unknown as HoldRepository;
 
-  const findPendingByUserEvent = vi.fn(
-    async () => options.existingOrder ?? null,
-  );
+  const releaseOrderSeats = vi.fn(async () => ({
+    seatKeys: [holdSeatKey('ev1', 'row-A', 'seat-6')],
+  }));
+  const seatCaptureGateway = {
+    releaseOrderSeats,
+  } as unknown as SeatCaptureGateway;
+
+  const clear = vi.fn(async () => undefined);
+  const cartRepository = { clear } as unknown as CartRepository;
+
+  let pendingCalls = 0;
+  const findPendingByUserEvent = vi.fn(async () => {
+    pendingCalls += 1;
+    if (options.concurrentOrder && pendingCalls > 1) {
+      return options.concurrentOrder;
+    }
+    return options.existingOrder ?? null;
+  });
   const create = vi.fn(
-    async (input: CreateOrderInput): Promise<OrderRecord> => ({
-      id: 'order-1',
-      userId: input.userId,
-      eventId: input.eventId,
-      eventSlug: EVENT_SLUG,
-      status: 'pending',
-      paymentMethod: input.paymentMethod,
-      provider: input.provider,
-      providerRef: null,
-      subtotalCents: input.subtotalCents,
-      serviceFeeCents: input.serviceFeeCents,
-      totalCents: input.totalCents,
-      createdAt: NOW,
-      paidAt: null,
-      items: input.items,
-    }),
+    options.create ??
+      (async (input: CreateOrderInput): Promise<OrderRecord> => ({
+        id: 'order-1',
+        userId: input.userId,
+        eventId: input.eventId,
+        eventSlug: EVENT_SLUG,
+        status: 'pending',
+        paymentMethod: input.paymentMethod,
+        provider: input.provider,
+        providerRef: null,
+        subtotalCents: input.subtotalCents,
+        serviceFeeCents: input.serviceFeeCents,
+        totalCents: input.totalCents,
+        createdAt: NOW,
+        paidAt: null,
+        items: input.items,
+      })),
   );
   const setProviderRef = vi.fn(async () => undefined);
   const markFailed = vi.fn(async () => undefined);
@@ -206,6 +229,8 @@ function createHarness(options: HarnessOptions = {}) {
     holdRepository,
     orderRepository,
     paymentProvider,
+    seatCaptureGateway,
+    cartRepository,
     () => NOW,
   );
 
@@ -215,6 +240,9 @@ function createHarness(options: HarnessOptions = {}) {
     findSeatByCoords,
     renewSeatHold,
     renew,
+    release,
+    releaseOrderSeats,
+    clear,
     findPendingByUserEvent,
     create,
     setProviderRef,
@@ -486,6 +514,113 @@ describe('CreateOrderUseCase', () => {
     });
     expect(harness.renewSeatHold).toHaveBeenCalledTimes(2);
     expect(harness.renew).toHaveBeenCalledTimes(2);
+  });
+
+  it('devolve o pedido pendente de uma requisição concorrente sem criar outro pagamento', async () => {
+    const harness = createHarness({
+      create: async () => {
+        throw new Error('unique_violation');
+      },
+      concurrentOrder: existingOrder({ id: 'order-concurrent' }),
+    });
+
+    const result = await harness.useCase.execute(baseInput);
+
+    expect(harness.findPendingByUserEvent).toHaveBeenCalledTimes(2);
+    expect(harness.createPayment).not.toHaveBeenCalled();
+    expect(harness.setProviderRef).not.toHaveBeenCalled();
+    expect(harness.markFailed).not.toHaveBeenCalled();
+    expect(result.kind).toBe('created');
+    if (result.kind !== 'created') return;
+    expect(result.order.id).toBe('order-concurrent');
+    expect(result.payment).toEqual({
+      provider: 'stripe',
+      providerRef: 'pi_existing',
+      clientSecret: 'cs_existing',
+    });
+  });
+
+  it('devolve o pedido concorrente sem segredo quando ele ainda não tem pagamento', async () => {
+    const harness = createHarness({
+      create: async () => {
+        throw new Error('unique_violation');
+      },
+      concurrentOrder: existingOrder({
+        id: 'order-concurrent',
+        providerRef: null,
+      }),
+    });
+
+    const result = await harness.useCase.execute(baseInput);
+
+    expect(harness.createPayment).not.toHaveBeenCalled();
+    expect(harness.retrieveClientSecret).not.toHaveBeenCalled();
+    expect(result.kind).toBe('created');
+    if (result.kind !== 'created') return;
+    expect(result.order.id).toBe('order-concurrent');
+    expect(result.payment).toEqual({
+      provider: 'stripe',
+      providerRef: null,
+      clientSecret: null,
+    });
+  });
+
+  it('repropaga o erro de criação quando não existe pedido pendente concorrente', async () => {
+    const harness = createHarness({
+      create: async () => {
+        throw new Error('db_indisponivel');
+      },
+    });
+
+    await expect(harness.useCase.execute(baseInput)).rejects.toThrow(
+      'db_indisponivel',
+    );
+    expect(harness.createPayment).not.toHaveBeenCalled();
+  });
+
+  it('não cobra quando o comprador não mantém mais a reserva do assento', async () => {
+    const harness = createHarness({ renewResult: false });
+
+    const result = await harness.useCase.execute(baseInput);
+
+    expect(harness.createPayment).not.toHaveBeenCalled();
+    expect(harness.setProviderRef).not.toHaveBeenCalled();
+    expect(harness.markFailed).toHaveBeenCalledWith({
+      orderId: 'order-1',
+      now: NOW,
+    });
+    expect(harness.releaseOrderSeats).toHaveBeenCalledWith({
+      orderId: 'order-1',
+      now: NOW,
+    });
+    expect(harness.clear).toHaveBeenCalledWith({
+      userId: 'u1',
+      eventSlug: EVENT_SLUG,
+    });
+    expect(result).toEqual({
+      kind: 'seat_unavailable',
+      seat: { sectorSlug: 'plateia', rowLabel: 'A', seatLabel: '6' },
+    });
+  });
+
+  it('não cobra quando o espelho do assento não renova a reserva', async () => {
+    const harness = createHarness({ renewSeatHoldResult: false });
+
+    const result = await harness.useCase.execute(baseInput);
+
+    expect(harness.createPayment).not.toHaveBeenCalled();
+    expect(harness.markFailed).toHaveBeenCalledWith({
+      orderId: 'order-1',
+      now: NOW,
+    });
+    expect(harness.releaseOrderSeats).toHaveBeenCalledWith({
+      orderId: 'order-1',
+      now: NOW,
+    });
+    expect(result).toEqual({
+      kind: 'seat_unavailable',
+      seat: { sectorSlug: 'plateia', rowLabel: 'A', seatLabel: '6' },
+    });
   });
 
   it('retorna seat_unavailable quando o assento não é encontrado', async () => {

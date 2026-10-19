@@ -217,6 +217,28 @@ describe('order routes (unit)', () => {
     await app.close();
   });
 
+  it('devolve 503 quando o pedido concorrente ainda não tem pagamento', async () => {
+    vi.mocked(createOrder.execute).mockResolvedValueOnce({
+      kind: 'created',
+      order: { ...orderFixture, providerRef: null },
+      payment: {
+        provider: 'stripe',
+        providerRef: null,
+        clientSecret: null,
+      },
+    });
+    const app = buildTestApp();
+    const response = await app.inject({
+      method: 'POST',
+      url: '/events/o-fantasma-da-opera/orders',
+      headers: { 'x-test-user-id': 'user-a' },
+      payload: { paymentMethod: 'card' },
+    });
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({ error: 'order_in_progress' });
+    await app.close();
+  });
+
   it('exige sessão no GET de pedido', async () => {
     const app = buildTestApp();
     const response = await app.inject({

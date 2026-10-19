@@ -20,8 +20,10 @@ import { DrizzleEventsRepository } from './modules/events/infra/drizzle-events-r
 import { registerEventRoutes } from './modules/events/routes/events.routes.js';
 import type { OrderRepository } from './modules/orders/domain/order-repository.js';
 import type { PaymentEventRepository } from './modules/orders/domain/payment-event-repository.js';
+import type { SeatCaptureGateway } from './modules/orders/domain/seat-capture-gateway.js';
 import { DrizzleOrderRepository } from './modules/orders/infra/drizzle-order-repository.js';
 import { DrizzlePaymentEventRepository } from './modules/orders/infra/drizzle-payment-event-repository.js';
+import { DrizzleSeatCaptureGateway } from './modules/orders/infra/drizzle-seat-capture-gateway.js';
 import { registerOrderRoutes } from './modules/orders/routes/order.routes.js';
 import { CreateOrderUseCase } from './modules/orders/use-cases/create-order.use-case.js';
 import { createPaymentProvider } from './modules/payments/create-payment-provider.js';
@@ -29,6 +31,7 @@ import type { PaymentEventQueue } from './modules/payments/domain/payment-event-
 import type { PaymentProvider } from './modules/payments/domain/payment-provider.js';
 import { BullMqPaymentEventQueue } from './modules/payments/infra/bullmq-payment-event-queue.js';
 import {
+  PAYMENT_JOB_OPTIONS,
   PAYMENTS_QUEUE_NAME,
   type PaymentEventJobData,
 } from './modules/payments/jobs/process-payment-event.js';
@@ -72,6 +75,7 @@ export function buildApp(
     paymentEventRepository?: PaymentEventRepository;
     paymentEventQueue?: PaymentEventQueue;
     orderRepository?: OrderRepository;
+    seatCaptureGateway?: SeatCaptureGateway;
     createOrder?: CreateOrderUseCase;
   } = {},
 ): FastifyInstance {
@@ -113,6 +117,8 @@ export function buildApp(
     new DrizzlePaymentEventRepository(getDefaultDb());
   const orderRepository =
     options.orderRepository ?? new DrizzleOrderRepository(getDefaultDb());
+  const seatCaptureGateway =
+    options.seatCaptureGateway ?? new DrizzleSeatCaptureGateway(getDefaultDb());
 
   let defaultRedis: RedisClient | null = null;
   const getRedis = (): RedisClient => {
@@ -160,6 +166,7 @@ export function buildApp(
       paymentsConnection.connect().catch(() => {});
       paymentsQueue = new Queue<PaymentEventJobData>(PAYMENTS_QUEUE_NAME, {
         connection: paymentsConnection,
+        defaultJobOptions: PAYMENT_JOB_OPTIONS,
       });
       lazyPaymentEventQueue = new BullMqPaymentEventQueue(paymentsQueue);
     }
@@ -249,6 +256,8 @@ export function buildApp(
         lazyHoldRepository,
         orderRepository,
         paymentProvider,
+        seatCaptureGateway,
+        lazyCartRepository,
       ),
   });
 

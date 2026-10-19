@@ -78,6 +78,9 @@ export function registerOrderRoutes(
       case 'payment_failed':
         return reply.code(502).send({ error: 'payment_failed' });
       case 'created':
+        if (result.payment.providerRef === null) {
+          return reply.code(503).send({ error: 'order_in_progress' });
+        }
         return reply.code(201).send(
           createOrderResponseSchema.parse({
             order: serializeOrder(result.order),

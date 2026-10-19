@@ -8,6 +8,7 @@ import {
   createProcessPaymentEventJob,
   EXPIRE_ORDERS_EVERY_MS,
   EXPIRE_ORDERS_JOB_ID,
+  PAYMENT_JOB_OPTIONS,
   PAYMENTS_QUEUE_NAME,
   type PaymentEventJobData,
 } from './jobs/process-payment-event.js';
@@ -21,12 +22,13 @@ export async function createPaymentsWorker(input: {
 }> {
   const queue = new Queue<PaymentEventJobData>(PAYMENTS_QUEUE_NAME, {
     connection: input.connection,
+    defaultJobOptions: PAYMENT_JOB_OPTIONS,
   });
 
   await queue.upsertJobScheduler(
     EXPIRE_ORDERS_JOB_ID,
     { every: EXPIRE_ORDERS_EVERY_MS },
-    { name: EXPIRE_ORDERS_JOB_ID },
+    { name: EXPIRE_ORDERS_JOB_ID, opts: PAYMENT_JOB_OPTIONS },
   );
 
   const deps = createPaymentsWorkerDeps({
