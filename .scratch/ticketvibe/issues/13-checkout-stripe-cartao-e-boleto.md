@@ -45,6 +45,11 @@ Correções transversais (saíram das revisões por task):
 | `799010e` | O parser JSON customizado (exigido pelo rawBody do webhook) volta a devolver **400** com os códigos do Fastify para corpo vazio, JSON inválido ou com `__proto__` no topo — antes devolvia 500 em todas as rotas |
 | `8a5b7ed` | Boleto confirma com `redirect: 'always'` (voucher hospedado do Stripe) e o checkout trata o 503 `order_in_progress` com mensagem própria |
 | `ffd9b9a` | Parser JSON recusa `__proto__` no nível principal (paridade com o `secure-json-parse` padrão do Fastify) |
+| `b81c3ee` | Pagamento aprovado que chega a um pedido terminal **dentro da transação de captura** também é reembolsado (a janela entre a leitura e o `FOR UPDATE`) |
+| `b671724` | A recuperação de pedido concorrente só reaproveita quando o pedido **bate com o carrinho**; divergência propaga o erro em vez de devolver um pedido com outro valor |
+| `3f58276` | `PaymentProvider.cancelPayment` (best-effort) cancela o PaymentIntent do pedido aposentado, para que o pagamento do intent antigo não derrube os assentos do pedido novo |
+| `e31404b` | Job de pagamento com 6 tentativas, backoff de 5 s e `removeOnFail` (um job falho não bloqueia a reexecução de uma reentrega real) |
+| `b76e13c` | A resposta `503 order_in_progress` volta a ser alcançável (pedido concorrente ainda sem PaymentIntent): o comprador tenta de novo |
 | `b81c3ee` | Pagamento que chega a um pedido já terminal **dentro** da transação de captura (`{ kind: 'already', status: 'failed' \| 'expired' }`) é **reembolsado** — o comprador pagou, os assentos foram liberados e o dinheiro tinha de voltar; o caminho terminal e o caminho `already` compartilham um único `refundAndReleaseSeats` |
 | `b671724` | A recuperação do POST duplicado concorrente só reaproveita o pedido pendente que **bate com o carrinho**; quando não bate, o erro original é repassado e nenhum pedido é devolvido — assim o valor cobrado é sempre o valor exibido |
 | `b76e13c` | O `503 order_in_progress` volta a ser alcançável: na recuperação concorrente o pedido pendente que bate com o carrinho é reusado mesmo sem `providerRef` (requisição viva que ainda não criou o `PaymentIntent`); a regra do `providerRef` continua valendo só na primeira leitura, onde o pedido sem `providerRef` é uma tentativa morta e é aposentado |
@@ -57,7 +62,7 @@ Correções transversais (saíram das revisões por task):
 |---|---|
 | `pnpm lint` | 0 erros (1 info pré-existente em `db/test-helpers.ts`) |
 | `pnpm typecheck` | 5/5 workspaces |
-| `pnpm test` | API 357, web 254, shared 73 — todos pass |
+| `pnpm test` | API 365, web 254, shared 73 — todos pass |
 | Playwright (E2E) | 30/30 (checkout 2 + demais 28) |
 | `pnpm build` | web build ok |
 | `drizzle-kit check` | limpo |
@@ -87,3 +92,5 @@ Bug encontrado pelo E2E e corrigido no fechamento (`6c573a6`): `seedFixtures` n�
 - O DTO do carrinho não tem `sectorName`, então o resumo do checkout mostra o slug do setor ("plateia") enquanto o mapa mostra o nome ("Plateia") — adiado (contrato compartilhado + consulta ao setor).
 - A liberação de holds do "Desistir de todos" engole o erro de release (comportamento pré-existente em `seat-map.tsx`): gera flake conhecido no E2E de carrinho, fora do escopo deste ticket.
 - O parser JSON do Fastify foi substituído (o webhook precisa do corpo cru) e recusa `__proto__` no nível principal, mas não em nível aninhado nem a chave `constructor`: paridade total exigiria `secure-json-parse` como dependência direta da API, adiada para um ticket à parte.
+- `releaseOrderSeats` libera o assento pela reserva do comprador (`status`/`holdUserId`), sem checar a qual pedido a reserva pertence: com a(intent) do pedido antigo cancelada, o gatilho foi removido, mas a guarda em si fica para um ticket próprio (exigiria registrar o pedido dono da reserva).
+- Não há rastro durável do reembolso (o pedido fica `failed`/`expired` sem marca de reembolsado): o modelo de reembolso e o suporte ao comprador são do ticket 21, que deve definir esse registro.
