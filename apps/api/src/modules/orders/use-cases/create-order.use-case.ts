@@ -27,6 +27,10 @@ export type CreateOrderResult =
     }
   | { kind: 'event_not_found' }
   | { kind: 'empty_cart' }
+  | {
+      kind: 'seat_unavailable';
+      seat: { sectorSlug: string; rowLabel: string; seatLabel: string };
+    }
   | { kind: 'payment_failed' };
 
 export class CreateOrderUseCase {
@@ -47,7 +51,6 @@ export class CreateOrderUseCase {
   }): Promise<CreateOrderResult> {
     const cart = await this.getCart.execute(input.userId, input.eventSlug);
     if (cart.kind === 'event_not_found') return { kind: 'event_not_found' };
-    if (cart.cart.items.length === 0) return { kind: 'empty_cart' };
 
     const items: OrderItemRecord[] = [];
     let eventId: string | null = null;
@@ -58,7 +61,16 @@ export class CreateOrderUseCase {
         rowLabel: item.rowLabel,
         seatLabel: item.seatLabel,
       });
-      if (!lookup.found) continue;
+      if (!lookup.found) {
+        return {
+          kind: 'seat_unavailable',
+          seat: {
+            sectorSlug: item.sectorSlug,
+            rowLabel: item.rowLabel,
+            seatLabel: item.seatLabel,
+          },
+        };
+      }
       eventId ??= lookup.seat.eventId;
       items.push({
         seatId: lookup.seat.seatId,

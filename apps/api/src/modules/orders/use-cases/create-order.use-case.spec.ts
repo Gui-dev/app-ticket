@@ -333,7 +333,7 @@ describe('CreateOrderUseCase', () => {
     expect(harness.renew).toHaveBeenCalledTimes(2);
   });
 
-  it('descarta o item cujo assento não é encontrado', async () => {
+  it('retorna seat_unavailable quando o assento não é encontrado', async () => {
     const harness = createHarness({
       seats: {
         'plateia:A:6': { seatId: 'seat-6', rowId: 'row-A', eventId: 'ev1' },
@@ -342,22 +342,14 @@ describe('CreateOrderUseCase', () => {
 
     const result = await harness.useCase.execute(baseInput);
 
-    expect(result.kind).toBe('created');
-    if (result.kind !== 'created') return;
-    expect(result.order.items).toEqual([
-      {
-        seatId: 'seat-6',
-        rowId: 'row-A',
-        sectorSlug: 'plateia',
-        rowLabel: 'A',
-        seatLabel: '6',
-        ticketType: 'meia',
-        priceCents: 6000,
-      },
-    ]);
-    expect(result.order.subtotalCents).toBe(6000);
-    expect(result.order.serviceFeeCents).toBe(600);
-    expect(result.order.totalCents).toBe(6600);
+    expect(result).toEqual({
+      kind: 'seat_unavailable',
+      seat: { sectorSlug: 'plateia', rowLabel: 'A', seatLabel: '7' },
+    });
+    expect(harness.create).not.toHaveBeenCalled();
+    expect(harness.renew).not.toHaveBeenCalled();
+    expect(harness.renewSeatHold).not.toHaveBeenCalled();
+    expect(harness.createPayment).not.toHaveBeenCalled();
   });
 
   it('retorna empty_cart quando o usuário não tem assento reservado', async () => {
