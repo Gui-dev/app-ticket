@@ -2,6 +2,7 @@ import type { CartRepository } from '../../seatmaps/domain/cart-repository.js';
 import type { HoldRepository } from '../../seatmaps/domain/hold-repository.js';
 import type { OrderRepository } from '../domain/order-repository.js';
 import type { SeatCaptureGateway } from '../domain/seat-capture-gateway.js';
+import { releaseOrderSeatsAndClearCart } from './release-order-seats-and-clear-cart.js';
 
 export type FailOrderResult =
   | { kind: 'terminal'; status: 'failed' | 'expired' }
@@ -32,16 +33,16 @@ export class FailOrderUseCase {
       await this.orderRepository.markExpired({ orderId: order.id, now });
     }
 
-    const { seatKeys } = await this.seatCaptureGateway.releaseOrderSeats({
-      orderId: order.id,
+    await releaseOrderSeatsAndClearCart({
+      seatCaptureGateway: this.seatCaptureGateway,
+      holdRepository: this.holdRepository,
+      cartRepository: this.cartRepository,
+      order: {
+        orderId: order.id,
+        userId: order.userId,
+        eventSlug: order.eventSlug,
+      },
       now,
-    });
-    for (const seatKey of seatKeys) {
-      await this.holdRepository.release(seatKey, order.userId);
-    }
-    await this.cartRepository.clear({
-      userId: order.userId,
-      eventSlug: order.eventSlug,
     });
 
     return { kind: 'terminal', status: input.terminal };

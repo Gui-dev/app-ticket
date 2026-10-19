@@ -4,6 +4,7 @@ import type { CartRepository } from '../../seatmaps/domain/cart-repository.js';
 import type { HoldRepository } from '../../seatmaps/domain/hold-repository.js';
 import type { OrderRepository } from '../domain/order-repository.js';
 import type { SeatCaptureGateway } from '../domain/seat-capture-gateway.js';
+import { releaseOrderSeatsAndClearCart } from './release-order-seats-and-clear-cart.js';
 
 export class ExpirePendingOrdersUseCase {
   constructor(
@@ -25,17 +26,17 @@ export class ExpirePendingOrdersUseCase {
     for (const ref of stale) {
       await this.orderRepository.markExpired({ orderId: ref.orderId, now });
       const order = await this.orderRepository.findById(ref.orderId);
-      const { seatKeys } = await this.seatCaptureGateway.releaseOrderSeats({
-        orderId: ref.orderId,
-        now,
-      });
-      for (const seatKey of seatKeys) {
-        await this.holdRepository.release(seatKey, ref.userId);
-      }
       if (order) {
-        await this.cartRepository.clear({
-          userId: ref.userId,
-          eventSlug: order.eventSlug,
+        await releaseOrderSeatsAndClearCart({
+          seatCaptureGateway: this.seatCaptureGateway,
+          holdRepository: this.holdRepository,
+          cartRepository: this.cartRepository,
+          order: {
+            orderId: ref.orderId,
+            userId: ref.userId,
+            eventSlug: order.eventSlug,
+          },
+          now,
         });
       }
     }

@@ -3,9 +3,9 @@ import type { OrderStatus } from '@ticketvibe/shared';
 import type { PaymentProvider } from '../../payments/domain/payment-provider.js';
 import type { CartRepository } from '../../seatmaps/domain/cart-repository.js';
 import type { HoldRepository } from '../../seatmaps/domain/hold-repository.js';
-import type { OrderRecord } from '../domain/order-entity.js';
 import type { OrderRepository } from '../domain/order-repository.js';
 import type { SeatCaptureGateway } from '../domain/seat-capture-gateway.js';
+import { releaseOrderSeatsAndClearCart } from './release-order-seats-and-clear-cart.js';
 
 export type ConfirmOrderPaymentResult =
   | { kind: 'paid' }
@@ -41,7 +41,17 @@ export class ConfirmOrderPaymentUseCase {
     if (input.amountCents !== null && input.amountCents !== order.totalCents) {
       await this.orderRepository.markFailed({ orderId: order.id, now });
       await this.paymentProvider.refund(input.providerRef);
-      await this.releaseSeats(order, now);
+      await releaseOrderSeatsAndClearCart({
+        seatCaptureGateway: this.seatCaptureGateway,
+        holdRepository: this.holdRepository,
+        cartRepository: this.cartRepository,
+        order: {
+          orderId: order.id,
+          userId: order.userId,
+          eventSlug: order.eventSlug,
+        },
+        now,
+      });
       return { kind: 'amount_mismatch' };
     }
 
@@ -56,21 +66,17 @@ export class ConfirmOrderPaymentUseCase {
     if (capture.kind === 'order_not_found') return { kind: 'ignored' };
 
     await this.paymentProvider.refund(input.providerRef);
-    await this.releaseSeats(order, now);
-    return { kind: 'refunded' };
-  }
-
-  private async releaseSeats(order: OrderRecord, now: Date): Promise<void> {
-    const { seatKeys } = await this.seatCaptureGateway.releaseOrderSeats({
-      orderId: order.id,
+    await releaseOrderSeatsAndClearCart({
+      seatCaptureGateway: this.seatCaptureGateway,
+      holdRepository: this.holdRepository,
+      cartRepository: this.cartRepository,
+      order: {
+        orderId: order.id,
+        userId: order.userId,
+        eventSlug: order.eventSlug,
+      },
       now,
     });
-    for (const seatKey of seatKeys) {
-      await this.holdRepository.release(seatKey, order.userId);
-    }
-    await this.cartRepository.clear({
-      userId: order.userId,
-      eventSlug: order.eventSlug,
-    });
+    return { kind: 'refunded' };
   }
 }
