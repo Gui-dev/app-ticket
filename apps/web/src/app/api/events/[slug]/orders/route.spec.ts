@@ -196,6 +196,18 @@ describe('proxy POST /api/events/[slug]/orders', () => {
     expect((await res.json()).error).toBe('payment_failed');
   });
 
+  it('repassa o 503 order_in_progress', async () => {
+    server.use(
+      http.post(upstreamUrl, () =>
+        HttpResponse.json({ error: 'order_in_progress' }, { status: 503 }),
+      ),
+    );
+
+    const res = await POST(request(), context);
+    expect(res.status).toBe(503);
+    expect((await res.json()).error).toBe('order_in_progress');
+  });
+
   it('retorna 502 quando o payload do upstream viola o schema', async () => {
     server.use(
       http.post(upstreamUrl, () =>

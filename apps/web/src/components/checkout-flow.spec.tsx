@@ -414,6 +414,41 @@ describe('CheckoutFlow', () => {
         confirmParams: {
           return_url: `${window.location.origin}/events/${EVENT_SLUG}/checkout/retorno?order=11111111-1111-4111-8111-111111111111`,
         },
+        redirect: 'if_required',
+      }),
+    );
+  });
+
+  it('manda o comprador para o voucher do boleto ao confirmar o boleto', async () => {
+    signIn();
+    mockCart();
+    mockCreateOrder(
+      {
+        provider: 'stripe',
+        providerRef: 'pi_1',
+        clientSecret: 'pi_1_secret',
+      },
+      { paymentMethod: 'boleto' },
+    );
+    mockOrderGet('pending', 'boleto');
+    render(
+      <CheckoutFlow eventSlug={EVENT_SLUG} eventTitle="O Fantasma da Ópera" />,
+    );
+
+    fireEvent.click(await screen.findByRole('radio', { name: 'Boleto' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Pagar' }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Confirmar pagamento' }),
+    );
+
+    await vi.waitFor(() => expect(confirmPaymentMock).toHaveBeenCalled());
+    expect(confirmPaymentMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        elements: expect.anything(),
+        confirmParams: {
+          return_url: `${window.location.origin}/events/${EVENT_SLUG}/checkout/retorno?order=11111111-1111-4111-8111-111111111111`,
+        },
+        redirect: 'always',
       }),
     );
   });
@@ -631,6 +666,26 @@ describe('CheckoutFlow', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'O pagamento não foi concluído. Tente novamente em alguns instantes.',
     );
+  });
+
+  it('avisa que já existe um pagamento em andamento e libera o botão para tentar de novo', async () => {
+    signIn();
+    mockCart();
+    server.use(
+      http.post(new RegExp(`/api/events/${EVENT_SLUG}/orders$`), () =>
+        HttpResponse.json({ error: 'order_in_progress' }, { status: 503 }),
+      ),
+    );
+    render(
+      <CheckoutFlow eventSlug={EVENT_SLUG} eventTitle="O Fantasma da Ópera" />,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Pagar' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Já existe um pagamento em andamento para este pedido. Tente novamente em instantes.',
+    );
+    expect(screen.getByRole('button', { name: 'Pagar' })).toBeEnabled();
   });
 
   it('pede para tentar de novo quando a requisição falha', async () => {

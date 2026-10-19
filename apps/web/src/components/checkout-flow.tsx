@@ -31,12 +31,22 @@ const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
   { value: 'boleto', label: 'Boleto' },
 ];
 
+const REDIRECT_BY_PAYMENT_METHOD: Record<
+  PaymentMethod,
+  'if_required' | 'always'
+> = {
+  card: 'if_required',
+  boleto: 'always',
+};
+
 const CART_CHANGED_MESSAGE =
   'Seu carrinho mudou. Volte para a escolha dos assentos e tente novamente.';
 const PAYMENT_FAILED_MESSAGE =
   'O pagamento não foi concluído. Tente novamente em alguns instantes.';
 const REQUEST_FAILED_MESSAGE =
   'Não foi possível concluir a compra. Tente novamente.';
+const ORDER_IN_PROGRESS_MESSAGE =
+  'Já existe um pagamento em andamento para este pedido. Tente novamente em instantes.';
 const CONFIRM_FAILED_MESSAGE =
   'Não foi possível confirmar o pagamento. Tente novamente.';
 const STRIPE_UNAVAILABLE_MESSAGE =
@@ -75,12 +85,14 @@ async function readErrorCode(response: Response): Promise<string | null> {
 interface StripePaymentFieldsProps {
   eventSlug: string;
   orderId: string;
+  paymentMethod: PaymentMethod;
   onStatus: (message: string | null) => void;
 }
 
 function StripePaymentFields({
   eventSlug,
   orderId,
+  paymentMethod,
   onStatus,
 }: StripePaymentFieldsProps) {
   const stripe = useStripe();
@@ -92,13 +104,21 @@ function StripePaymentFields({
     if (!stripe || !elements || confirming) return;
     setConfirming(true);
     try {
-      const result = await stripe.confirmPayment({
-        elements,
-        confirmParams: {
-          return_url: `${window.location.origin}/events/${eventSlug}/checkout/retorno?order=${orderId}`,
-        },
-        redirect: 'if_required',
-      });
+      const confirmParams = {
+        return_url: `${window.location.origin}/events/${eventSlug}/checkout/retorno?order=${orderId}`,
+      };
+      const result =
+        REDIRECT_BY_PAYMENT_METHOD[paymentMethod] === 'always'
+          ? await stripe.confirmPayment({
+              elements,
+              confirmParams,
+              redirect: 'always',
+            })
+          : await stripe.confirmPayment({
+              elements,
+              confirmParams,
+              redirect: 'if_required',
+            });
       if (result.error) {
         onStatus(CONFIRM_FAILED_MESSAGE);
         setConfirming(false);
@@ -239,6 +259,10 @@ export function CheckoutFlow({ eventSlug, eventTitle }: CheckoutFlowProps) {
       }
       if (!response.ok) {
         const code = await readErrorCode(response);
+        if (response.status === 503 && code === 'order_in_progress') {
+          setSubmitError(ORDER_IN_PROGRESS_MESSAGE);
+          return;
+        }
         setSubmitError(
           code === 'payment_failed'
             ? PAYMENT_FAILED_MESSAGE
@@ -420,6 +444,7 @@ export function CheckoutFlow({ eventSlug, eventTitle }: CheckoutFlowProps) {
               <StripePaymentFields
                 eventSlug={eventSlug}
                 orderId={order.id}
+                paymentMethod={order.paymentMethod}
                 onStatus={setSubmitError}
               />
             </Elements>
