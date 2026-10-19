@@ -52,7 +52,6 @@ export interface CheckoutFlowProps {
 }
 
 function readStripePublishableKey(): string | null {
-  if (typeof process === 'undefined') return null;
   return process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? null;
 }
 
@@ -76,17 +75,18 @@ async function readErrorCode(response: Response): Promise<string | null> {
 interface StripePaymentFieldsProps {
   eventSlug: string;
   orderId: string;
-  onError: (message: string) => void;
+  onStatus: (message: string | null) => void;
 }
 
 function StripePaymentFields({
   eventSlug,
   orderId,
-  onError,
+  onStatus,
 }: StripePaymentFieldsProps) {
   const stripe = useStripe();
   const elements = useElements();
   const [confirming, setConfirming] = useState(false);
+  const ready = Boolean(stripe && elements);
 
   async function confirmPayment() {
     if (!stripe || !elements || confirming) return;
@@ -100,11 +100,13 @@ function StripePaymentFields({
         redirect: 'if_required',
       });
       if (result.error) {
-        onError(CONFIRM_FAILED_MESSAGE);
+        onStatus(CONFIRM_FAILED_MESSAGE);
         setConfirming(false);
+        return;
       }
+      onStatus(null);
     } catch {
-      onError(CONFIRM_FAILED_MESSAGE);
+      onStatus(CONFIRM_FAILED_MESSAGE);
       setConfirming(false);
     }
   }
@@ -114,12 +116,16 @@ function StripePaymentFields({
       <PaymentElement />
       <Button
         type="button"
-        disabled={confirming}
+        disabled={!ready || confirming}
         onClick={() => {
           void confirmPayment();
         }}
       >
-        {confirming ? 'Confirmando...' : 'Confirmar pagamento'}
+        {confirming
+          ? 'Confirmando...'
+          : ready
+            ? 'Confirmar pagamento'
+            : 'Carregando o formulário de pagamento…'}
       </Button>
     </div>
   );
@@ -187,8 +193,28 @@ export function CheckoutFlow({ eventSlug, eventTitle }: CheckoutFlowProps) {
       setStripeError(STRIPE_UNAVAILABLE_MESSAGE);
       return;
     }
-    setStripePromise(loadStripe(publishableKey));
+    let cancelled = false;
+    const promise = loadStripe(publishableKey);
+    setStripePromise(
+      promise.then(
+        (stripe) => stripe,
+        () => null,
+      ),
+    );
+    promise.catch(() => {
+      if (cancelled) return;
+      setStripeError(STRIPE_UNAVAILABLE_MESSAGE);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [payment]);
+
+  const orderStatus = order?.status ?? null;
+
+  useEffect(() => {
+    if (orderStatus && orderStatus !== 'pending') setSubmitError(null);
+  }, [orderStatus]);
 
   async function submitOrder() {
     if (submitting) return;
@@ -279,6 +305,9 @@ export function CheckoutFlow({ eventSlug, eventTitle }: CheckoutFlowProps) {
   const totals = orderTotals(cart.items);
   const waitingPayment = order?.status === 'pending';
   const alertMessage = submitError ?? (pollFailed ? POLL_FAILED_MESSAGE : null);
+  const orderMethod = order?.paymentMethod ?? null;
+  const orderMethodLabel =
+    PAYMENT_METHODS.find((option) => option.value === orderMethod)?.label ?? '';
 
   return (
     <div className="flex flex-col gap-6">
@@ -291,39 +320,48 @@ export function CheckoutFlow({ eventSlug, eventTitle }: CheckoutFlowProps) {
         />
       )}
 
-      {order ? (
-        <OrderConfirmation order={order} />
-      ) : (
-        <section
-          aria-label="Pagamento"
-          className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4"
-        >
-          <h2 className="text-sm font-semibold text-foreground">
-            Pagamento de {eventTitle}
-          </h2>
+      <section
+        aria-label="Pagamento"
+        className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4"
+      >
+        <h2 className="text-sm font-semibold text-foreground">
+          Pagamento de {eventTitle}
+        </h2>
 
-          <fieldset className="flex flex-col gap-2">
-            <legend className="text-sm font-medium text-foreground">
-              Forma de pagamento
-            </legend>
-            {PAYMENT_METHODS.map((option) => (
-              <label
-                key={option.value}
-                className="flex items-center gap-2 text-sm text-foreground"
-              >
-                <input
-                  type="radio"
-                  name="payment-method"
-                  value={option.value}
-                  checked={method === option.value}
-                  onChange={() => setMethod(option.value)}
-                  className="size-4 accent-primary"
-                />
-                {option.label}
-              </label>
-            ))}
-          </fieldset>
+        <fieldset className="flex flex-col gap-2">
+          <legend className="text-sm font-medium text-foreground">
+            Forma de pagamento
+          </legend>
+          {PAYMENT_METHODS.map((option) => (
+            <label
+              key={option.value}
+              className="flex items-center gap-2 text-sm text-foreground"
+            >
+              <input
+                type="radio"
+                name="payment-method"
+                value={option.value}
+                checked={
+                  orderMethod
+                    ? orderMethod === option.value
+                    : method === option.value
+                }
+                disabled={Boolean(orderMethod) && orderMethod !== option.value}
+                onChange={() => setMethod(option.value)}
+                className="size-4 accent-primary"
+              />
+              {option.label}
+            </label>
+          ))}
+        </fieldset>
 
+        {orderMethod && (
+          <p className="text-sm text-muted-foreground">
+            Este pedido já foi criado com {orderMethodLabel}.
+          </p>
+        )}
+
+        {!order && (
           <Button
             type="button"
             disabled={submitting}
@@ -333,8 +371,10 @@ export function CheckoutFlow({ eventSlug, eventTitle }: CheckoutFlowProps) {
           >
             {submitting ? 'Processando...' : 'Pagar'}
           </Button>
-        </section>
-      )}
+        )}
+      </section>
+
+      {order && <OrderConfirmation order={order} />}
 
       {alertMessage && (
         <p role="alert" className="text-sm text-destructive">
@@ -372,7 +412,7 @@ export function CheckoutFlow({ eventSlug, eventTitle }: CheckoutFlowProps) {
               {STRIPE_NOT_STARTED_MESSAGE}
             </p>
           )}
-          {payment.clientSecret && stripePromise && order && (
+          {!stripeError && payment.clientSecret && stripePromise && order && (
             <Elements
               stripe={stripePromise}
               options={{ clientSecret: payment.clientSecret }}
@@ -380,7 +420,7 @@ export function CheckoutFlow({ eventSlug, eventTitle }: CheckoutFlowProps) {
               <StripePaymentFields
                 eventSlug={eventSlug}
                 orderId={order.id}
-                onError={setSubmitError}
+                onStatus={setSubmitError}
               />
             </Elements>
           )}

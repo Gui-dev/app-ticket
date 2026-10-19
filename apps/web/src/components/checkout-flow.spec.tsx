@@ -31,15 +31,23 @@ vi.mock('@/lib/auth-client', () => ({
   authClient: { useSession: () => sessionState.current },
 }));
 
-const loadStripeMock = vi.hoisted(() => vi.fn(async () => null));
+const { loadStripeMock, confirmPaymentMock, stripeContext, stripeProps } =
+  vi.hoisted(() => {
+    const instance = { id: 'stripe-instance' };
+    const confirmPayment = vi.fn(async () => ({
+      paymentIntent: { id: 'pi_1' },
+    }));
+    return {
+      loadStripeMock: vi.fn(async () => instance),
+      confirmPaymentMock: confirmPayment,
+      stripeContext: {
+        current: { confirmPayment } as { confirmPayment: unknown } | null,
+      },
+      stripeProps: [] as Promise<unknown>[],
+    };
+  });
 
-const confirmPaymentMock = vi.hoisted(() =>
-  vi.fn(async () => ({ paymentIntent: { id: 'pi_1' } })),
-);
-
-const StripeContext = createContext<{
-  confirmPayment: typeof confirmPaymentMock;
-} | null>(null);
+const StripeContext = createContext<unknown>(null);
 
 vi.mock('@stripe/stripe-js', () => ({
   loadStripe: loadStripeMock,
@@ -53,9 +61,10 @@ vi.mock('@stripe/react-stripe-js', () => ({
     stripe: unknown;
     children: ReactNode;
   }) => {
-    expect(stripe).toBe(loadStripeMock.mock.results[0]?.value);
+    expect(stripe).toBeInstanceOf(Promise);
+    stripeProps.push(stripe as Promise<unknown>);
     return (
-      <StripeContext.Provider value={{ confirmPayment: confirmPaymentMock }}>
+      <StripeContext.Provider value={stripeContext.current}>
         {children}
       </StripeContext.Provider>
     );
@@ -79,12 +88,15 @@ const cartItem = {
   priceCents: 6000,
 };
 
-function buildOrder(status: 'pending' | 'paid' | 'failed') {
+function buildOrder(
+  status: 'pending' | 'paid' | 'failed',
+  paymentMethod: 'card' | 'boleto' = 'card',
+) {
   return {
     id: '11111111-1111-4111-8111-111111111111',
     eventSlug: EVENT_SLUG,
     status,
-    paymentMethod: 'card',
+    paymentMethod,
     subtotalCents: 6000,
     serviceFeeCents: 600,
     totalCents: 6600,
@@ -131,19 +143,29 @@ function mockCreateOrder(
     providerRef: string;
     clientSecret: string | null;
   },
-  status = 201,
+  options: {
+    status?: number;
+    paymentMethod?: 'card' | 'boleto';
+  } = {},
 ) {
+  const { status = 201, paymentMethod = 'card' } = options;
   server.use(
     http.post(new RegExp(`/api/events/${EVENT_SLUG}/orders$`), () =>
-      HttpResponse.json({ order: buildOrder('pending'), payment }, { status }),
+      HttpResponse.json(
+        { order: buildOrder('pending', paymentMethod), payment },
+        { status },
+      ),
     ),
   );
 }
 
-function mockOrderGet(status: 'pending' | 'paid' | 'failed') {
+function mockOrderGet(
+  status: 'pending' | 'paid' | 'failed',
+  paymentMethod: 'card' | 'boleto' = 'card',
+) {
   server.use(
     http.get(/\/api\/orders\/.+$/, () =>
-      HttpResponse.json({ order: buildOrder(status) }),
+      HttpResponse.json({ order: buildOrder(status, paymentMethod) }),
     ),
   );
 }
@@ -162,6 +184,8 @@ afterEach(() => {
   sessionState.current = { data: null, isPending: false };
   loadStripeMock.mockClear();
   confirmPaymentMock.mockClear();
+  stripeContext.current = { confirmPayment: confirmPaymentMock };
+  stripeProps.length = 0;
   vi.unstubAllEnvs();
 });
 
@@ -265,6 +289,104 @@ describe('CheckoutFlow', () => {
 
     expect(await screen.findByTestId('payment-element')).toBeInTheDocument();
     expect(loadStripeMock).toHaveBeenCalledWith('pk_test_123');
+    expect(await stripeProps[0]).toBe(
+      await loadStripeMock.mock.results[0]?.value,
+    );
+  });
+
+  it('mostra o Payment Element também quando o comprador escolhe boleto', async () => {
+    signIn();
+    mockCart();
+    mockCreateOrder(
+      {
+        provider: 'stripe',
+        providerRef: 'pi_1',
+        clientSecret: 'pi_1_secret',
+      },
+      { paymentMethod: 'boleto' },
+    );
+    mockOrderGet('pending', 'boleto');
+    render(
+      <CheckoutFlow eventSlug={EVENT_SLUG} eventTitle="O Fantasma da Ópera" />,
+    );
+
+    fireEvent.click(await screen.findByRole('radio', { name: 'Boleto' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Pagar' }));
+
+    expect(await screen.findByTestId('payment-element')).toBeInTheDocument();
+    expect(
+      screen.getByText('Este pedido já foi criado com Boleto.'),
+    ).toBeInTheDocument();
+  });
+
+  it('mostra o método real do pedido quando a escolha do comprador foi ignorada', async () => {
+    signIn();
+    mockCart();
+    mockCreateOrder({
+      provider: 'stripe',
+      providerRef: 'pi_1',
+      clientSecret: 'pi_1_secret',
+    });
+    mockOrderGet('pending');
+    render(
+      <CheckoutFlow eventSlug={EVENT_SLUG} eventTitle="O Fantasma da Ópera" />,
+    );
+
+    fireEvent.click(await screen.findByRole('radio', { name: 'Boleto' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Pagar' }));
+
+    expect(
+      await screen.findByText('Este pedido já foi criado com Cartão.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Cartão' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Boleto' })).toBeDisabled();
+  });
+
+  it('desabilita a confirmação enquanto o Stripe não está pronto', async () => {
+    signIn();
+    mockCart();
+    mockCreateOrder({
+      provider: 'stripe',
+      providerRef: 'pi_1',
+      clientSecret: 'pi_1_secret',
+    });
+    mockOrderGet('pending');
+    stripeContext.current = null;
+    render(
+      <CheckoutFlow eventSlug={EVENT_SLUG} eventTitle="O Fantasma da Ópera" />,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Pagar' }));
+
+    const button = await screen.findByRole('button', {
+      name: 'Carregando o formulário de pagamento…',
+    });
+    expect(button).toBeDisabled();
+    expect(confirmPaymentMock).not.toHaveBeenCalled();
+  });
+
+  it('avisa quando o Stripe.js não pode ser carregado', async () => {
+    signIn();
+    mockCart();
+    mockCreateOrder({
+      provider: 'stripe',
+      providerRef: 'pi_1',
+      clientSecret: 'pi_1_secret',
+    });
+    mockOrderGet('pending');
+    loadStripeMock.mockRejectedValueOnce(new Error('stripe_js_blocked'));
+    render(
+      <CheckoutFlow eventSlug={EVENT_SLUG} eventTitle="O Fantasma da Ópera" />,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Pagar' }));
+
+    expect(
+      await screen.findByText(
+        'O pagamento online está indisponível neste momento.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId('payment-element')).not.toBeInTheDocument();
   });
 
   it('confirma o pagamento com o Stripe e volta para o retorno do checkout', async () => {
@@ -288,6 +410,7 @@ describe('CheckoutFlow', () => {
     await vi.waitFor(() => expect(confirmPaymentMock).toHaveBeenCalled());
     expect(confirmPaymentMock).toHaveBeenCalledWith(
       expect.objectContaining({
+        elements: expect.anything(),
         confirmParams: {
           return_url: `${window.location.origin}/events/${EVENT_SLUG}/checkout/retorno?order=11111111-1111-4111-8111-111111111111`,
         },
@@ -345,6 +468,44 @@ describe('CheckoutFlow', () => {
     expect(
       screen.getByRole('button', { name: 'Confirmar pagamento' }),
     ).toBeEnabled();
+  });
+
+  it('limpa o erro de uma confirmação que falhou quando a próxima funciona', async () => {
+    signIn();
+    mockCart();
+    mockCreateOrder({
+      provider: 'stripe',
+      providerRef: 'pi_1',
+      clientSecret: 'pi_1_secret',
+    });
+    mockOrderGet('pending');
+    confirmPaymentMock.mockRejectedValueOnce(new Error('stripe_unreachable'));
+    render(
+      <CheckoutFlow eventSlug={EVENT_SLUG} eventTitle="O Fantasma da Ópera" />,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Pagar' }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Confirmar pagamento' }),
+    );
+
+    expect(
+      await screen.findByText(
+        'Não foi possível confirmar o pagamento. Tente novamente.',
+      ),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Confirmar pagamento' }),
+    );
+    await vi.waitFor(() => expect(confirmPaymentMock).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() =>
+      expect(
+        screen.queryByText(
+          'Não foi possível confirmar o pagamento. Tente novamente.',
+        ),
+      ).not.toBeInTheDocument(),
+    );
   });
 
   it('confirma o pedido quando o pagamento é aprovado durante o polling', async () => {
