@@ -46,7 +46,7 @@ const orderResponse = {
   },
 };
 
-describe('GET /api/orders/[id]', () => {
+describe('proxy GET /api/orders/[id]', () => {
   beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
   beforeEach(() => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -57,7 +57,7 @@ describe('GET /api/orders/[id]', () => {
   });
   afterAll(() => server.close());
 
-  it('forwards the session cookie', async () => {
+  it('repassa o cookie de sessão', async () => {
     let forwardedCookie = '';
     server.use(
       http.get(upstreamUrl, ({ request: upstream }) => {
@@ -71,7 +71,7 @@ describe('GET /api/orders/[id]', () => {
     expect(forwardedCookie).toBe('better-auth.session_token=abc');
   });
 
-  it('returns 200 with a payload that satisfies orderResponseSchema', async () => {
+  it('retorna 200 com um payload que satisfaz orderResponseSchema', async () => {
     server.use(http.get(upstreamUrl, () => HttpResponse.json(orderResponse)));
 
     const res = await GET(request(), context);
@@ -80,7 +80,7 @@ describe('GET /api/orders/[id]', () => {
     expect(body.order.id).toBe(orderId);
   });
 
-  it('passes 401 through', async () => {
+  it('repassa o 401', async () => {
     server.use(
       http.get(upstreamUrl, () =>
         HttpResponse.json({ error: 'unauthorized' }, { status: 401 }),
@@ -92,7 +92,7 @@ describe('GET /api/orders/[id]', () => {
     expect((await res.json()).error).toBe('unauthorized');
   });
 
-  it('passes 404 order_not_found through', async () => {
+  it('repassa o 404 order_not_found', async () => {
     server.use(
       http.get(upstreamUrl, () =>
         HttpResponse.json({ error: 'order_not_found' }, { status: 404 }),
@@ -104,7 +104,7 @@ describe('GET /api/orders/[id]', () => {
     expect((await res.json()).error).toBe('order_not_found');
   });
 
-  it('returns 502 when the upstream payload violates the schema', async () => {
+  it('retorna 502 quando o payload do upstream viola o schema', async () => {
     server.use(
       http.get(upstreamUrl, () =>
         HttpResponse.json({ order: { id: orderId } }),
@@ -117,7 +117,7 @@ describe('GET /api/orders/[id]', () => {
     expect(console.error).toHaveBeenCalled();
   });
 
-  it('returns 502 when the upstream request rejects', async () => {
+  it('retorna 502 quando a requisição ao upstream falha', async () => {
     server.use(http.get(upstreamUrl, () => HttpResponse.error()));
 
     const res = await GET(request(), context);

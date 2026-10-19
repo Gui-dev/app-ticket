@@ -59,7 +59,7 @@ function request(body: unknown = { paymentMethod: 'card' }): Request {
   );
 }
 
-describe('POST /api/events/[slug]/orders', () => {
+describe('proxy POST /api/events/[slug]/orders', () => {
   beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
   beforeEach(() => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -70,7 +70,7 @@ describe('POST /api/events/[slug]/orders', () => {
   });
   afterAll(() => server.close());
 
-  it('forwards the payment method and the session cookie', async () => {
+  it('repassa o meio de pagamento e o cookie de sessão', async () => {
     let forwardedCookie = '';
     let forwardedBody: unknown;
     server.use(
@@ -87,7 +87,7 @@ describe('POST /api/events/[slug]/orders', () => {
     expect(forwardedBody).toEqual({ paymentMethod: 'boleto' });
   });
 
-  it('returns 201 with a payload that satisfies createOrderResponseSchema', async () => {
+  it('retorna 201 com um payload que satisfaz createOrderResponseSchema', async () => {
     server.use(
       http.post(upstreamUrl, () =>
         HttpResponse.json(createdOrder, { status: 201 }),
@@ -100,7 +100,7 @@ describe('POST /api/events/[slug]/orders', () => {
     expect(body.payment.providerRef).toBe('pi_123');
   });
 
-  it('returns 400 without calling upstream when the body is invalid', async () => {
+  it('retorna 400 sem chamar o upstream quando o corpo é inválido', async () => {
     let called = false;
     server.use(
       http.post(upstreamUrl, () => {
@@ -117,7 +117,7 @@ describe('POST /api/events/[slug]/orders', () => {
     expect(called).toBe(false);
   });
 
-  it('returns 400 without calling upstream when the body is not json', async () => {
+  it('retorna 400 sem chamar o upstream quando o corpo não é json', async () => {
     let called = false;
     server.use(
       http.post(upstreamUrl, () => {
@@ -142,7 +142,7 @@ describe('POST /api/events/[slug]/orders', () => {
     expect(called).toBe(false);
   });
 
-  it('passes 401 through', async () => {
+  it('repassa o 401', async () => {
     server.use(
       http.post(upstreamUrl, () =>
         HttpResponse.json({ error: 'unauthorized' }, { status: 401 }),
@@ -154,7 +154,7 @@ describe('POST /api/events/[slug]/orders', () => {
     expect((await res.json()).error).toBe('unauthorized');
   });
 
-  it('passes 409 empty_cart through', async () => {
+  it('repassa o 409 empty_cart', async () => {
     server.use(
       http.post(upstreamUrl, () =>
         HttpResponse.json({ error: 'empty_cart' }, { status: 409 }),
@@ -166,7 +166,7 @@ describe('POST /api/events/[slug]/orders', () => {
     expect((await res.json()).error).toBe('empty_cart');
   });
 
-  it('passes 409 seat_unavailable through with the seat', async () => {
+  it('repassa o 409 seat_unavailable com o seat', async () => {
     server.use(
       http.post(upstreamUrl, () =>
         HttpResponse.json(
@@ -184,7 +184,7 @@ describe('POST /api/events/[slug]/orders', () => {
     });
   });
 
-  it('passes 502 payment_failed through', async () => {
+  it('repassa o 502 payment_failed', async () => {
     server.use(
       http.post(upstreamUrl, () =>
         HttpResponse.json({ error: 'payment_failed' }, { status: 502 }),
@@ -196,7 +196,7 @@ describe('POST /api/events/[slug]/orders', () => {
     expect((await res.json()).error).toBe('payment_failed');
   });
 
-  it('returns 502 when the upstream payload violates the schema', async () => {
+  it('retorna 502 quando o payload do upstream viola o schema', async () => {
     server.use(
       http.post(upstreamUrl, () =>
         HttpResponse.json({ order: { id: 'nope' } }, { status: 201 }),
@@ -209,7 +209,7 @@ describe('POST /api/events/[slug]/orders', () => {
     expect(console.error).toHaveBeenCalled();
   });
 
-  it('returns 502 when the upstream failure body is not an error object', async () => {
+  it('retorna 502 quando o corpo de falha do upstream não é um objeto de erro', async () => {
     server.use(
       http.post(upstreamUrl, () =>
         HttpResponse.json({ boom: true }, { status: 500 }),
@@ -222,7 +222,7 @@ describe('POST /api/events/[slug]/orders', () => {
     expect(console.error).toHaveBeenCalled();
   });
 
-  it('returns 502 when the upstream request rejects', async () => {
+  it('retorna 502 quando a requisição ao upstream falha', async () => {
     server.use(http.post(upstreamUrl, () => HttpResponse.error()));
 
     const res = await POST(request(), context);
