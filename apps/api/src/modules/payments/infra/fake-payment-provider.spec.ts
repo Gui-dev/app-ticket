@@ -17,7 +17,30 @@ describe('FakePaymentProvider', () => {
     });
     expect(provider.providerName).toBe('fake');
     expect(result.providerRef).toMatch(/^pi_fake_/);
-    expect(result.clientSecret).toBeNull();
+    expect(result.clientSecret).toMatch(/^cs_fake_/);
+  });
+
+  it('recupera o client secret criado para a mesma referência', async () => {
+    const provider = new FakePaymentProvider();
+    const result = await provider.createPayment({
+      orderId: 'order-1',
+      amountCents: 13200,
+      method: 'card',
+      description: 'Pedido order-1',
+      buyerEmail: 'buyer@example.com',
+    });
+
+    expect(await provider.retrieveClientSecret(result.providerRef)).toBe(
+      result.clientSecret,
+    );
+  });
+
+  it('devolve null para uma referência de pagamento desconhecida', async () => {
+    const provider = new FakePaymentProvider();
+
+    expect(
+      await provider.retrieveClientSecret('pi_fake_desconhecida'),
+    ).toBeNull();
   });
 
   it('aceita webhook assinado pelo stripe e mapeia para succeeded', async () => {

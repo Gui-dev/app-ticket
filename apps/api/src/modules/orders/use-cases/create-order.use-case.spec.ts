@@ -96,6 +96,7 @@ interface HarnessOptions {
     providerRef: string;
     clientSecret: string | null;
   }>;
+  retrieveClientSecret?: (providerRef: string) => Promise<string | null>;
 }
 
 function createHarness(options: HarnessOptions = {}) {
@@ -169,9 +170,13 @@ function createHarness(options: HarnessOptions = {}) {
   const createPayment = options.createPayment
     ? vi.fn(options.createPayment)
     : vi.fn(async () => ({ providerRef: 'pi_1', clientSecret: 'cs_1' }));
+  const retrieveClientSecret = options.retrieveClientSecret
+    ? vi.fn(options.retrieveClientSecret)
+    : vi.fn(async () => 'cs_existing');
   const paymentProvider = {
     providerName: 'stripe',
     createPayment,
+    retrieveClientSecret,
   } as unknown as PaymentProvider;
 
   const useCase = new CreateOrderUseCase(
@@ -194,6 +199,7 @@ function createHarness(options: HarnessOptions = {}) {
     setProviderRef,
     markFailed,
     createPayment,
+    retrieveClientSecret,
   };
 }
 
@@ -267,10 +273,49 @@ describe('CreateOrderUseCase', () => {
     expect(harness.createPayment).not.toHaveBeenCalled();
     expect(harness.renew).not.toHaveBeenCalled();
     expect(harness.renewSeatHold).not.toHaveBeenCalled();
+    expect(harness.retrieveClientSecret).toHaveBeenCalledWith('pi_existing');
     expect(result.kind).toBe('created');
     if (result.kind !== 'created') return;
     expect(result.order.id).toBe('order-existing');
     expect(result.order.providerRef).toBe('pi_existing');
+    expect(result.payment).toEqual({
+      provider: 'stripe',
+      providerRef: 'pi_existing',
+      clientSecret: 'cs_existing',
+    });
+  });
+
+  it('devolve client secret nulo quando o provedor não recupera o segredo', async () => {
+    const harness = createHarness({
+      existingOrder: existingOrder(),
+      retrieveClientSecret: async () => null,
+    });
+
+    const result = await harness.useCase.execute(baseInput);
+
+    expect(harness.createPayment).not.toHaveBeenCalled();
+    expect(result.kind).toBe('created');
+    if (result.kind !== 'created') return;
+    expect(result.payment).toEqual({
+      provider: 'stripe',
+      providerRef: 'pi_existing',
+      clientSecret: null,
+    });
+  });
+
+  it('devolve client secret nulo quando o provedor falha na recuperação', async () => {
+    const harness = createHarness({
+      existingOrder: existingOrder(),
+      retrieveClientSecret: async () => {
+        throw new Error('stripe indisponível');
+      },
+    });
+
+    const result = await harness.useCase.execute(baseInput);
+
+    expect(harness.createPayment).not.toHaveBeenCalled();
+    expect(result.kind).toBe('created');
+    if (result.kind !== 'created') return;
     expect(result.payment).toEqual({
       provider: 'stripe',
       providerRef: 'pi_existing',

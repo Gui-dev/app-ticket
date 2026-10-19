@@ -62,7 +62,16 @@ function createHarness(options: HarnessOptions = {}) {
   } as unknown as SeatCaptureGateway;
 
   const refund = vi.fn(async () => undefined);
-  const paymentProvider = { refund } as unknown as PaymentProvider;
+  const paymentProvider = {
+    providerName: 'fake',
+    createPayment: vi.fn(async () => ({
+      providerRef: 'pi_1',
+      clientSecret: null,
+    })),
+    retrieveClientSecret: vi.fn(async () => null),
+    parseWebhook: vi.fn(async () => null),
+    refund,
+  } as unknown as PaymentProvider;
 
   const release = vi.fn(async () => true);
   const holdRepository = { release } as unknown as HoldRepository;

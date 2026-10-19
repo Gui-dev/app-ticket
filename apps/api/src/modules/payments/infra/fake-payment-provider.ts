@@ -26,6 +26,7 @@ function parsePayload(rawBody: string): StripeWebhookPayload | null {
 export class FakePaymentProvider implements PaymentProvider {
   readonly providerName = 'fake';
   readonly refundedRefs: string[] = [];
+  private readonly clientSecrets = new Map<string, string>();
 
   constructor(
     private readonly webhookSecret = process.env.STRIPE_WEBHOOK_SECRET ??
@@ -35,7 +36,15 @@ export class FakePaymentProvider implements PaymentProvider {
   async createPayment(
     _input: CreatePaymentInput,
   ): Promise<CreatePaymentResult> {
-    return { providerRef: `pi_fake_${randomUUID()}`, clientSecret: null };
+    const id = randomUUID();
+    const providerRef = `pi_fake_${id}`;
+    const clientSecret = `cs_fake_${id}`;
+    this.clientSecrets.set(providerRef, clientSecret);
+    return { providerRef, clientSecret };
+  }
+
+  async retrieveClientSecret(providerRef: string): Promise<string | null> {
+    return this.clientSecrets.get(providerRef) ?? null;
   }
 
   async parseWebhook(input: {

@@ -25,6 +25,7 @@ export interface PaymentEvent {
 export interface PaymentProvider {
   readonly providerName: 'stripe' | 'fake';
   createPayment(input: CreatePaymentInput): Promise<CreatePaymentResult>;
+  retrieveClientSecret(providerRef: string): Promise<string | null>;
   parseWebhook(input: {
     rawBody: string;
     signature: string | null;

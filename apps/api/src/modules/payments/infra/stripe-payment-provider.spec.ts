@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import type Stripe from 'stripe';
+import { describe, expect, it, vi } from 'vitest';
 import { StripePaymentProvider } from './stripe-payment-provider.js';
 import { signStripeWebhook } from './stripe-signature.js';
 
@@ -9,6 +10,9 @@ const buildProvider = () =>
     secretKey: 'sk_test_dummy',
     webhookSecret: secret,
   });
+
+const stripeClientOf = (provider: StripePaymentProvider) =>
+  (provider as unknown as { stripe: Stripe }).stripe;
 
 describe('StripePaymentProvider', () => {
   it('mapeia payment_intent.succeeded assinado', async () => {
@@ -119,5 +123,41 @@ describe('StripePaymentProvider', () => {
         signature: signStripeWebhook(payload, secret, stale),
       }),
     ).toBeNull();
+  });
+
+  it('recupera o client secret do payment intent existente', async () => {
+    const provider = buildProvider();
+    const retrieve = vi
+      .spyOn(stripeClientOf(provider).paymentIntents, 'retrieve')
+      .mockResolvedValue({
+        id: 'pi_1',
+        client_secret: 'cs_1',
+      } as unknown as Stripe.Response<Stripe.PaymentIntent>);
+
+    expect(await provider.retrieveClientSecret('pi_1')).toBe('cs_1');
+    expect(retrieve).toHaveBeenCalledWith('pi_1');
+  });
+
+  it('retorna null quando a busca do payment intent falha', async () => {
+    const provider = buildProvider();
+    vi.spyOn(
+      stripeClientOf(provider).paymentIntents,
+      'retrieve',
+    ).mockRejectedValue(new Error('No such payment_intent: pi_1'));
+
+    expect(await provider.retrieveClientSecret('pi_1')).toBeNull();
+  });
+
+  it('retorna null quando o payment intent não tem client secret', async () => {
+    const provider = buildProvider();
+    vi.spyOn(
+      stripeClientOf(provider).paymentIntents,
+      'retrieve',
+    ).mockResolvedValue({
+      id: 'pi_1',
+      client_secret: null,
+    } as unknown as Stripe.Response<Stripe.PaymentIntent>);
+
+    expect(await provider.retrieveClientSecret('pi_1')).toBeNull();
   });
 });

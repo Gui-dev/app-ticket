@@ -90,13 +90,14 @@ export class CreateOrderUseCase {
       eventId,
     });
     if (existing?.providerRef) {
+      const clientSecret = await this.clientSecretFor(existing.providerRef);
       return {
         kind: 'created',
         order: existing,
         payment: {
           provider: existing.provider,
           providerRef: existing.providerRef,
-          clientSecret: null,
+          clientSecret,
         },
       };
     }
@@ -135,6 +136,14 @@ export class CreateOrderUseCase {
     }
 
     return this.charge(order, input);
+  }
+
+  private async clientSecretFor(providerRef: string): Promise<string | null> {
+    try {
+      return await this.paymentProvider.retrieveClientSecret(providerRef);
+    } catch {
+      return null;
+    }
   }
 
   private async charge(

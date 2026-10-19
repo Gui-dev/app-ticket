@@ -35,6 +35,15 @@ export class StripePaymentProvider implements PaymentProvider {
     return { providerRef: intent.id, clientSecret: intent.client_secret };
   }
 
+  async retrieveClientSecret(providerRef: string): Promise<string | null> {
+    try {
+      const intent = await this.stripe.paymentIntents.retrieve(providerRef);
+      return intent.client_secret ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   async parseWebhook(input: {
     rawBody: string;
     signature: string | null;
