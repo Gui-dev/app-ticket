@@ -3,6 +3,7 @@ import type { OrderStatus } from '@ticketvibe/shared';
 import type { PaymentProvider } from '../../payments/domain/payment-provider.js';
 import type { CartRepository } from '../../seatmaps/domain/cart-repository.js';
 import type { HoldRepository } from '../../seatmaps/domain/hold-repository.js';
+import type { OrderRecord } from '../domain/order-entity.js';
 import type { OrderRepository } from '../domain/order-repository.js';
 import type { SeatCaptureGateway } from '../domain/seat-capture-gateway.js';
 import { releaseOrderSeatsAndClearCart } from './release-order-seats-and-clear-cart.js';
@@ -39,35 +40,13 @@ export class ConfirmOrderPaymentUseCase {
       if (order.status === 'paid') {
         return { kind: 'already', status: 'paid' };
       }
-      await this.paymentProvider.refund(input.providerRef);
-      await releaseOrderSeatsAndClearCart({
-        seatCaptureGateway: this.seatCaptureGateway,
-        holdRepository: this.holdRepository,
-        cartRepository: this.cartRepository,
-        order: {
-          orderId: order.id,
-          userId: order.userId,
-          eventSlug: order.eventSlug,
-        },
-        now,
-      });
+      await this.refundAndReleaseSeats(order, input.providerRef, now);
       return { kind: 'refunded' };
     }
 
     if (input.amountCents !== null && input.amountCents !== order.totalCents) {
       await this.orderRepository.markFailed({ orderId: order.id, now });
-      await this.paymentProvider.refund(input.providerRef);
-      await releaseOrderSeatsAndClearCart({
-        seatCaptureGateway: this.seatCaptureGateway,
-        holdRepository: this.holdRepository,
-        cartRepository: this.cartRepository,
-        order: {
-          orderId: order.id,
-          userId: order.userId,
-          eventSlug: order.eventSlug,
-        },
-        now,
-      });
+      await this.refundAndReleaseSeats(order, input.providerRef, now);
       return { kind: 'amount_mismatch' };
     }
 
@@ -77,11 +56,24 @@ export class ConfirmOrderPaymentUseCase {
     });
     if (capture.kind === 'paid') return { kind: 'paid' };
     if (capture.kind === 'already') {
-      return { kind: 'already', status: capture.status };
+      if (capture.status === 'paid') {
+        return { kind: 'already', status: 'paid' };
+      }
+      await this.refundAndReleaseSeats(order, input.providerRef, now);
+      return { kind: 'refunded' };
     }
     if (capture.kind === 'order_not_found') return { kind: 'ignored' };
 
-    await this.paymentProvider.refund(input.providerRef);
+    await this.refundAndReleaseSeats(order, input.providerRef, now);
+    return { kind: 'refunded' };
+  }
+
+  private async refundAndReleaseSeats(
+    order: OrderRecord,
+    providerRef: string,
+    now: Date,
+  ): Promise<void> {
+    await this.paymentProvider.refund(providerRef);
     await releaseOrderSeatsAndClearCart({
       seatCaptureGateway: this.seatCaptureGateway,
       holdRepository: this.holdRepository,
@@ -93,6 +85,5 @@ export class ConfirmOrderPaymentUseCase {
       },
       now,
     });
-    return { kind: 'refunded' };
   }
 }

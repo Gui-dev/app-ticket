@@ -270,7 +270,30 @@ describe('ConfirmOrderPaymentUseCase', () => {
     expect(harness.refund).not.toHaveBeenCalled();
   });
 
-  it('propaga o status já definido pelo gateway', async () => {
+  it('reembolsa e libera os assentos quando o gateway devolve o pedido como expirado', async () => {
+    const harness = createHarness({
+      capture: { kind: 'already', status: 'expired' },
+    });
+
+    const result = await harness.useCase.execute({
+      providerRef: 'pi_1',
+      amountCents: 13200,
+    });
+
+    expect(result).toEqual({ kind: 'refunded' });
+    expect(harness.refund).toHaveBeenCalledWith('pi_1');
+    expect(harness.releaseOrderSeats).toHaveBeenCalledWith({
+      orderId: 'order-1',
+      now: NOW,
+    });
+    expect(harness.release).toHaveBeenCalledWith(SEAT_KEY, 'u1');
+    expect(harness.clear).toHaveBeenCalledWith({
+      userId: 'u1',
+      eventSlug: EVENT_SLUG,
+    });
+  });
+
+  it('reembolsa e libera os assentos quando o gateway devolve o pedido como falho', async () => {
     const harness = createHarness({
       capture: { kind: 'already', status: 'failed' },
     });
@@ -280,7 +303,33 @@ describe('ConfirmOrderPaymentUseCase', () => {
       amountCents: 13200,
     });
 
-    expect(result).toEqual({ kind: 'already', status: 'failed' });
+    expect(result).toEqual({ kind: 'refunded' });
+    expect(harness.refund).toHaveBeenCalledWith('pi_1');
+    expect(harness.releaseOrderSeats).toHaveBeenCalledWith({
+      orderId: 'order-1',
+      now: NOW,
+    });
+    expect(harness.release).toHaveBeenCalledWith(SEAT_KEY, 'u1');
+    expect(harness.clear).toHaveBeenCalledWith({
+      userId: 'u1',
+      eventSlug: EVENT_SLUG,
+    });
+  });
+
+  it('não reembolsa quando o gateway devolve o pedido como já pago', async () => {
+    const harness = createHarness({
+      capture: { kind: 'already', status: 'paid' },
+    });
+
+    const result = await harness.useCase.execute({
+      providerRef: 'pi_1',
+      amountCents: 13200,
+    });
+
+    expect(result).toEqual({ kind: 'already', status: 'paid' });
     expect(harness.refund).not.toHaveBeenCalled();
+    expect(harness.releaseOrderSeats).not.toHaveBeenCalled();
+    expect(harness.release).not.toHaveBeenCalled();
+    expect(harness.clear).not.toHaveBeenCalled();
   });
 });
