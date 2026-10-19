@@ -15,6 +15,9 @@ import {
   categories,
   eventArtists,
   events,
+  orderItems,
+  orders,
+  paymentEvents,
   seatRows,
   seats,
   sectors,
@@ -23,6 +26,9 @@ import {
 
 export async function seedFixtures(db: Db): Promise<void> {
   await db.transaction(async (tx) => {
+    await tx.delete(paymentEvents);
+    await tx.delete(orderItems);
+    await tx.delete(orders);
     await tx.delete(seats);
     await tx.delete(seatRows);
     await tx.delete(sectors);
