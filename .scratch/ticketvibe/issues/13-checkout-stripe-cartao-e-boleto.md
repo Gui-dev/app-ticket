@@ -39,6 +39,12 @@ Correções transversais (saíram das revisões por task):
 |---|---|
 | `3652234` | O reuso do pedido pendente devolve o `clientSecret` do PaymentIntent existente (`PaymentProvider.retrieveClientSecret`) — sem isso o comprador que recarrega a página ficava numa tela de pagamento sem Element e sem forma de pagar, e o duplo clique deixava de ser "um PaymentIntent" |
 | `e1bf654` | Sessão anônima não cria pedido (401): o pedido precisa pertencer a uma conta real (a migração do ticket 9 cobre holds e carrinho, não pedidos) |
+| `33f88c9` | Pagamento aprovado que chega a um pedido já `failed`/`expired` é **reembolsado** (o boleto pago depois do TTL e o retry de cartão não podem cobrar sem devolver); reembolso idempotente por chave estável no provider Stripe |
+| `82061a1` | O reuso do pedido pendente só acontece quando o pedido ainda bate com o carrinho; se o comprador mudou o carrinho, o pedido antigo é aposentado e um novo é criado — assim o valor cobrado é sempre o valor exibido |
+| `d917d2b` | Job de pagamento com `attempts`/backoff (um reembolso que falhou agora se recupera no retry); POST duplicado concorrente responde reaproveitando o pedido vencedor (503 `order_in_progress` enquanto o PI não existe) em vez de 500; reserva perdida durante a criação do pedido vira `seat_unavailable` (409) em vez de cobrança |
+| `799010e` | O parser JSON customizado (exigido pelo rawBody do webhook) volta a devolver **400** com os códigos do Fastify para corpo vazio, JSON inválido ou com `__proto__` no topo — antes devolvia 500 em todas as rotas |
+| `8a5b7ed` | Boleto confirma com `redirect: 'always'` (voucher hospedado do Stripe) e o checkout trata o 503 `order_in_progress` com mensagem própria |
+| `ffd9b9a` | Parser JSON recusa `__proto__` no nível principal (paridade com o `secure-json-parse` padrão do Fastify) |
 
 ### Gates finais (19/10/2026)
 
@@ -46,12 +52,12 @@ Correções transversais (saíram das revisões por task):
 |---|---|
 | `pnpm lint` | 0 erros (1 info pré-existente em `db/test-helpers.ts`) |
 | `pnpm typecheck` | 5/5 workspaces |
-| `pnpm test` | API 333, web 251, shared 73 — todos pass |
+| `pnpm test` | API 357, web 254, shared 73 — todos pass |
 | Playwright (E2E) | 30/30 (checkout 2 + demais 28) |
 | `pnpm build` | web build ok |
 | `drizzle-kit check` | limpo |
 
-Cobertura dos critérios: resumo com preço/taxa/total (`orderTotals` em `shared` + UI de checkout + E2E com `Total: R$ 132,00`); camada de pagamento por interface com Stripe e fake (`PaymentProvider`); webhook idempotente via worker (`payment_events` + `process-payment-event` + BullMQ, com reentrega coberta no E2E); transação de confirmação/liberação (`SeatCaptureGateway.confirmOrderPayment` com `FOR UPDATE`, mais `fail`/`expire`, com a corrida pagamento×expiração em spec de integração real); pedido na conta do comprador (`orders`/`order_items` + `POST /orders` + `GET /orders/:id`); testes de taxa, corrida e E2E de compra completa com webhook simulado.
+Cobertura dos critérios: resumo com preço/taxa/total (`orderTotals` em `shared` + UI de checkout + E2E com `Total: R$ 132,00`); camada de pagamento por interface com Stripe e fake (`PaymentProvider`); webhook idempotente via worker (`payment_events` + `process-payment-event` + BullMQ; a reentrega é coberta pelos specs de API — o E2E envia um webhook por compra); transação de confirmação/liberação (`SeatCaptureGateway.confirmOrderPayment` com `FOR UPDATE`, mais `fail`/`expire`, com a corrida pagamento×expiração em spec de integração real); pedido na conta do comprador (`orders`/`order_items` + `POST /orders` + `GET /orders/:id`); testes de taxa, corrida e E2E de compra completa com webhook simulado.
 
 Bug encontrado pelo E2E e corrigido no fechamento (`6c573a6`): `seedFixtures` não conseguia rodar de novo depois que existiam pedidos (a FK `order_items`→`seats` é `ON DELETE no action`), então a suíte E2E só rodava uma vez por banco semeado. Agora o seed apaga `payment_events` → `order_items` → `orders` antes de reassentar.
 
@@ -75,3 +81,4 @@ Bug encontrado pelo E2E e corrigido no fechamento (`6c573a6`): `seedFixtures` n�
 - Rate limiting/antifraude do endpoint de webhook: não implementado (inferência local).
 - O DTO do carrinho não tem `sectorName`, então o resumo do checkout mostra o slug do setor ("plateia") enquanto o mapa mostra o nome ("Plateia") — adiado (contrato compartilhado + consulta ao setor).
 - A liberação de holds do "Desistir de todos" engole o erro de release (comportamento pré-existente em `seat-map.tsx`): gera flake conhecido no E2E de carrinho, fora do escopo deste ticket.
+- O parser JSON do Fastify foi substituído (o webhook precisa do corpo cru) e recusa `__proto__` no nível principal, mas não em nível aninhado nem a chave `constructor`: paridade total exigiria `secure-json-parse` como dependência direta da API, adiada para um ticket à parte.
