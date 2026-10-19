@@ -109,10 +109,7 @@ export class CreateOrderUseCase {
       if (canReusePendingOrder(existing, items)) {
         return this.reusePendingOrder(existing);
       }
-      await this.orderRepository.markFailed({
-        orderId: existing.id,
-        now: this.now(),
-      });
+      await this.retireStaleOrder(existing);
     }
 
     let order: OrderRecord;
@@ -183,6 +180,19 @@ export class CreateOrderUseCase {
         clientSecret,
       },
     };
+  }
+
+  private async retireStaleOrder(order: OrderRecord): Promise<void> {
+    await this.orderRepository.markFailed({
+      orderId: order.id,
+      now: this.now(),
+    });
+    if (!order.providerRef) return;
+    try {
+      await this.paymentProvider.cancelPayment(order.providerRef);
+    } catch {
+      return;
+    }
   }
 
   private async abandonOrder(order: OrderRecord): Promise<void> {

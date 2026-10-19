@@ -143,4 +143,11 @@ describe('FakePaymentProvider', () => {
     await provider.refund('pi_fake_2');
     expect(provider.refundedRefs).toEqual(['pi_fake_1', 'pi_fake_2']);
   });
+
+  it('registra o cancelamento da referência de pagamento', async () => {
+    const provider = new FakePaymentProvider();
+    await provider.cancelPayment('pi_fake_1');
+    await provider.cancelPayment('pi_fake_2');
+    expect(provider.cancelledRefs).toEqual(['pi_fake_1', 'pi_fake_2']);
+  });
 });

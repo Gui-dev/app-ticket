@@ -76,4 +76,12 @@ export class StripePaymentProvider implements PaymentProvider {
       { idempotencyKey: `refund-${providerRef}` },
     );
   }
+
+  async cancelPayment(providerRef: string): Promise<void> {
+    try {
+      await this.stripe.paymentIntents.cancel(providerRef);
+    } catch {
+      return;
+    }
+  }
 }

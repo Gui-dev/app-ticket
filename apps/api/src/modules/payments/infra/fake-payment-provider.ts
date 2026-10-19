@@ -26,6 +26,7 @@ function parsePayload(rawBody: string): StripeWebhookPayload | null {
 export class FakePaymentProvider implements PaymentProvider {
   readonly providerName = 'fake';
   readonly refundedRefs: string[] = [];
+  readonly cancelledRefs: string[] = [];
   private readonly clientSecrets = new Map<string, string>();
   private readonly refunded = new Set<string>();
 
@@ -74,5 +75,9 @@ export class FakePaymentProvider implements PaymentProvider {
     if (this.refunded.has(providerRef)) return;
     this.refunded.add(providerRef);
     this.refundedRefs.push(providerRef);
+  }
+
+  async cancelPayment(providerRef: string): Promise<void> {
+    this.cancelledRefs.push(providerRef);
   }
 }

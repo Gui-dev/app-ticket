@@ -217,10 +217,12 @@ function createHarness(options: HarnessOptions = {}) {
   const retrieveClientSecret = options.retrieveClientSecret
     ? vi.fn(options.retrieveClientSecret)
     : vi.fn(async () => 'cs_existing');
+  const cancelPayment = vi.fn(async () => undefined);
   const paymentProvider = {
     providerName: 'stripe',
     createPayment,
     retrieveClientSecret,
+    cancelPayment,
   } as unknown as PaymentProvider;
 
   const useCase = new CreateOrderUseCase(
@@ -249,6 +251,7 @@ function createHarness(options: HarnessOptions = {}) {
     markFailed,
     createPayment,
     retrieveClientSecret,
+    cancelPayment,
   };
 }
 
@@ -411,6 +414,73 @@ describe('CreateOrderUseCase', () => {
     if (result.kind !== 'created') return;
     expect(result.order.id).toBe('order-1');
     expect(result.order.totalCents).toBe(19800);
+  });
+
+  it('cancela o pagamento do pedido aposentado quando o carrinho muda', async () => {
+    const harness = createHarness({
+      existingOrder: existingOrder({
+        id: 'order-stale',
+        items: [
+          {
+            seatId: 'seat-6',
+            rowId: 'row-A',
+            sectorSlug: 'plateia',
+            rowLabel: 'A',
+            seatLabel: '6',
+            ticketType: 'inteira',
+            priceCents: 12000,
+          },
+        ],
+        subtotalCents: 12000,
+        serviceFeeCents: 1200,
+        totalCents: 13200,
+      }),
+    });
+
+    const result = await harness.useCase.execute(baseInput);
+
+    expect(harness.markFailed).toHaveBeenCalledWith({
+      orderId: 'order-stale',
+      now: NOW,
+    });
+    expect(harness.cancelPayment).toHaveBeenCalledWith('pi_existing');
+    expect(result.kind).toBe('created');
+    if (result.kind !== 'created') return;
+    expect(result.order.id).toBe('order-1');
+  });
+
+  it('não cancela pagamento quando o pedido aposentado não tem providerRef', async () => {
+    const harness = createHarness({
+      existingOrder: existingOrder({
+        id: 'order-pending',
+        providerRef: null,
+        items: [
+          {
+            seatId: 'seat-6',
+            rowId: 'row-A',
+            sectorSlug: 'plateia',
+            rowLabel: 'A',
+            seatLabel: '6',
+            ticketType: 'inteira',
+            priceCents: 12000,
+          },
+        ],
+        subtotalCents: 12000,
+        serviceFeeCents: 1200,
+        totalCents: 13200,
+      }),
+    });
+
+    const result = await harness.useCase.execute(baseInput);
+
+    expect(harness.markFailed).toHaveBeenCalledWith({
+      orderId: 'order-pending',
+      now: NOW,
+    });
+    expect(harness.cancelPayment).not.toHaveBeenCalled();
+    expect(result.kind).toBe('created');
+    if (result.kind !== 'created') return;
+    expect(result.order.id).toBe('order-1');
   });
 
   it('devolve client secret nulo quando o provedor não recupera o segredo', async () => {

@@ -176,4 +176,28 @@ describe('StripePaymentProvider', () => {
       { idempotencyKey: 'refund-pi_1' },
     );
   });
+
+  it('cancela o payment intent da referência', async () => {
+    const provider = buildProvider();
+    const cancel = vi
+      .spyOn(stripeClientOf(provider).paymentIntents, 'cancel')
+      .mockResolvedValue({
+        id: 'pi_1',
+        status: 'canceled',
+      } as unknown as Stripe.Response<Stripe.PaymentIntent>);
+
+    await provider.cancelPayment('pi_1');
+
+    expect(cancel).toHaveBeenCalledWith('pi_1');
+  });
+
+  it('ignora o erro ao cancelar o payment intent', async () => {
+    const provider = buildProvider();
+    vi.spyOn(
+      stripeClientOf(provider).paymentIntents,
+      'cancel',
+    ).mockRejectedValue(new Error('No such payment_intent: pi_1'));
+
+    await expect(provider.cancelPayment('pi_1')).resolves.toBeUndefined();
+  });
 });
