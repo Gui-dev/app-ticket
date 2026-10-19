@@ -1,4 +1,5 @@
 import { type TicketType, ticketTypeSchema } from '@ticketvibe/shared';
+import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
 import { formatBRL } from '@/lib/format';
@@ -19,6 +20,7 @@ interface CartPanelProps {
   renewedNotice: boolean;
   pending: boolean;
   error: string | null;
+  checkoutHref?: string;
   onTypeChange: (seat: CartPanelItem, ticketType: TicketType) => void;
   onRemove: (seat: CartPanelItem) => void;
   onGiveUpAll: () => void;
@@ -43,6 +45,7 @@ export function CartPanel({
   renewedNotice,
   pending,
   error,
+  checkoutHref,
   onTypeChange,
   onRemove,
   onGiveUpAll,
@@ -113,6 +116,11 @@ export function CartPanel({
               <p aria-live="polite" className="text-sm text-muted-foreground">
                 Reserva renovada
               </p>
+            )}
+            {checkoutHref && (
+              <Button asChild>
+                <Link href={checkoutHref}>Finalizar compra</Link>
+              </Button>
             )}
             <Button
               type="button"

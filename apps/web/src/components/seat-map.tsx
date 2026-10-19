@@ -686,6 +686,7 @@ export function SeatMap({ eventSlug }: SeatMapProps) {
           renewedNotice={renewedNotice}
           pending={holdPending || giveUpPending}
           error={holdError}
+          checkoutHref={`/events/${eventSlug}/checkout`}
           onTypeChange={changeType}
           onRemove={(seat) => {
             const target = itemsRef.current.find(

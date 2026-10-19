@@ -150,6 +150,48 @@ describe('CartPanel', () => {
     ).toBeInTheDocument();
   });
 
+  it('links to checkout when items exist', () => {
+    render(
+      <CartPanel
+        items={[baseItem()]}
+        totalCents={12000}
+        remainingSeconds={599}
+        renewedNotice={false}
+        pending={false}
+        error={null}
+        checkoutHref="/events/o-fantasma-da-opera/checkout"
+        onTypeChange={vi.fn()}
+        onRemove={vi.fn()}
+        onGiveUpAll={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole('link', { name: 'Finalizar compra' }),
+    ).toHaveAttribute('href', '/events/o-fantasma-da-opera/checkout');
+  });
+
+  it('does not link to checkout when the cart is empty', () => {
+    render(
+      <CartPanel
+        items={[]}
+        totalCents={0}
+        remainingSeconds={null}
+        renewedNotice={false}
+        pending={false}
+        error={null}
+        checkoutHref="/events/o-fantasma-da-opera/checkout"
+        onTypeChange={vi.fn()}
+        onRemove={vi.fn()}
+        onGiveUpAll={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.queryByRole('link', { name: 'Finalizar compra' }),
+    ).not.toBeInTheDocument();
+  });
+
   it('shows the renewed notice, the error and disables while pending', () => {
     const { rerender } = render(
       <CartPanel

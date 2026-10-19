@@ -188,6 +188,20 @@ describe('SeatMap', () => {
     ).toHaveAttribute('aria-pressed', 'true');
   });
 
+  it('links to the checkout after adding a seat', async () => {
+    mockSeatmap();
+    mockHold('1');
+    render(<SeatMap eventSlug="o-fantasma-da-opera" />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Cadeira 1, fila A' }),
+    );
+
+    expect(
+      await screen.findByRole('link', { name: 'Finalizar compra' }),
+    ).toHaveAttribute('href', '/events/o-fantasma-da-opera/checkout');
+  });
+
   it('keeps the cart when switching sectors', async () => {
     mockSeatmap();
     mockHold('1');
