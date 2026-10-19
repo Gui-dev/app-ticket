@@ -54,6 +54,24 @@ describe('parser global de json', () => {
     await app.close();
   });
 
+  it('responde 400 quando o corpo tem a chave __proto__ no nível principal', async () => {
+    const app = buildApp();
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/events/o-fantasma-da-opera/orders',
+      headers: { 'content-type': 'application/json' },
+      payload: '{"__proto__":{"polluted":true},"paymentMethod":"boleto"}',
+    });
+
+    const body = response.json() as { statusCode?: number; code?: string };
+    expect(response.statusCode).toBe(400);
+    expect(body.statusCode).toBe(400);
+    expect(body.code).toBe('FST_ERR_CTP_INVALID_JSON_BODY');
+
+    await app.close();
+  });
+
   it('guarda o corpo bruto na requisição e devolve o objeto lido', async () => {
     const app = buildApp();
     app.post('/eco-do-corpo', async (request) => ({

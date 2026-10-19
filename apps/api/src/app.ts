@@ -56,6 +56,12 @@ import { DrizzleVenuesRepository } from './modules/venues/infra/drizzle-venues-r
 import { registerVenueRoutes } from './modules/venues/routes/venues.routes.js';
 import { createRedis, type RedisClient } from './redis/client.js';
 
+const hasOwnProtoKey = (value: unknown): boolean => {
+  if (typeof value !== 'object' || value === null) return false;
+  if (Object.getPrototypeOf(value) !== Object.prototype) return false;
+  return Object.hasOwn(value, '__proto__');
+};
+
 export function buildApp(
   options: {
     eventsRepository?: EventsRepository;
@@ -91,11 +97,18 @@ export function buildApp(
         done(new Fastify.errorCodes.FST_ERR_CTP_EMPTY_JSON_BODY(), undefined);
         return;
       }
+      let parsed: unknown;
       try {
-        done(null, JSON.parse(rawBody));
+        parsed = JSON.parse(rawBody) as unknown;
       } catch {
         done(new Fastify.errorCodes.FST_ERR_CTP_INVALID_JSON_BODY(), undefined);
+        return;
       }
+      if (hasOwnProtoKey(parsed)) {
+        done(new Fastify.errorCodes.FST_ERR_CTP_INVALID_JSON_BODY(), undefined);
+        return;
+      }
+      done(null, parsed);
     },
   );
 
