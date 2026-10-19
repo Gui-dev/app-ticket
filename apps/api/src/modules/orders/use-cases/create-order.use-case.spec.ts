@@ -68,6 +68,27 @@ const baseInput = {
   buyerEmail: 'b@x.com',
 };
 
+const cartItems = [
+  {
+    seatId: 'seat-6',
+    rowId: 'row-A',
+    sectorSlug: 'plateia',
+    rowLabel: 'A',
+    seatLabel: '6',
+    ticketType: 'meia' as const,
+    priceCents: 6000,
+  },
+  {
+    seatId: 'seat-7',
+    rowId: 'row-A',
+    sectorSlug: 'plateia',
+    rowLabel: 'A',
+    seatLabel: '7',
+    ticketType: 'inteira' as const,
+    priceCents: 12000,
+  },
+];
+
 function existingOrder(overrides: Partial<OrderRecord> = {}): OrderRecord {
   return {
     id: 'order-existing',
@@ -83,7 +104,7 @@ function existingOrder(overrides: Partial<OrderRecord> = {}): OrderRecord {
     totalCents: 19800,
     createdAt: new Date('2026-10-18T11:00:00.000Z'),
     paidAt: null,
-    items: [],
+    items: cartItems.map((item) => ({ ...item })),
     ...overrides,
   };
 }
@@ -273,6 +294,7 @@ describe('CreateOrderUseCase', () => {
     expect(harness.createPayment).not.toHaveBeenCalled();
     expect(harness.renew).not.toHaveBeenCalled();
     expect(harness.renewSeatHold).not.toHaveBeenCalled();
+    expect(harness.markFailed).not.toHaveBeenCalled();
     expect(harness.retrieveClientSecret).toHaveBeenCalledWith('pi_existing');
     expect(result.kind).toBe('created');
     if (result.kind !== 'created') return;
@@ -283,6 +305,84 @@ describe('CreateOrderUseCase', () => {
       providerRef: 'pi_existing',
       clientSecret: 'cs_existing',
     });
+  });
+
+  it('aposenta o pedido pendente e cobra o total atual quando o carrinho muda', async () => {
+    const harness = createHarness({
+      existingOrder: existingOrder({
+        id: 'order-stale',
+        items: [
+          {
+            seatId: 'seat-6',
+            rowId: 'row-A',
+            sectorSlug: 'plateia',
+            rowLabel: 'A',
+            seatLabel: '6',
+            ticketType: 'inteira',
+            priceCents: 12000,
+          },
+        ],
+        subtotalCents: 12000,
+        serviceFeeCents: 1200,
+        totalCents: 13200,
+      }),
+    });
+
+    const result = await harness.useCase.execute(baseInput);
+
+    expect(harness.markFailed).toHaveBeenCalledWith({
+      orderId: 'order-stale',
+      now: NOW,
+    });
+    expect(harness.create).toHaveBeenCalledOnce();
+    expect(harness.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subtotalCents: 18000,
+        serviceFeeCents: 1800,
+        totalCents: 19800,
+      }),
+    );
+    expect(harness.createPayment).toHaveBeenCalledWith({
+      orderId: 'order-1',
+      amountCents: 19800,
+      method: 'card',
+      description: 'Pedido order-1',
+      buyerEmail: 'b@x.com',
+    });
+    expect(harness.setProviderRef).toHaveBeenCalledWith({
+      orderId: 'order-1',
+      providerRef: 'pi_1',
+    });
+    expect(result.kind).toBe('created');
+    if (result.kind !== 'created') return;
+    expect(result.order.id).toBe('order-1');
+    expect(result.order.totalCents).toBe(19800);
+  });
+
+  it('aposenta o pedido pendente quando o carrinho ganha um assento novo', async () => {
+    const harness = createHarness({
+      existingOrder: existingOrder({
+        id: 'order-stale',
+        items: [cartItems[0]].map((item) => ({ ...item })),
+        subtotalCents: 6000,
+        serviceFeeCents: 600,
+        totalCents: 6600,
+      }),
+    });
+
+    const result = await harness.useCase.execute(baseInput);
+
+    expect(harness.markFailed).toHaveBeenCalledWith({
+      orderId: 'order-stale',
+      now: NOW,
+    });
+    expect(harness.createPayment).toHaveBeenCalledWith(
+      expect.objectContaining({ amountCents: 19800 }),
+    );
+    expect(result.kind).toBe('created');
+    if (result.kind !== 'created') return;
+    expect(result.order.id).toBe('order-1');
+    expect(result.order.totalCents).toBe(19800);
   });
 
   it('devolve client secret nulo quando o provedor não recupera o segredo', async () => {

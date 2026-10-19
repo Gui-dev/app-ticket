@@ -12,7 +12,11 @@ import { holdSeatKey } from '../../seatmaps/domain/hold-entity.js';
 import type { HoldRepository } from '../../seatmaps/domain/hold-repository.js';
 import type { SeatmapRepository } from '../../seatmaps/domain/seatmap-repository.js';
 import type { GetCartUseCase } from '../../seatmaps/use-cases/get-cart.use-case.js';
-import type { OrderItemRecord, OrderRecord } from '../domain/order-entity.js';
+import {
+  type OrderItemRecord,
+  type OrderRecord,
+  orderMatchesItems,
+} from '../domain/order-entity.js';
 import type { OrderRepository } from '../domain/order-repository.js';
 
 export type CreateOrderResult =
@@ -89,19 +93,19 @@ export class CreateOrderUseCase {
       userId: input.userId,
       eventId,
     });
-    if (existing?.providerRef) {
-      const clientSecret = await this.clientSecretFor(existing.providerRef);
-      return {
-        kind: 'created',
-        order: existing,
-        payment: {
-          provider: existing.provider,
-          providerRef: existing.providerRef,
-          clientSecret,
-        },
-      };
-    }
     if (existing) {
+      if (existing.providerRef && orderMatchesItems(existing, items)) {
+        const clientSecret = await this.clientSecretFor(existing.providerRef);
+        return {
+          kind: 'created',
+          order: existing,
+          payment: {
+            provider: existing.provider,
+            providerRef: existing.providerRef,
+            clientSecret,
+          },
+        };
+      }
       await this.orderRepository.markFailed({
         orderId: existing.id,
         now: this.now(),

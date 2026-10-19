@@ -55,3 +55,17 @@ export function decideOrderCapture(
   );
   return allHeld ? 'confirm' : 'lost';
 }
+
+function itemIdentity(item: OrderItemRecord): string {
+  return `${item.seatId}|${item.ticketType}|${item.priceCents}`;
+}
+
+export function orderMatchesItems(
+  order: { items: OrderItemRecord[] },
+  items: OrderItemRecord[],
+): boolean {
+  if (order.items.length !== items.length) return false;
+  const expected = items.map(itemIdentity).sort();
+  const current = order.items.map(itemIdentity).sort();
+  return expected.every((identity, index) => identity === current[index]);
+}
