@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Db } from '../../db/client.js';
 import type { RedisClient } from '../../redis/client.js';
@@ -34,10 +34,19 @@ vi.mock('bullmq', () => {
 const db = {} as Db;
 const connection = {} as RedisClient;
 
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 describe('createEmailsWorker', () => {
   it('aplica as opções do job de e-mail na fila', async () => {
     await createEmailsWorker({ db, connection });
 
+    expect(mocks.queueConstructor).toHaveBeenCalledTimes(1);
     const [, options] = mocks.queueConstructor.mock.calls[0] as [
       string,
       { defaultJobOptions: unknown },
