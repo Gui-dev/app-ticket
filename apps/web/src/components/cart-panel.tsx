@@ -1,4 +1,8 @@
-import { type TicketType, ticketTypeSchema } from '@ticketvibe/shared';
+import {
+  TICKET_TYPE_LABELS,
+  type TicketType,
+  ticketTypeSchema,
+} from '@ticketvibe/shared';
 import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
@@ -25,12 +29,6 @@ interface CartPanelProps {
   onRemove: (seat: CartPanelItem) => void;
   onGiveUpAll: () => void;
 }
-
-const TICKET_TYPE_OPTIONS: { value: TicketType; label: string }[] = [
-  { value: 'inteira', label: 'Inteira' },
-  { value: 'meia', label: 'Meia' },
-  { value: 'vip', label: 'VIP' },
-];
 
 function formatCountdown(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60);
@@ -83,11 +81,13 @@ export function CartPanel({
                       if (parsed.success) onTypeChange(item, parsed.data);
                     }}
                   >
-                    {TICKET_TYPE_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
+                    {Object.entries(TICKET_TYPE_LABELS).map(
+                      ([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ),
+                    )}
                   </select>
                   <button
                     type="button"

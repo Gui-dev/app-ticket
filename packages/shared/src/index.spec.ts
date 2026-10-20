@@ -12,6 +12,8 @@ import {
   eventDetailResponseSchema,
   eventDetailSchema,
   eventSchema,
+  formatBRL,
+  formatDatePtBR,
   healthResponseSchema,
   holdRequestSchema,
   holdResponseSchema,
@@ -33,6 +35,7 @@ import {
   setCartItemResponseSchema,
   suggestQuerySchema,
   suggestResponseSchema,
+  TICKET_TYPE_LABELS,
   ticketPriceCents,
   venueDetailResponseSchema,
   venueDetailSchema,
@@ -780,5 +783,30 @@ describe('order contracts', () => {
         clientSecret: null,
       }).success,
     ).toBe(false);
+  });
+});
+
+describe('formatBRL', () => {
+  it('formats cents as brazilian reais', () => {
+    expect(formatBRL(19800)).toBe('R$ 198,00');
+    expect(formatBRL(0)).toBe('R$ 0,00');
+  });
+});
+
+describe('formatDatePtBR', () => {
+  it('formats an iso date in portuguese', () => {
+    expect(formatDatePtBR('2026-07-12T23:00:00.000Z')).toBe(
+      '12 de Julho, 2026',
+    );
+  });
+});
+
+describe('TICKET_TYPE_LABELS', () => {
+  it('labels every ticket type', () => {
+    expect(TICKET_TYPE_LABELS).toEqual({
+      inteira: 'Inteira',
+      meia: 'Meia',
+      vip: 'VIP',
+    });
   });
 });
