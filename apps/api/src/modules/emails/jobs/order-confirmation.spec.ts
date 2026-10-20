@@ -101,7 +101,7 @@ function setup(
   return { run, findById, findBySlug, find, markSent, markFailed, send };
 }
 
-describe('createOrderConfirmationJob', () => {
+describe('job de confirmação do pedido', () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -152,6 +152,22 @@ describe('createOrderConfirmationJob', () => {
   it('marca como falho quando o pedido não tem e-mail do comprador', async () => {
     const { run, send, markSent, markFailed } = setup({
       order: { ...paidOrder, buyerEmail: null },
+    });
+
+    await run({ orderId: 'order-1' });
+
+    expect(send).not.toHaveBeenCalled();
+    expect(markSent).not.toHaveBeenCalled();
+    expect(markFailed).toHaveBeenCalledWith({
+      orderId: 'order-1',
+      error: 'missing_buyer_email',
+      now: NOW,
+    });
+  });
+
+  it('marca como falho quando o e-mail do comprador está vazio', async () => {
+    const { run, send, markSent, markFailed } = setup({
+      order: { ...paidOrder, buyerEmail: '' },
     });
 
     await run({ orderId: 'order-1' });

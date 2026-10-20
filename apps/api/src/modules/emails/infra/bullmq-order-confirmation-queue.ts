@@ -2,6 +2,7 @@ import { Queue } from 'bullmq';
 
 import type { RedisClient } from '../../../redis/client.js';
 import {
+  EMAIL_JOB_OPTIONS,
   EMAILS_QUEUE_NAME,
   ORDER_CONFIRMATION_JOB,
   type OrderConfirmationQueue,
@@ -17,7 +18,10 @@ export function createBullMqOrderConfirmationQueue(input: {
       await queue.add(
         ORDER_CONFIRMATION_JOB,
         { orderId },
-        { jobId: `order-confirmation-${orderId}` },
+        {
+          jobId: `order-confirmation-${orderId}`,
+          ...EMAIL_JOB_OPTIONS,
+        },
       );
     },
   };

@@ -4,12 +4,14 @@ import type { Db } from '../../db/client.js';
 import type { RedisClient } from '../../redis/client.js';
 import { DrizzleEventsRepository } from '../events/infra/drizzle-events-repository.js';
 import { DrizzleOrderRepository } from '../orders/infra/drizzle-order-repository.js';
-import { EMAILS_QUEUE_NAME } from './domain/order-confirmation-queue.js';
+import {
+  EMAIL_JOB_OPTIONS,
+  EMAILS_QUEUE_NAME,
+} from './domain/order-confirmation-queue.js';
 import { DrizzleOrderConfirmationRepository } from './infra/drizzle-order-confirmation-repository.js';
 import { createSmtpEmailSender } from './infra/smtp-email-sender.js';
 import {
   createOrderConfirmationJob,
-  EMAIL_JOB_OPTIONS,
   type OrderConfirmationJobData,
 } from './jobs/order-confirmation.js';
 
@@ -39,7 +41,7 @@ export async function createEmailsWorker(input: {
   );
 
   worker.on('completed', (job) => {
-    console.log('[worker] order confirmation email sent', job.data.orderId);
+    console.log('[worker] email job finished', job.data.orderId);
   });
 
   worker.on('failed', (job, error) => {

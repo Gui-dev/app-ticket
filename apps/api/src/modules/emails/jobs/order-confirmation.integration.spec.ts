@@ -39,7 +39,7 @@ import {
 const EVENT_SLUG = 'o-fantasma-da-opera';
 const NOW = new Date('2026-10-20T15:00:00.000Z');
 
-describe('envio do e-mail de confirmação (postgres + redis integration)', () => {
+describe('envio do e-mail de confirmação (integração postgres + redis)', () => {
   let testDb: Db;
   let redis: RedisClient;
   let queue: Queue<OrderConfirmationJobData>;

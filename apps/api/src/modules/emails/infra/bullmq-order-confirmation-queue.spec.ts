@@ -41,7 +41,7 @@ describe('createBullMqOrderConfirmationQueue', () => {
     });
   });
 
-  it('enfileira a confirmação do pedido com jobId determinístico', async () => {
+  it('enfileira a confirmação do pedido com jobId determinístico e opções de retentativa', async () => {
     const queue = createBullMqOrderConfirmationQueue({ connection });
 
     await queue.enqueue({ orderId: 'order-123' });
@@ -50,7 +50,12 @@ describe('createBullMqOrderConfirmationQueue', () => {
     expect(mocks.add).toHaveBeenCalledWith(
       ORDER_CONFIRMATION_JOB,
       { orderId: 'order-123' },
-      { jobId: 'order-confirmation-order-123' },
+      {
+        jobId: 'order-confirmation-order-123',
+        attempts: 6,
+        backoff: { type: 'exponential', delay: 5000 },
+        removeOnFail: true,
+      },
     );
   });
 });
