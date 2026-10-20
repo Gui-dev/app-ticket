@@ -48,5 +48,9 @@ export async function createEmailsWorker(input: {
     console.error('[worker] email job failed', job?.id, error);
   });
 
+  worker.on('error', (error) => {
+    console.error('[worker] email worker error', error);
+  });
+
   return { queue, worker };
 }
