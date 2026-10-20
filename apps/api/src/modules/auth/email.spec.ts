@@ -60,6 +60,24 @@ describe('sendEmail', () => {
     });
   });
 
+  it('reutiliza a mesma instância de transporte entre envios', async () => {
+    const sendEmail = await loadSendEmail();
+
+    await sendEmail({
+      to: 'alguem@test.dev',
+      subject: 'Assunto',
+      text: 'Corpo',
+    });
+    await sendEmail({
+      to: 'outra@test.dev',
+      subject: 'Outro assunto',
+      text: 'Outro corpo',
+    });
+
+    expect(createTransportMock).toHaveBeenCalledTimes(1);
+    expect(sendMailMock).toHaveBeenCalledTimes(2);
+  });
+
   it('usa SMTP_HOST e SMTP_PORT do ambiente quando definidos', async () => {
     vi.stubEnv('SMTP_HOST', 'smtp.exemplo.dev');
     vi.stubEnv('SMTP_PORT', '2525');
