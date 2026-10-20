@@ -237,7 +237,7 @@ Expected: cria `apps/api/drizzle/00XX_<nome>.sql` com os dois `ALTER TABLE ... A
 - [ ] **Step 4: Propague os campos no domínio e no repositório**
 
 - `order-entity.ts`: `OrderRecord` ganha `buyerEmail: string | null`; `OrderItemRecord` ganha `sectorName: string | null`.
-- `order-repository.ts`: `CreateOrderInput` ganha `buyerEmail: string`.
+- `order-repository.ts`: `CreateOrderInput` ganha `buyerEmail: string | null`.
 - `drizzle-order-repository.ts`: o `insert` em `orders` passa a gravar `buyer_email: input.buyerEmail`; o `insert` em `order_items` grava `sector_name: item.sectorName`; o `select`/map de `orders` e `order_items` traz as duas colunas.
 - `create-order.use-case.ts`: no `create(...)`, passa `buyerEmail: input.buyerEmail` (o `execute` já recebe `buyerEmail` — ele hoje só vai para o provider) e, ao montar os itens, copia o `sectorName` devolvido por `findSeatByCoords`.
 
