@@ -33,13 +33,25 @@ Correções transversais (saíram das revisões por task):
 | `d531a21` | Pedido inexistente: o job registra `[worker] email job skipped: order not found` e sai **sem** `markFailed` — a FK `order_confirmation_emails.order_id → orders.id` tornaria o `upsert` inválido e o job falharia sem necessidade |
 | `d96d67b` | As opções do job (`attempts: 6`, backoff exponencial de 5 s, `removeOnFail: true`) foram movidas para o contrato da fila (`domain/order-confirmation-queue.ts`) e aplicadas no `add` do produtor e no `defaultJobOptions` do worker — sem isso o job nascia com `attempts: 1` e uma falha de SMTP não era reprocessada |
 
+Correções da revisão final do branch (wave de fixes):
+
+| Commit | Escopo |
+|---|---|
+| `ab8fbc9` | `removeOnComplete: true` nas opções do job de e-mail — a fila `emails` não cresce mais com os jobs concluídos (a guarda de idempotência é o marcador `sent` no banco, não a fila) |
+| `3e593a9` | Deferrals da issue: a garantia de envio é at-least-once (uma queda entre o SMTP e a gravação do marcador pode mandar um segundo e-mail), a fila `payments` também retém jobs concluídos e o worker de pagamentos não tem listener de `error` |
+| `d467bb4` | Falha na gravação do marcador (`markFailed`) não substitui o erro original de envio — o erro do SMTP continua sendo o que propaga e o que o BullMQ retenta |
+| `cfe2bdb` | Listener de `error` no worker de e-mails — um erro fatal do worker é logado em vez de derrubar o worker em silêncio |
+| `e95d0dc` | Spec do pedido prova que o nome do setor do item vem do lookup de assento (`findSeatByCoords`) e não de um literal |
+| `7035a70` | Spec do job de pagamento cobre o ramo `amount_mismatch` (não enfileira e-mail) |
+| `a3cd887` | Spec cobre o fallback de `SMTP_PORT` inválido (porta 1025) |
+
 ### Gates finais (20/10/2026)
 
 | Gate | Resultado |
 |---|---|
 | `pnpm lint` | 0 erros (1 info pré-existente em `db/test-helpers.ts`) |
 | `pnpm typecheck` | 5/5 workspaces |
-| `pnpm test` | API 385, web 254, shared 76 — todos pass |
+| `pnpm test` | API 391, web 254, shared 76 — todos pass |
 | Playwright (E2E) | 31/31 (e-mail de confirmação 1 + checkout 2 + demais 28) |
 | `pnpm build` | web build ok |
 | `drizzle-kit check` | limpo |
