@@ -138,7 +138,7 @@ export const TICKET_TYPE_LABELS: Record<TicketType, string> = {
 
 - [ ] **Step 4: Faça o web reutilizar o shared (sem duplicar)**
 
-Em `apps/web/src/lib/format.ts`, substitua as implementações por re-exports (`export { formatBRL, formatDatePtBR } from '@ticketvibe/shared';`) e mantenha o resto do arquivo como está. Em `apps/web/src/components/cart-panel.tsx`, apague a constante local `TICKET_TYPE_OPTIONS` e passe a usar `TICKET_TYPE_LABELS` do `@ticketvibe/shared` (mesmos rótulos, mesmos valores — os specs existentes continuam válidos).
+Em `apps/web/src/lib/format.ts`, substitua as implementações por re-exports (`export { formatBRL, formatDatePtBR } from '@ticketvibe/shared';`) e mantenha o resto do arquivo como está. Em `apps/web/src/components/cart-panel.tsx`, apague a constante local `TICKET_TYPE_OPTIONS` e monte as opções com `Object.entries(TICKET_TYPE_LABELS)` do `@ticketvibe/shared` (o array vira `{ value, label }` no map; mesmos rótulos, mesmos valores — os specs existentes continuam válidos).
 
 - [ ] **Step 5: Escreva o teste do template (red)**
 
@@ -216,7 +216,7 @@ O recibo precisa do endereço do comprador no momento da compra (o e-mail do usu
   - `orders.buyer_email` — `text('buyer_email')` (nullable: os pedidos anteriores à migration ficam `null`).
   - `order_items.sector_name` — `text('sector_name')` (nullable pelo mesmo motivo).
   - `OrderRecord.buyerEmail: string | null`, `OrderItemRecord.sectorName: string | null`.
-  - `CreateOrderInput.buyerEmail: string`.
+  - `CreateOrderInput.buyerEmail: string | null` (o `execute` já recebe `buyerEmail: string | null`; a coluna é nullable).
 
 - [ ] **Step 1: Escreva o teste que falha (unitário do use-case)**
 
@@ -285,7 +285,7 @@ O módulo de e-mails nasce aqui: um port de envio, o transporte SMTP extraído d
 - Produces:
   - `apps/api/src/modules/emails/infra/smtp-email-sender.ts`:
     ```ts
-    export function createSmtpEmailSender(): EmailSender;
+    export function createSmtpEmailSender(transport?: Transporter): EmailSender;
     export function createSmtpTransport(): Transporter; // reutilizado pelo módulo de auth
     ```
   - `apps/api/src/modules/emails/domain/order-confirmation-queue.ts`:
@@ -394,15 +394,15 @@ O job decide sozinho se há e-mail a enviar (é o único que conhece o estado do
       now?: () => Date;
     }): (data: OrderConfirmationJobData) => Promise<void>;
     ```
-  - `apps/api/src/modules/emails/create-emails-worker.ts`:
+  - `apps/api/src/modules/emails/create-emails-worker.ts` (`async`, como `createPaymentsWorker`):
     ```ts
-    export function createEmailsWorker(input: {
+    export async function createEmailsWorker(input: {
       db: Db;
       connection: RedisClient;
-    }): {
+    }): Promise<{
       queue: Queue<OrderConfirmationJobData>;
       worker: Worker<OrderConfirmationJobData, unknown>;
-    };
+    }>;
     ```
   - Tabela `order_confirmation_emails`:
     ```ts
@@ -472,7 +472,7 @@ Em `apps/api/src/modules/emails/create-emails-worker.ts`, espelhe `apps/api/src/
 - [ ] **Step 7: Registre o worker nos dois processos**
 
 - `apps/api/src/worker.ts`: após o bloco de pagamentos, crie o worker de e-mails com a **mesma** `connection` já existente no arquivo e inclua `queue`/`worker` no `shutdown()`.
-- `apps/api/src/index.ts`: crie um worker de e-mails com uma conexão dedicada (`createRedis()` + `connection.options.maxRetriesPerRequest = null`) e inclua `queue`/`worker` no `shutdown()` já existente — é o que permite o E2E (que não sobe o processo `worker.ts`) receber o e-mail.
+- `apps/api/src/index.ts`: crie o worker de e-mails com a **mesma** `connection` já usada pelo worker de pagamentos (ela já está com `maxRetriesPerRequest = null`) e inclua `queue`/`worker` no `shutdown()` já existente — é o que permite o E2E (que não sobe o processo `worker.ts`) receber o e-mail.
 
 - [ ] **Step 8: O teste de integração com fila real**
 
@@ -505,6 +505,8 @@ O job de pagamento é quem sabe que o pedido ficou pago. Ele enfileira o e-mail 
 - Modify: `apps/api/src/modules/payments/jobs/process-payment-event.ts`
 - Modify: `apps/api/src/modules/payments/jobs/process-payment-event.spec.ts`
 - Modify: `apps/api/src/modules/payments/create-payments-worker.ts`
+- Modify: `apps/api/src/worker.ts`
+- Modify: `apps/api/src/index.ts`
 
 **Interfaces:**
 - Consumes: `OrderConfirmationQueue` (`enqueue({ orderId })`).
@@ -539,7 +541,7 @@ if (result.kind === 'paid' || (result.kind === 'already' && result.status === 'p
 
 - [ ] **Step 5: O worker de pagamentos monta a fila de e-mails**
 
-Em `create-payments-worker.ts`, crie a fila de e-mails (`createBullMqOrderConfirmationQueue({ connection: input.connection })`) e passe-a ao `createProcessPaymentEventJob` ✓. O worker de e-mails em si é o da Task 4 (não duplique a factory).
+Em `create-payments-worker.ts`, crie a fila de e-mails (`createBullMqOrderConfirmationQueue({ connection: input.connection })`) e passe-a ao `createProcessPaymentEventJob` ✓. Devolva-a também no objeto de retorno (`emailQueue`), e em `worker.ts` e `index.ts` inclua `emailQueue.close()` nos `shutdown()` correspondentes. O worker de e-mails em si é o da Task 4 (não duplique a factory).
 
 - [ ] **Step 6: Rode e veja passar**
 
@@ -570,11 +572,13 @@ git commit -m "feat(api): enqueue the confirmation email when the payment is cap
 - Consumes: `registerVerifiedBuyer`/`WEB` (`helpers/auth.ts`), `signStripeWebhook` (`helpers/stripe.ts`), a API do Mailpit (`http://127.0.0.1:8025/api/v1`).
 - Produces:
   - `helpers/mailpit.ts`: `waitForEmail(request, to, subjectFragment): Promise<{ subject: string; text: string }>` (mesma mecânica de `waitForEmailLink`, mas devolvendo assunto e texto).
-  - `helpers/checkout.ts`: `approvePayment(request, order: { providerRef: string; totalCents: number }): Promise<string>` (a função hoje local de `checkout.spec.ts`, extraída sem alteração de comportamento) e `readLatestOrder(): Promise<{ id: string; providerRef: string; totalCents: number }>` (movida de `helpers/orders.ts` para cá, com `checkout.spec.ts` ajustando o import).
+  - `helpers/checkout.ts`: `approvePayment(request, order: { providerRef: string; totalCents: number }): Promise<string>` (a função hoje local de `checkout.spec.ts`, extraída sem alteração de comportamento). `readLatestOrder` **permanece** em `helpers/orders.ts` — não a mova.
 
 - [ ] **Step 1: Escreva o teste que falha (red)**
 
-Crie `apps/web/tests/e2e/checkout-email.spec.ts` (título em pt-BR): `compra dispara o e-mail de confirmação para o comprador`. Sequência: `registerVerifiedBuyer` → escolher `Cadeira 6, fila A` na página de ingressos → "Finalizar compra" → "Pagar" → ler o pedido mais recente (`readLatestOrder`) → `approvePayment` (webhook assinado) → `waitForEmail(request, email, 'Compra confirmada')` → o texto do e-mail contém `Total: R$ 132,00` e `Plateia · Fila A · Cadeira 6`.
+Crie `apps/web/tests/e2e/checkout-email.spec.ts` (título em pt-BR): `compra dispara o e-mail de confirmação para o comprador`. Sequência: `registerVerifiedBuyer` → escolher `Cadeira 6, fila A` na página de ingressos → "Finalizar compra" → "Pagar" → ler o pedido mais recente (`readLatestOrder`, de `helpers/orders.ts`) → `approvePayment` (webhook assinado) → `waitForEmail(request, email, 'Compra confirmada')` → o texto do e-mail contém `Total: R$ 132,00` e `Plateia · Fila A · Cadeira 6`.
+
+O spec precisa da mesma higiene do `checkout.spec.ts`: `test.setTimeout(60_000)`, um `afterEach` que chama `restoreSeat('6')`, `deleteOrdersByBuyer([...buyerEmails])` e `deletePaymentEvents([...providerEventIds])` (e limpa os sets), e a coleta do `eventId` devolvido por `approvePayment` em `providerEventIds`. Se a compra exigir login (o checkout redireciona para a conta), siga a mesma sequência do teste existente: sair, escolher o assento, finalizar, entrar, voltar ao checkout.
 
 - [ ] **Step 2: Rode e veja falhar**
 
@@ -587,7 +591,7 @@ Em `apps/web/tests/e2e/helpers/mailpit.ts`, acrescente `waitForEmail(request, to
 
 - [ ] **Step 4: Extraia o helper do checkout**
 
-Mova `approvePayment` (e `readLatestOrder`, se ela ainda estiver em `helpers/orders.ts`) para `apps/web/tests/e2e/helpers/checkout.ts` e faça `checkout.spec.ts` importar de lá — **sem alterar as asserções** dos dois testes existentes.
+Mova `approvePayment` para `apps/web/tests/e2e/helpers/checkout.ts` e faça `checkout.spec.ts` importar de lá — **sem alterar as asserções** dos dois testes existentes e sem mover nenhum outro helper.
 
 - [ ] **Step 5: Rode e veja passar**
 
