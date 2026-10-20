@@ -72,11 +72,18 @@ export function createOrderConfirmationJob(deps: {
     try {
       await deps.emailSender.send(message);
     } catch (error) {
-      await deps.confirmations.markFailed({
-        orderId: order.id,
-        error: error instanceof Error ? error.message : String(error),
-        now: now(),
-      });
+      try {
+        await deps.confirmations.markFailed({
+          orderId: order.id,
+          error: error instanceof Error ? error.message : String(error),
+          now: now(),
+        });
+      } catch (markError) {
+        console.error(
+          '[worker] email job could not record the send failure',
+          markError,
+        );
+      }
       throw error;
     }
 

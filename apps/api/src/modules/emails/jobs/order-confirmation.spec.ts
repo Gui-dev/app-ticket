@@ -69,6 +69,7 @@ function setup(
     event?: EventDetailEntity | null;
     state?: OrderConfirmationState | null;
     sendError?: Error;
+    markFailedError?: Error;
   } = {},
 ) {
   const order = input.order === undefined ? paidOrder : input.order;
@@ -80,7 +81,9 @@ function setup(
   const find = vi.fn(async () => state);
   const markSent = vi.fn(async (_input: { orderId: string; now: Date }) => {});
   const markFailed = vi.fn(
-    async (_input: { orderId: string; error: string; now: Date }) => {},
+    async (_input: { orderId: string; error: string; now: Date }) => {
+      if (input.markFailedError) throw input.markFailedError;
+    },
   );
   const send = vi.fn(async (_message: EmailMessage) => {
     if (input.sendError) throw input.sendError;
@@ -197,6 +200,30 @@ describe('job de confirmação do pedido', () => {
       error: 'smtp indisponível',
       now: NOW,
     });
+  });
+
+  it('relança o erro de envio quando o registro da falha também falha', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { run, send, markSent, markFailed } = setup({
+      sendError: new Error('smtp indisponível'),
+      markFailedError: new Error('db indisponível'),
+    });
+
+    await expect(run({ orderId: 'order-1' })).rejects.toThrow(
+      'smtp indisponível',
+    );
+
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(markSent).not.toHaveBeenCalled();
+    expect(markFailed).toHaveBeenCalledWith({
+      orderId: 'order-1',
+      error: 'smtp indisponível',
+      now: NOW,
+    });
+    expect(logged).toHaveBeenCalledWith(
+      '[worker] email job could not record the send failure',
+      expect.any(Error),
+    );
   });
 
   it('apenas avisa e não envia quando o pedido não existe', async () => {
