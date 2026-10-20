@@ -1,6 +1,7 @@
 import { buildApp } from './app';
 import { createDb } from './db/client';
 import { loadEnvFile } from './load-env';
+import { createEmailsWorker } from './modules/emails/create-emails-worker';
 import { createPaymentsWorker } from './modules/payments/create-payments-worker';
 import { createRedis } from './redis/client';
 
@@ -15,6 +16,10 @@ const connection = createRedis();
 connection.options.maxRetriesPerRequest = null;
 
 const { queue, worker } = await createPaymentsWorker({ db, connection });
+const { queue: emailsQueue, worker: emailsWorker } = await createEmailsWorker({
+  db,
+  connection,
+});
 
 app
   .listen({ port, host: '0.0.0.0' })
@@ -28,7 +33,9 @@ app
 
 async function shutdown(): Promise<void> {
   await worker.close();
+  await emailsWorker.close();
   await queue.close();
+  await emailsQueue.close();
   connection.disconnect();
   await app.close();
   process.exit(0);

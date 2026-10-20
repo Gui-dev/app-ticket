@@ -2,6 +2,7 @@ import { Queue, Worker } from 'bullmq';
 
 import { createDb } from './db/client.js';
 import { loadEnvFile } from './load-env.js';
+import { createEmailsWorker } from './modules/emails/create-emails-worker.js';
 import { createPaymentsWorker } from './modules/payments/create-payments-worker.js';
 import {
   createExpireSeatHoldsJob,
@@ -48,11 +49,20 @@ const { queue: paymentsQueue, worker: paymentsWorker } =
 
 console.log('[worker] payments worker started');
 
+const { queue: emailsQueue, worker: emailsWorker } = await createEmailsWorker({
+  db,
+  connection,
+});
+
+console.log('[worker] emails worker started');
+
 async function shutdown(): Promise<void> {
   await worker.close();
   await paymentsWorker.close();
+  await emailsWorker.close();
   await queue.close();
   await paymentsQueue.close();
+  await emailsQueue.close();
   connection.disconnect();
 }
 

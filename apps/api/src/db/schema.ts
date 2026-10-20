@@ -208,6 +208,21 @@ export const orderItems = pgTable(
   ],
 );
 
+export const orderConfirmationEmails = pgTable('order_confirmation_emails', {
+  orderId: uuid('order_id')
+    .primaryKey()
+    .references(() => orders.id, { onDelete: 'cascade' }),
+  status: text('status')
+    .$type<'pending' | 'sent' | 'failed'>()
+    .notNull()
+    .default('pending'),
+  sentAt: timestamp('sent_at', { withTimezone: true, mode: 'date' }),
+  lastError: text('last_error'),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
+    .notNull()
+    .defaultNow(),
+});
+
 export const paymentEvents = pgTable('payment_events', {
   providerEventId: text('provider_event_id').primaryKey(),
   provider: text('provider').notNull(),
