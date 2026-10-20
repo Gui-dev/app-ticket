@@ -9,8 +9,8 @@ import type { SeatCaptureGateway } from '../domain/seat-capture-gateway.js';
 import { releaseOrderSeatsAndClearCart } from './release-order-seats-and-clear-cart.js';
 
 export type ConfirmOrderPaymentResult =
-  | { kind: 'paid' }
-  | { kind: 'already'; status: OrderStatus }
+  | { kind: 'paid'; orderId: string }
+  | { kind: 'already'; status: OrderStatus; orderId: string }
   | { kind: 'amount_mismatch' }
   | { kind: 'refunded' }
   | { kind: 'ignored' };
@@ -38,7 +38,7 @@ export class ConfirmOrderPaymentUseCase {
 
     if (order.status !== 'pending') {
       if (order.status === 'paid') {
-        return { kind: 'already', status: 'paid' };
+        return { kind: 'already', status: 'paid', orderId: order.id };
       }
       await this.refundAndReleaseSeats(order, input.providerRef, now);
       return { kind: 'refunded' };
@@ -54,10 +54,12 @@ export class ConfirmOrderPaymentUseCase {
       providerRef: input.providerRef,
       now,
     });
-    if (capture.kind === 'paid') return { kind: 'paid' };
+    if (capture.kind === 'paid') {
+      return { kind: 'paid', orderId: order.id };
+    }
     if (capture.kind === 'already') {
       if (capture.status === 'paid') {
-        return { kind: 'already', status: 'paid' };
+        return { kind: 'already', status: 'paid', orderId: order.id };
       }
       await this.refundAndReleaseSeats(order, input.providerRef, now);
       return { kind: 'refunded' };

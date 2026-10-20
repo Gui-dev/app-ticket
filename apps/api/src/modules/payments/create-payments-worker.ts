@@ -2,6 +2,7 @@ import { Queue, Worker } from 'bullmq';
 
 import type { Db } from '../../db/client.js';
 import type { RedisClient } from '../../redis/client.js';
+import { createBullMqOrderConfirmationQueue } from '../emails/infra/bullmq-order-confirmation-queue.js';
 import { createPaymentsWorkerDeps } from './create-payments-worker-deps.js';
 import {
   createExpirePendingOrdersJob,
@@ -35,9 +36,13 @@ export async function createPaymentsWorker(input: {
     db: input.db,
     redis: input.connection,
   });
+  const orderConfirmationQueue = createBullMqOrderConfirmationQueue({
+    connection: input.connection,
+  });
   const processPaymentEvent = createProcessPaymentEventJob({
     confirmOrderPayment: deps.confirmOrderPayment,
     failOrder: deps.failOrder,
+    orderConfirmationQueue,
   });
   const expirePendingOrders = createExpirePendingOrdersJob({
     expirePendingOrders: deps.expirePendingOrders,

@@ -1,3 +1,4 @@
+import type { OrderConfirmationQueue } from '../../emails/domain/order-confirmation-queue.js';
 import type { ConfirmOrderPaymentUseCase } from '../../orders/use-cases/confirm-order-payment.use-case.js';
 import type { ExpirePendingOrdersUseCase } from '../../orders/use-cases/expire-pending-orders.use-case.js';
 import type { FailOrderUseCase } from '../../orders/use-cases/fail-order.use-case.js';
@@ -29,18 +30,28 @@ export interface PaymentEventJobData {
 export function createProcessPaymentEventJob(deps: {
   confirmOrderPayment: ConfirmOrderPaymentUseCase;
   failOrder: FailOrderUseCase;
+  orderConfirmationQueue: OrderConfirmationQueue;
 }): (data: PaymentEventJobData) => Promise<void> {
   return async (data) => {
     if (data.providerRef === null) return;
     const providerRef = data.providerRef;
 
     switch (data.type) {
-      case 'succeeded':
-        await deps.confirmOrderPayment.execute({
+      case 'succeeded': {
+        const result = await deps.confirmOrderPayment.execute({
           providerRef,
           amountCents: data.amountCents,
         });
+        if (
+          result.kind === 'paid' ||
+          (result.kind === 'already' && result.status === 'paid')
+        ) {
+          await deps.orderConfirmationQueue.enqueue({
+            orderId: result.orderId,
+          });
+        }
         return;
+      }
       case 'failed':
         await deps.failOrder.execute({ providerRef, terminal: 'failed' });
         return;

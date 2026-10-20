@@ -112,7 +112,7 @@ describe('ConfirmOrderPaymentUseCase', () => {
       amountCents: 13200,
     });
 
-    expect(result).toEqual({ kind: 'paid' });
+    expect(result).toEqual({ kind: 'paid', orderId: 'order-1' });
     expect(harness.findByProviderRef).toHaveBeenCalledWith('pi_1');
     expect(harness.confirmOrderPayment).toHaveBeenCalledWith({
       providerRef: 'pi_1',
@@ -132,7 +132,7 @@ describe('ConfirmOrderPaymentUseCase', () => {
       amountCents: null,
     });
 
-    expect(result).toEqual({ kind: 'paid' });
+    expect(result).toEqual({ kind: 'paid', orderId: 'order-1' });
   });
 
   it('ignora uma referência de pagamento desconhecida', async () => {
@@ -156,7 +156,11 @@ describe('ConfirmOrderPaymentUseCase', () => {
       amountCents: 13200,
     });
 
-    expect(result).toEqual({ kind: 'already', status: 'paid' });
+    expect(result).toEqual({
+      kind: 'already',
+      status: 'paid',
+      orderId: 'order-1',
+    });
     expect(harness.confirmOrderPayment).not.toHaveBeenCalled();
     expect(harness.refund).not.toHaveBeenCalled();
     expect(harness.releaseOrderSeats).not.toHaveBeenCalled();
@@ -329,7 +333,11 @@ describe('ConfirmOrderPaymentUseCase', () => {
       amountCents: 13200,
     });
 
-    expect(result).toEqual({ kind: 'already', status: 'paid' });
+    expect(result).toEqual({
+      kind: 'already',
+      status: 'paid',
+      orderId: 'order-1',
+    });
     expect(harness.refund).not.toHaveBeenCalled();
     expect(harness.releaseOrderSeats).not.toHaveBeenCalled();
     expect(harness.release).not.toHaveBeenCalled();

@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { ConfirmOrderPaymentUseCase } from '../../orders/use-cases/confirm-order-payment.use-case.js';
+import type { OrderConfirmationQueue } from '../../emails/domain/order-confirmation-queue.js';
+import type {
+  ConfirmOrderPaymentResult,
+  ConfirmOrderPaymentUseCase,
+} from '../../orders/use-cases/confirm-order-payment.use-case.js';
 import type { ExpirePendingOrdersUseCase } from '../../orders/use-cases/expire-pending-orders.use-case.js';
 import type { FailOrderUseCase } from '../../orders/use-cases/fail-order.use-case.js';
 import {
@@ -14,12 +18,18 @@ import {
 } from './process-payment-event.js';
 
 function createHarness() {
-  const confirmExecute = vi.fn(async () => ({ kind: 'paid' as const }));
+  const confirmExecute = vi.fn(
+    async (): Promise<ConfirmOrderPaymentResult> => ({
+      kind: 'paid',
+      orderId: 'pedido-1',
+    }),
+  );
   const failExecute = vi.fn(async () => ({
     kind: 'terminal' as const,
     status: 'failed' as const,
   }));
   const expireExecute = vi.fn(async () => ({ expired: 3 }));
+  const enqueue = vi.fn(async () => undefined);
 
   const confirmOrderPayment = {
     execute: confirmExecute,
@@ -28,16 +38,21 @@ function createHarness() {
   const expirePendingOrders = {
     execute: expireExecute,
   } as unknown as ExpirePendingOrdersUseCase;
+  const orderConfirmationQueue = {
+    enqueue,
+  } as unknown as OrderConfirmationQueue;
 
   return {
     processPaymentEvent: createProcessPaymentEventJob({
       confirmOrderPayment,
       failOrder,
+      orderConfirmationQueue,
     }),
     expireJob: createExpirePendingOrdersJob({ expirePendingOrders }),
     confirmExecute,
     failExecute,
     expireExecute,
+    enqueue,
   };
 }
 
@@ -66,6 +81,60 @@ describe('process payment event job', () => {
       amountCents: 13200,
     });
     expect(harness.failExecute).not.toHaveBeenCalled();
+  });
+
+  it('enfileira o e-mail quando o pagamento é capturado', async () => {
+    const harness = createHarness();
+
+    await harness.processPaymentEvent(SUCCEEDED);
+
+    expect(harness.enqueue).toHaveBeenCalledTimes(1);
+    expect(harness.enqueue).toHaveBeenCalledWith({ orderId: 'pedido-1' });
+  });
+
+  it('enfileira o e-mail quando o pedido já estava pago', async () => {
+    const harness = createHarness();
+    harness.confirmExecute.mockResolvedValueOnce({
+      kind: 'already',
+      status: 'paid',
+      orderId: 'pedido-1',
+    });
+
+    await harness.processPaymentEvent(SUCCEEDED);
+
+    expect(harness.enqueue).toHaveBeenCalledTimes(1);
+    expect(harness.enqueue).toHaveBeenCalledWith({ orderId: 'pedido-1' });
+  });
+
+  it('não enfileira o e-mail em eventos que não confirmam o pagamento', async () => {
+    const harness = createHarness();
+
+    await harness.processPaymentEvent({
+      ...SUCCEEDED,
+      type: 'failed',
+      amountCents: null,
+    });
+    await harness.processPaymentEvent({
+      ...SUCCEEDED,
+      type: 'expired',
+      amountCents: null,
+    });
+    await harness.processPaymentEvent({
+      ...SUCCEEDED,
+      type: 'ignored',
+      amountCents: null,
+    });
+
+    expect(harness.enqueue).not.toHaveBeenCalled();
+  });
+
+  it('não enfileira o e-mail quando o pagamento não é confirmado', async () => {
+    const harness = createHarness();
+    harness.confirmExecute.mockResolvedValueOnce({ kind: 'refunded' });
+
+    await harness.processPaymentEvent(SUCCEEDED);
+
+    expect(harness.enqueue).not.toHaveBeenCalled();
   });
 
   it('marca failed em um evento failed', async () => {

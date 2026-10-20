@@ -177,7 +177,7 @@ describe('confirmação do pagamento (postgres + redis integration)', () => {
       amountCents: order.totalCents,
     });
 
-    expect(result).toEqual({ kind: 'paid' });
+    expect(result).toEqual({ kind: 'paid', orderId: order.id });
     expect(await readSeat(seat.seatId)).toMatchObject({
       status: 'occupied',
       holdUserId: null,
