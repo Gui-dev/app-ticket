@@ -44,3 +44,33 @@ export async function waitForEmailLink(
     `E-mail para ${to} com assunto "${subjectFragment}" não chegou em 15s`,
   );
 }
+
+export async function waitForEmail(
+  request: APIRequestContext,
+  to: string,
+  subjectFragment: string,
+): Promise<{ subject: string; text: string }> {
+  const deadline = Date.now() + 20_000;
+  while (Date.now() < deadline) {
+    const listResponse = await request.get(`${MAILPIT_API}/messages?limit=20`);
+    const body = (await listResponse.json()) as {
+      messages?: MailpitListItem[];
+    };
+    const match = (body.messages ?? []).find(
+      (message) =>
+        message.Subject.includes(subjectFragment) &&
+        message.To.some((recipient) => recipient.Address === to),
+    );
+    if (match) {
+      const fullResponse = await request.get(
+        `${MAILPIT_API}/message/${match.ID}`,
+      );
+      const full = (await fullResponse.json()) as { Text?: string };
+      return { subject: match.Subject, text: full.Text ?? '' };
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  throw new Error(
+    `E-mail para ${to} com assunto "${subjectFragment}" não chegou em 20s`,
+  );
+}
