@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { EventDetailEntity } from '../../events/domain/event-entity.js';
 import type { EventsRepository } from '../../events/domain/events-repository.js';
@@ -102,6 +102,10 @@ function setup(
 }
 
 describe('createOrderConfirmationJob', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('envia o e-mail e marca como enviado quando o pedido está pago', async () => {
     const { run, send, markSent, markFailed } = setup();
 
@@ -179,18 +183,18 @@ describe('createOrderConfirmationJob', () => {
     });
   });
 
-  it('marca como falho quando o pedido não existe', async () => {
+  it('apenas avisa e não envia quando o pedido não existe', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const { run, send, markSent, markFailed } = setup({ order: null });
 
-    await run({ orderId: 'order-1' });
+    await expect(run({ orderId: 'order-1' })).resolves.toBeUndefined();
 
     expect(send).not.toHaveBeenCalled();
     expect(markSent).not.toHaveBeenCalled();
-    expect(markFailed).toHaveBeenCalledWith({
-      orderId: 'order-1',
-      error: 'order_not_found',
-      now: NOW,
-    });
+    expect(markFailed).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith(
+      '[worker] email job skipped: order not found',
+    );
   });
 
   it('marca como falho quando o evento não existe', async () => {

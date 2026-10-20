@@ -40,11 +40,7 @@ export function createOrderConfirmationJob(deps: {
 
     const order = await deps.orders.findById(data.orderId);
     if (!order) {
-      await deps.confirmations.markFailed({
-        orderId: data.orderId,
-        error: 'order_not_found',
-        now: now(),
-      });
+      console.warn('[worker] email job skipped: order not found');
       return;
     }
 
