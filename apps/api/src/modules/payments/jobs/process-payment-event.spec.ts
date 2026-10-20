@@ -137,6 +137,15 @@ describe('process payment event job', () => {
     expect(harness.enqueue).not.toHaveBeenCalled();
   });
 
+  it('não enfileira o e-mail quando o valor capturado não bate com o pedido', async () => {
+    const harness = createHarness();
+    harness.confirmExecute.mockResolvedValueOnce({ kind: 'amount_mismatch' });
+
+    await harness.processPaymentEvent(SUCCEEDED);
+
+    expect(harness.enqueue).not.toHaveBeenCalled();
+  });
+
   it('marca failed em um evento failed', async () => {
     const harness = createHarness();
 
