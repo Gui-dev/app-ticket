@@ -41,6 +41,7 @@ export class InMemoryOrderRepository implements OrderRepository {
       paymentMethod: input.paymentMethod,
       provider: input.provider,
       providerRef: null,
+      buyerEmail: input.buyerEmail,
       subtotalCents: input.subtotalCents,
       serviceFeeCents: input.serviceFeeCents,
       totalCents: input.totalCents,

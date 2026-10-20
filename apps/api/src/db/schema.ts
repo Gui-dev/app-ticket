@@ -160,6 +160,7 @@ export const orders = pgTable(
     paymentMethod: text('payment_method').$type<'card' | 'boleto'>().notNull(),
     provider: text('provider').notNull(),
     providerRef: text('provider_ref'),
+    buyerEmail: text('buyer_email'),
     subtotalCents: integer('subtotal_cents').notNull(),
     serviceFeeCents: integer('service_fee_cents').notNull(),
     totalCents: integer('total_cents').notNull(),
@@ -191,6 +192,7 @@ export const orderItems = pgTable(
       .notNull()
       .references(() => seatRows.id),
     sectorSlug: text('sector_slug').notNull(),
+    sectorName: text('sector_name'),
     rowLabel: text('row_label').notNull(),
     seatLabel: text('seat_label').notNull(),
     ticketType: text('ticket_type')

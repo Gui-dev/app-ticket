@@ -85,6 +85,7 @@ const item = (
   seatId,
   rowId: 'row-A',
   sectorSlug: 'plateia',
+  sectorName: 'Plateia',
   rowLabel: 'A',
   seatLabel: seatId,
   ticketType,

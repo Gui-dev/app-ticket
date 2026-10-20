@@ -50,6 +50,25 @@ const twoSeatCart: GetCartResult = {
   },
 };
 
+const oneSeatCart: GetCartResult = {
+  kind: 'cart',
+  cart: {
+    eventSlug: EVENT_SLUG,
+    items: [
+      {
+        sectorSlug: 'plateia',
+        rowLabel: 'A',
+        seatLabel: '6',
+        ticketType: 'meia',
+        priceCents: 6000,
+        expiresAt: HOLD_EXPIRES_AT,
+      },
+    ],
+    expiresAt: HOLD_EXPIRES_AT,
+    totalCents: 6000,
+  },
+};
+
 const emptyCart: GetCartResult = {
   kind: 'cart',
   cart: { eventSlug: EVENT_SLUG, items: [], expiresAt: null, totalCents: 0 },
@@ -75,6 +94,7 @@ const cartItems = [
     seatId: 'seat-6',
     rowId: 'row-A',
     sectorSlug: 'plateia',
+    sectorName: 'Plateia',
     rowLabel: 'A',
     seatLabel: '6',
     ticketType: 'meia' as const,
@@ -84,6 +104,7 @@ const cartItems = [
     seatId: 'seat-7',
     rowId: 'row-A',
     sectorSlug: 'plateia',
+    sectorName: 'Plateia',
     rowLabel: 'A',
     seatLabel: '7',
     ticketType: 'inteira' as const,
@@ -101,6 +122,7 @@ function existingOrder(overrides: Partial<OrderRecord> = {}): OrderRecord {
     paymentMethod: 'card',
     provider: 'stripe',
     providerRef: 'pi_existing',
+    buyerEmail: 'comprador@example.com',
     subtotalCents: 18000,
     serviceFeeCents: 1800,
     totalCents: 19800,
@@ -194,6 +216,7 @@ function createHarness(options: HarnessOptions = {}) {
         paymentMethod: input.paymentMethod,
         provider: input.provider,
         providerRef: null,
+        buyerEmail: input.buyerEmail,
         subtotalCents: input.subtotalCents,
         serviceFeeCents: input.serviceFeeCents,
         totalCents: input.totalCents,
@@ -270,6 +293,7 @@ describe('CreateOrderUseCase', () => {
       eventId: 'ev1',
       paymentMethod: 'card',
       provider: 'stripe',
+      buyerEmail: 'b@x.com',
       subtotalCents: 18000,
       serviceFeeCents: 1800,
       totalCents: 19800,
@@ -278,6 +302,7 @@ describe('CreateOrderUseCase', () => {
           seatId: 'seat-6',
           rowId: 'row-A',
           sectorSlug: 'plateia',
+          sectorName: 'Plateia',
           rowLabel: 'A',
           seatLabel: '6',
           ticketType: 'meia',
@@ -287,6 +312,7 @@ describe('CreateOrderUseCase', () => {
           seatId: 'seat-7',
           rowId: 'row-A',
           sectorSlug: 'plateia',
+          sectorName: 'Plateia',
           rowLabel: 'A',
           seatLabel: '7',
           ticketType: 'inteira',
@@ -314,6 +340,27 @@ describe('CreateOrderUseCase', () => {
       providerRef: 'pi_1',
       clientSecret: 'cs_1',
     });
+  });
+
+  it('guarda o e-mail do comprador e o nome do setor no pedido', async () => {
+    const harness = createHarness({ cart: oneSeatCart });
+
+    await harness.useCase.execute({
+      ...baseInput,
+      buyerEmail: 'comprador@example.com',
+    });
+
+    expect(harness.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        buyerEmail: 'comprador@example.com',
+        items: [
+          expect.objectContaining({
+            seatLabel: '6',
+            sectorName: 'Plateia',
+          }),
+        ],
+      }),
+    );
   });
 
   it('reutiliza o pedido pendente existente em vez de criar outro', async () => {
@@ -347,6 +394,7 @@ describe('CreateOrderUseCase', () => {
             seatId: 'seat-6',
             rowId: 'row-A',
             sectorSlug: 'plateia',
+            sectorName: 'Plateia',
             rowLabel: 'A',
             seatLabel: '6',
             ticketType: 'inteira',
@@ -425,6 +473,7 @@ describe('CreateOrderUseCase', () => {
             seatId: 'seat-6',
             rowId: 'row-A',
             sectorSlug: 'plateia',
+            sectorName: 'Plateia',
             rowLabel: 'A',
             seatLabel: '6',
             ticketType: 'inteira',
@@ -459,6 +508,7 @@ describe('CreateOrderUseCase', () => {
             seatId: 'seat-6',
             rowId: 'row-A',
             sectorSlug: 'plateia',
+            sectorName: 'Plateia',
             rowLabel: 'A',
             seatLabel: '6',
             ticketType: 'inteira',
@@ -648,6 +698,7 @@ describe('CreateOrderUseCase', () => {
             seatId: 'seat-7',
             rowId: 'row-A',
             sectorSlug: 'plateia',
+            sectorName: 'Plateia',
             rowLabel: 'A',
             seatLabel: '7',
             ticketType: 'inteira',

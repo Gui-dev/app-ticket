@@ -33,6 +33,7 @@ function pendingOrder(overrides: Partial<OrderRecord> = {}): OrderRecord {
     paymentMethod: 'card',
     provider: 'fake',
     providerRef: 'pi_1',
+    buyerEmail: 'comprador@example.com',
     subtotalCents: 12000,
     serviceFeeCents: 1200,
     totalCents: 13200,

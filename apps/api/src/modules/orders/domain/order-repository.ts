@@ -7,6 +7,7 @@ export interface CreateOrderInput {
   eventId: string;
   paymentMethod: PaymentMethod;
   provider: string;
+  buyerEmail: string | null;
   subtotalCents: number;
   serviceFeeCents: number;
   totalCents: number;

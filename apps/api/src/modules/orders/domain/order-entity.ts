@@ -8,6 +8,7 @@ export interface OrderItemRecord {
   seatId: string;
   rowId: string;
   sectorSlug: string;
+  sectorName: string | null;
   rowLabel: string;
   seatLabel: string;
   ticketType: TicketType;
@@ -23,6 +24,7 @@ export interface OrderRecord {
   paymentMethod: PaymentMethod;
   provider: string;
   providerRef: string | null;
+  buyerEmail: string | null;
   subtotalCents: number;
   serviceFeeCents: number;
   totalCents: number;
