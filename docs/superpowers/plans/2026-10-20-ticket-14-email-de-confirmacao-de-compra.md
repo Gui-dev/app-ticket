@@ -292,10 +292,18 @@ O módulo de e-mails nasce aqui: um port de envio, o transporte SMTP extraído d
     ```ts
     export const EMAILS_QUEUE_NAME = 'emails';
     export const ORDER_CONFIRMATION_JOB = 'order-confirmation';
+    export const EMAIL_JOB_ATTEMPTS = 6;
+    export const EMAIL_JOB_BACKOFF_DELAY_MS = 5000;
+    export const EMAIL_JOB_OPTIONS = {
+      attempts: EMAIL_JOB_ATTEMPTS,
+      backoff: { type: 'exponential', delay: EMAIL_JOB_BACKOFF_DELAY_MS },
+      removeOnFail: true,
+    } as const;
     export interface OrderConfirmationQueue {
       enqueue(input: { orderId: string }): Promise<void>;
     }
     ```
+    As opções moram aqui (contrato da fila) porque o produtor — criado nesta task — precisa delas ao dar `add`; a Task 4 importa as mesmas constantes.
   - `apps/api/src/modules/emails/infra/bullmq-order-confirmation-queue.ts`:
     ```ts
     export function createBullMqOrderConfirmationQueue(input: {
@@ -322,7 +330,7 @@ Expected: FAIL — os módulos ainda não existem.
 - [ ] **Step 4: Implemente o port e a impl da fila**
 
 - `domain/order-confirmation-queue.ts`: as constantes `EMAILS_QUEUE_NAME = 'emails'` e `ORDER_CONFIRMATION_JOB = 'order-confirmation'` mais a interface `OrderConfirmationQueue` (bloco de Interfaces acima). A Task 4 importa estas constantes daqui — não as redeclare nem duplique.
-- `infra/bullmq-order-confirmation-queue.ts`: `new Queue(EMAILS_QUEUE_NAME, { connection })` e `enqueue` chamando `queue.add(ORDER_CONFIRMATION_JOB, { orderId }, { jobId: `order-confirmation-${orderId}` })`.
+- `infra/bullmq-order-confirmation-queue.ts`: `new Queue(EMAILS_QUEUE_NAME, { connection })` e `enqueue` chamando `queue.add(ORDER_CONFIRMATION_JOB, { orderId }, { jobId: `order-confirmation-${orderId}`, ...EMAIL_JOB_OPTIONS })` — o spread é obrigatório: sem ele o job nasce com os defaults do BullMQ (`attempts: 1`, sem backoff) e nunca reprocessa. Espelhe `apps/api/src/modules/payments/infra/bullmq-payment-event-queue.ts`, que já espalha `PAYMENT_JOB_OPTIONS` no `add`.
 
 - [ ] **Step 5: Rode e veja passar**
 
@@ -374,15 +382,8 @@ O job decide sozinho se há e-mail a enviar (é o único que conhece o estado do
       markFailed(input: { orderId: string; error: string; now: Date }): Promise<void>;
     }
     ```
-  - `apps/api/src/modules/emails/jobs/order-confirmation.ts` (importa `EMAILS_QUEUE_NAME` e `ORDER_CONFIRMATION_JOB` de `domain/order-confirmation-queue.ts` — não os redeclara):
+  - `apps/api/src/modules/emails/jobs/order-confirmation.ts` (importa `EMAILS_QUEUE_NAME`, `ORDER_CONFIRMATION_JOB` e `EMAIL_JOB_OPTIONS`/`EMAIL_JOB_ATTEMPTS`/`EMAIL_JOB_BACKOFF_DELAY_MS` de `domain/order-confirmation-queue.ts` — não os redeclara):
     ```ts
-    export const EMAIL_JOB_ATTEMPTS = 6;
-    export const EMAIL_JOB_BACKOFF_DELAY_MS = 5000;
-    export const EMAIL_JOB_OPTIONS = {
-      attempts: EMAIL_JOB_ATTEMPTS,
-      backoff: { type: 'exponential', delay: EMAIL_JOB_BACKOFF_DELAY_MS },
-      removeOnFail: true,
-    } as const;
     export interface OrderConfirmationJobData {
       orderId: string;
     }
@@ -431,7 +432,7 @@ Crie `apps/api/src/modules/emails/jobs/order-confirmation.spec.ts` (pt-BR) com f
 3. pedido com `status !== 'paid'` ⇒ nenhum e-mail e `markFailed` com `error: 'order_not_paid'`;
 4. pedido sem `buyerEmail` ⇒ nenhum e-mail e `markFailed` com `error: 'missing_buyer_email'`;
 5. `emailSender.send` rejeita ⇒ `markFailed` com a mensagem do erro **e** o erro é relançado (para o BullMQ reprocessar);
-6. pedido inexistente ⇒ nenhum e-mail e `markFailed` com `error: 'order_not_found'`;
+6. pedido inexistente ⇒ nenhum e-mail, **nenhum** `markFailed` (a FK para `orders.id` impediria gravar) e nenhum throw — o job apenas registra o motivo e retorna;
 7. evento inexistente ⇒ nenhum e-mail e `markFailed` com `error: 'event_not_found'`.
 
 - [ ] **Step 2: Rode e veja falhar**
@@ -456,7 +457,7 @@ Expected: cria a migração `00XX_*.sql` com `CREATE TABLE order_confirmation_em
 Em `apps/api/src/modules/emails/jobs/order-confirmation.ts`, implemente `createOrderConfirmationJob` com esta ordem exata de decisões:
 
 1. `const state = await deps.confirmations.find(data.orderId)` — se `state?.status === 'sent'`, **retorne sem enviar** (idempotência);
-2. `const order = await deps.orders.findById(data.orderId)` — se `null`: `markFailed({ orderId, error: 'order_not_found', now: now() })` e retorne;
+2. `const order = await deps.orders.findById(data.orderId)` — se `null`: registre `[worker] email job skipped: order not found` com `console.warn` e retorne (não existe linha para marcar: `order_confirmation_emails.order_id` referencia `orders.id`, então `markFailed` violaria a FK);
 3. se `order.status !== 'paid'`: `markFailed({ orderId, error: 'order_not_paid', now: now() })` e retorne;
 4. se `order.buyerEmail` for `null`/vazio: `markFailed({ orderId, error: 'missing_buyer_email', now: now() })` e retorne;
 5. `const event = await deps.events.findBySlug(order.eventSlug)` — se `null`: `markFailed({ orderId, error: 'event_not_found', now: now() })` e retorne;
