@@ -69,6 +69,25 @@ const oneSeatCart: GetCartResult = {
   },
 };
 
+const camaroteSeatCart: GetCartResult = {
+  kind: 'cart',
+  cart: {
+    eventSlug: EVENT_SLUG,
+    items: [
+      {
+        sectorSlug: 'camarote',
+        rowLabel: 'B',
+        seatLabel: '1',
+        ticketType: 'inteira',
+        priceCents: 12000,
+        expiresAt: HOLD_EXPIRES_AT,
+      },
+    ],
+    expiresAt: HOLD_EXPIRES_AT,
+    totalCents: 12000,
+  },
+};
+
 const emptyCart: GetCartResult = {
   kind: 'cart',
   cart: { eventSlug: EVENT_SLUG, items: [], expiresAt: null, totalCents: 0 },
@@ -76,10 +95,16 @@ const emptyCart: GetCartResult = {
 
 const seatCoords: Record<
   string,
-  { seatId: string; rowId: string; eventId: string }
+  { seatId: string; rowId: string; eventId: string; sectorName?: string }
 > = {
   'plateia:A:6': { seatId: 'seat-6', rowId: 'row-A', eventId: 'ev1' },
   'plateia:A:7': { seatId: 'seat-7', rowId: 'row-A', eventId: 'ev1' },
+  'camarote:B:1': {
+    seatId: 'seat-b1',
+    rowId: 'row-B',
+    eventId: 'ev1',
+    sectorName: 'Camarote',
+  },
 };
 
 const baseInput = {
@@ -169,7 +194,7 @@ function createHarness(options: HarnessOptions = {}) {
           ...coords,
           status: 'reserved' as const,
           sectorSlug: input.sectorSlug,
-          sectorName: 'Plateia',
+          sectorName: coords.sectorName ?? 'Plateia',
           priceFromCents: 12000,
           rowLabel: input.rowLabel,
           seatLabel: input.seatLabel,
@@ -357,6 +382,24 @@ describe('CreateOrderUseCase', () => {
           expect.objectContaining({
             seatLabel: '6',
             sectorName: 'Plateia',
+          }),
+        ],
+      }),
+    );
+  });
+
+  it('propaga o nome do setor do assento para o item do pedido', async () => {
+    const harness = createHarness({ cart: camaroteSeatCart });
+
+    await harness.useCase.execute(baseInput);
+
+    expect(harness.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        items: [
+          expect.objectContaining({
+            seatId: 'seat-b1',
+            sectorSlug: 'camarote',
+            sectorName: 'Camarote',
           }),
         ],
       }),
