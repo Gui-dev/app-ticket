@@ -10,6 +10,7 @@ export const EMAIL_JOB_OPTIONS = {
     delay: EMAIL_JOB_BACKOFF_DELAY_MS,
   },
   removeOnFail: true,
+  removeOnComplete: true,
 } as const;
 
 export interface OrderConfirmationQueue {

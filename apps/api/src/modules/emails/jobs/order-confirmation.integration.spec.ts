@@ -27,6 +27,7 @@ import { DrizzleEventsRepository } from '../../events/infra/drizzle-events-repos
 import { DrizzleOrderRepository } from '../../orders/infra/drizzle-order-repository.js';
 import type { EmailMessage } from '../domain/email-sender.js';
 import {
+  EMAIL_JOB_OPTIONS,
   EMAILS_QUEUE_NAME,
   ORDER_CONFIRMATION_JOB,
 } from '../domain/order-confirmation-queue.js';
@@ -47,7 +48,7 @@ describe('envio do e-mail de confirmação (integração postgres + redis)', () 
   let orderRepository: DrizzleOrderRepository;
   let confirmations: DrizzleOrderConfirmationRepository;
   let eventId: string;
-  let jobCounter = 0;
+  let processedJobs = 0;
   const sent: EmailMessage[] = [];
 
   beforeAll(async () => {
@@ -75,6 +76,7 @@ describe('envio do e-mail de confirmação (integração postgres + redis)', () 
 
     queue = new Queue<OrderConfirmationJobData>(EMAILS_QUEUE_NAME, {
       connection: redis,
+      defaultJobOptions: EMAIL_JOB_OPTIONS,
     });
     worker = new Worker<OrderConfirmationJobData, unknown>(
       EMAILS_QUEUE_NAME,
@@ -89,7 +91,7 @@ describe('envio do e-mail de confirmação (integração postgres + redis)', () 
     await seedFixtures(testDb);
     await flushTestRedis();
     sent.length = 0;
-    jobCounter = 0;
+    processedJobs = 0;
     await testDb
       .insert(user)
       .values({ id: 'user-a', name: 'User A', email: 'user-a@example.com' });
@@ -156,10 +158,10 @@ describe('envio do e-mail de confirmação (integração postgres + redis)', () 
   }
 
   async function enqueueAndWait(orderId: string): Promise<void> {
-    jobCounter += 1;
     const finished = new Promise<void>((resolve, reject) => {
       const onCompleted = (job: Job<OrderConfirmationJobData> | undefined) => {
         if (job?.data.orderId !== orderId) return;
+        processedJobs += 1;
         cleanup();
         resolve();
       };
@@ -182,7 +184,7 @@ describe('envio do e-mail de confirmação (integração postgres + redis)', () 
     await queue.add(
       ORDER_CONFIRMATION_JOB,
       { orderId },
-      { jobId: `order-confirmation-test-${orderId}-${jobCounter}` },
+      { jobId: `order-confirmation-${orderId}` },
     );
 
     await finished;
@@ -204,6 +206,7 @@ describe('envio do e-mail de confirmação (integração postgres + redis)', () 
 
     await enqueueAndWait(order.id);
 
+    expect(processedJobs).toBe(2);
     expect(sent).toHaveLength(1);
     expect(await confirmations.find(order.id)).toMatchObject({
       status: 'sent',

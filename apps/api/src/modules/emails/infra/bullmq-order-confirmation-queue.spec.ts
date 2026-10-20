@@ -55,6 +55,7 @@ describe('createBullMqOrderConfirmationQueue', () => {
         attempts: 6,
         backoff: { type: 'exponential', delay: 5000 },
         removeOnFail: true,
+        removeOnComplete: true,
       },
     );
   });
