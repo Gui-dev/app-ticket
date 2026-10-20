@@ -541,7 +541,7 @@ if (result.kind === 'paid' || (result.kind === 'already' && result.status === 'p
 
 - [ ] **Step 5: O worker de pagamentos monta a fila de e-mails**
 
-Em `create-payments-worker.ts`, crie a fila de e-mails (`createBullMqOrderConfirmationQueue({ connection: input.connection })`) e passe-a ao `createProcessPaymentEventJob` ✓. Devolva-a também no objeto de retorno (`emailQueue`), e em `worker.ts` e `index.ts` inclua `emailQueue.close()` nos `shutdown()` correspondentes. O worker de e-mails em si é o da Task 4 (não duplique a factory).
+Em `create-payments-worker.ts`, crie a fila de e-mails (`createBullMqOrderConfirmationQueue({ connection: input.connection })`) e passe-a ao `createProcessPaymentEventJob` ✓. Não altere o port `OrderConfirmationQueue` para expor `close()`: a fila embrulha a `connection` recebida (não abre conexão própria) e os dois `shutdown()` já chamam `connection.disconnect()`. O worker de e-mails em si é o da Task 4 (não duplique a factory).
 
 - [ ] **Step 6: Rode e veja passar**
 
