@@ -56,7 +56,7 @@ describe('AuthMenu', () => {
     expect(link).toHaveAttribute('href', '/entrar');
   });
 
-  it('mostra o nome do usuário e o botão Sair quando há sessão', async () => {
+  it('mostra o nome do usuário, o link Minha conta e o botão Sair quando há sessão', async () => {
     server.use(
       http.get(/\/api\/auth\/get-session$/, () =>
         HttpResponse.json({
@@ -69,6 +69,10 @@ describe('AuthMenu', () => {
     render(<AuthMenu />);
 
     expect(await screen.findByText('Maria Silva')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Minha conta' })).toHaveAttribute(
+      'href',
+      '/conta',
+    );
     expect(screen.getByRole('button', { name: 'Sair' })).toBeInTheDocument();
   });
 });

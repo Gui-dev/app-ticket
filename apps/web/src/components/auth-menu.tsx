@@ -36,6 +36,9 @@ function AuthMenu() {
       <span className="hidden max-w-40 truncate text-sm font-medium text-foreground sm:inline">
         {data.user.name}
       </span>
+      <Button variant="default" asChild>
+        <Link href="/conta">Minha conta</Link>
+      </Button>
       <Button
         variant="outline"
         onClick={async () => {
