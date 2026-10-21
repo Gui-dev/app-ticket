@@ -33,6 +33,17 @@ export interface OrderRecord {
   items: OrderItemRecord[];
 }
 
+export interface OrderSummaryRecord {
+  id: string;
+  eventSlug: string;
+  status: OrderStatus;
+  subtotalCents: number;
+  serviceFeeCents: number;
+  totalCents: number;
+  itemCount: number;
+  createdAt: Date;
+}
+
 export interface CapturableSeat {
   seatId: string;
   status: string;

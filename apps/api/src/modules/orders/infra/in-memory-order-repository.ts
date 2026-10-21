@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto';
 
-import type { OrderRecord } from '../domain/order-entity.js';
+import type {
+  OrderRecord,
+  OrderSummaryRecord,
+} from '../domain/order-entity.js';
 import type {
   CreateOrderInput,
   OrderRepository,
@@ -56,6 +59,30 @@ export class InMemoryOrderRepository implements OrderRepository {
   async findById(id: string): Promise<OrderRecord | null> {
     const order = this.orders.get(id);
     return order ? clone(order) : null;
+  }
+
+  async listByUser(input: {
+    userId: string;
+    limit: number;
+  }): Promise<OrderSummaryRecord[]> {
+    return [...this.orders.values()]
+      .filter((order) => order.userId === input.userId)
+      .sort(
+        (a, b) =>
+          b.createdAt.getTime() - a.createdAt.getTime() ||
+          b.id.localeCompare(a.id),
+      )
+      .slice(0, input.limit)
+      .map((order) => ({
+        id: order.id,
+        eventSlug: order.eventSlug,
+        status: order.status,
+        subtotalCents: order.subtotalCents,
+        serviceFeeCents: order.serviceFeeCents,
+        totalCents: order.totalCents,
+        itemCount: order.items.length,
+        createdAt: order.createdAt,
+      }));
   }
 
   async findPendingByUserEvent(input: {

@@ -1,6 +1,10 @@
 import type { PaymentMethod } from '@ticketvibe/shared';
 
-import type { OrderItemRecord, OrderRecord } from './order-entity.js';
+import type {
+  OrderItemRecord,
+  OrderRecord,
+  OrderSummaryRecord,
+} from './order-entity.js';
 
 export interface CreateOrderInput {
   userId: string;
@@ -23,6 +27,10 @@ export interface StaleOrderRef {
 export interface OrderRepository {
   create(input: CreateOrderInput): Promise<OrderRecord>;
   findById(id: string): Promise<OrderRecord | null>;
+  listByUser(input: {
+    userId: string;
+    limit: number;
+  }): Promise<OrderSummaryRecord[]>;
   findPendingByUserEvent(input: {
     userId: string;
     eventId: string;

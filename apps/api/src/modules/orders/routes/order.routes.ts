@@ -2,14 +2,17 @@ import {
   createOrderRequestSchema,
   createOrderResponseSchema,
   type OrderDto,
+  orderListResponseSchema,
   orderResponseSchema,
   orderSchema,
 } from '@ticketvibe/shared';
 import type { FastifyInstance } from 'fastify';
 
 import type { GetSessionFn } from '../../auth/get-session.js';
+import type { EventsRepository } from '../../events/domain/events-repository.js';
 import type { OrderRecord } from '../domain/order-entity.js';
 import type { OrderRepository } from '../domain/order-repository.js';
+import { type TicketRecord, ticketStatusFor } from '../domain/ticket-entity.js';
 import type { TicketRepository } from '../domain/ticket-repository.js';
 import type { CreateOrderUseCase } from '../use-cases/create-order.use-case.js';
 
@@ -18,11 +21,15 @@ interface OrderRoutesDeps {
   createOrder: CreateOrderUseCase;
   orderRepository: OrderRepository;
   ticketRepository: TicketRepository;
+  eventsRepository: EventsRepository;
 }
 
 const orderIdSchema = orderSchema.shape.id;
 
-function serializeOrder(order: OrderRecord): OrderDto {
+function serializeOrder(
+  order: OrderRecord,
+  ticketsBySeatId?: Map<string, TicketRecord>,
+): OrderDto {
   return {
     id: order.id,
     eventSlug: order.eventSlug,
@@ -31,15 +38,20 @@ function serializeOrder(order: OrderRecord): OrderDto {
     subtotalCents: order.subtotalCents,
     serviceFeeCents: order.serviceFeeCents,
     totalCents: order.totalCents,
-    items: order.items.map((item) => ({
-      sectorSlug: item.sectorSlug,
-      sectorName: item.sectorName,
-      rowLabel: item.rowLabel,
-      seatLabel: item.seatLabel,
-      ticketType: item.ticketType,
-      priceCents: item.priceCents,
-      ticket: null,
-    })),
+    items: order.items.map((item) => {
+      const ticket = ticketsBySeatId?.get(item.seatId);
+      return {
+        sectorSlug: item.sectorSlug,
+        sectorName: item.sectorName,
+        rowLabel: item.rowLabel,
+        seatLabel: item.seatLabel,
+        ticketType: item.ticketType,
+        priceCents: item.priceCents,
+        ticket: ticket
+          ? { code: ticket.code, status: ticketStatusFor(order.status) }
+          : null,
+      };
+    }),
     createdAt: order.createdAt.toISOString(),
     paidAt: order.paidAt?.toISOString() ?? null,
   };
@@ -94,6 +106,40 @@ export function registerOrderRoutes(
     }
   });
 
+  app.get('/orders', async (request, reply) => {
+    const session = await deps.getSession(request.headers);
+    if (!session || session.isAnonymous) {
+      return reply.code(401).send({ error: 'unauthorized' });
+    }
+    const orders = await deps.orderRepository.listByUser({
+      userId: session.userId,
+      limit: 50,
+    });
+    const events = await deps.eventsRepository.findBySlugs(
+      orders.map((order) => order.eventSlug),
+    );
+    const eventsBySlug = new Map(events.map((event) => [event.slug, event]));
+    return reply.send(
+      orderListResponseSchema.parse({
+        orders: orders.map((order) => {
+          const event = eventsBySlug.get(order.eventSlug);
+          return {
+            id: order.id,
+            eventSlug: order.eventSlug,
+            eventTitle: event?.title ?? order.eventSlug,
+            eventStartsAt: (event?.startsAt ?? order.createdAt).toISOString(),
+            status: order.status,
+            subtotalCents: order.subtotalCents,
+            serviceFeeCents: order.serviceFeeCents,
+            totalCents: order.totalCents,
+            itemCount: order.itemCount,
+            createdAt: order.createdAt.toISOString(),
+          };
+        }),
+      }),
+    );
+  });
+
   app.get('/orders/:id', async (request, reply) => {
     const session = await deps.getSession(request.headers);
     if (!session) {
@@ -107,8 +153,14 @@ export function registerOrderRoutes(
     if (!order || order.userId !== session.userId) {
       return reply.code(404).send({ error: 'order_not_found' });
     }
+    const tickets = await deps.ticketRepository.findByOrderId(order.id);
+    const ticketsBySeatId = new Map(
+      tickets.map((ticket) => [ticket.seatId, ticket]),
+    );
     return reply.send(
-      orderResponseSchema.parse({ order: serializeOrder(order) }),
+      orderResponseSchema.parse({
+        order: serializeOrder(order, ticketsBySeatId),
+      }),
     );
   });
 }

@@ -1,5 +1,16 @@
 import type { SearchFilters } from '@ticketvibe/shared';
-import { and, asc, desc, eq, gte, lte, or, type SQL, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  inArray,
+  lte,
+  or,
+  type SQL,
+  sql,
+} from 'drizzle-orm';
 
 import type { Db } from '../../../db/client.js';
 import {
@@ -136,6 +147,19 @@ export class DrizzleEventsRepository implements EventsRepository {
       .innerJoin(venues, eq(events.venueId, venues.id))
       .where(buildConditions(view, filters))
       .orderBy(asc(events.startsAt), asc(events.id));
+
+    return rows.map(toEventEntity);
+  }
+
+  async findBySlugs(slugs: string[]): Promise<EventEntity[]> {
+    if (slugs.length === 0) return [];
+
+    const rows = await this.db
+      .select(eventSelect)
+      .from(events)
+      .innerJoin(categories, eq(events.categoryId, categories.id))
+      .innerJoin(venues, eq(events.venueId, venues.id))
+      .where(inArray(events.slug, slugs));
 
     return rows.map(toEventEntity);
   }

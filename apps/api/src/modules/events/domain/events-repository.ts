@@ -9,5 +9,6 @@ import type {
 export interface EventsRepository {
   findAll(view: EventView, filters?: SearchFilters): Promise<EventEntity[]>;
   findBySlug(slug: string): Promise<EventDetailEntity | null>;
+  findBySlugs(slugs: string[]): Promise<EventEntity[]>;
   suggest(q: string): Promise<SuggestResult>;
 }

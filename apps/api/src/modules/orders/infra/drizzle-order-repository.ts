@@ -1,8 +1,11 @@
-import { and, asc, eq, lt, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, lt, type SQL, sql } from 'drizzle-orm';
 
 import type { Db } from '../../../db/client.js';
 import { events, orderItems, orders } from '../../../db/schema.js';
-import type { OrderRecord } from '../domain/order-entity.js';
+import type {
+  OrderRecord,
+  OrderSummaryRecord,
+} from '../domain/order-entity.js';
 import type {
   CreateOrderInput,
   OrderRepository,
@@ -54,6 +57,30 @@ export class DrizzleOrderRepository implements OrderRepository {
 
   async findById(id: string): Promise<OrderRecord | null> {
     return this.load(eq(orders.id, id));
+  }
+
+  async listByUser(input: {
+    userId: string;
+    limit: number;
+  }): Promise<OrderSummaryRecord[]> {
+    return this.db
+      .select({
+        id: orders.id,
+        eventSlug: events.slug,
+        status: orders.status,
+        subtotalCents: orders.subtotalCents,
+        serviceFeeCents: orders.serviceFeeCents,
+        totalCents: orders.totalCents,
+        itemCount: sql<number>`count(${orderItems.id})::int`,
+        createdAt: orders.createdAt,
+      })
+      .from(orders)
+      .innerJoin(events, eq(events.id, orders.eventId))
+      .leftJoin(orderItems, eq(orderItems.orderId, orders.id))
+      .where(eq(orders.userId, input.userId))
+      .groupBy(orders.id, events.slug)
+      .orderBy(desc(orders.createdAt), desc(orders.id))
+      .limit(input.limit);
   }
 
   async findPendingByUserEvent(input: {

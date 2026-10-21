@@ -272,6 +272,7 @@ export function buildApp(
     getSession,
     orderRepository,
     ticketRepository,
+    eventsRepository,
     createOrder:
       options.createOrder ??
       new CreateOrderUseCase(

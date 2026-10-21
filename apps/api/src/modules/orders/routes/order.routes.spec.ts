@@ -1,23 +1,41 @@
 import {
   createOrderResponseSchema,
+  orderListResponseSchema,
   orderResponseSchema,
 } from '@ticketvibe/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildApp } from '../../../app.js';
 import type { GetSessionFn } from '../../auth/get-session.js';
-import type { OrderRecord } from '../domain/order-entity.js';
+import type { EventEntity } from '../../events/domain/event-entity.js';
+import type { EventsRepository } from '../../events/domain/events-repository.js';
+import type {
+  OrderRecord,
+  OrderSummaryRecord,
+} from '../domain/order-entity.js';
 import type { OrderRepository } from '../domain/order-repository.js';
+import type { TicketRecord } from '../domain/ticket-entity.js';
+import type { TicketRepository } from '../domain/ticket-repository.js';
 import type { CreateOrderUseCase } from '../use-cases/create-order.use-case.js';
 
 const ORDER_ID = '11111111-1111-4111-8111-111111111111';
+const SECOND_SEAT_ID = '55555555-5555-4555-8555-555555555555';
 
 const createOrder = {
   execute: vi.fn(),
 } as unknown as CreateOrderUseCase;
 const orderRepository = {
   findById: vi.fn(),
+  listByUser: vi.fn(),
 } as unknown as OrderRepository;
+const ticketRepository = {
+  findByOrderId: vi.fn(),
+} as unknown as TicketRepository;
+const eventsRepository = {
+  findAll: vi.fn(),
+  findBySlug: vi.fn(),
+  findBySlugs: vi.fn(),
+} as unknown as EventsRepository;
 
 const getSession: GetSessionFn = async (headers) => {
   const userId = headers['x-test-user-id'];
@@ -31,7 +49,13 @@ const getSession: GetSessionFn = async (headers) => {
 };
 
 function buildTestApp() {
-  return buildApp({ createOrder, orderRepository, getSession });
+  return buildApp({
+    createOrder,
+    orderRepository,
+    ticketRepository,
+    eventsRepository,
+    getSession,
+  });
 }
 
 const orderFixture: OrderRecord = {
@@ -63,6 +87,66 @@ const orderFixture: OrderRecord = {
   ],
 };
 
+const summaryFixture: OrderSummaryRecord = {
+  id: ORDER_ID,
+  eventSlug: 'o-fantasma-da-opera',
+  status: 'paid',
+  subtotalCents: 18000,
+  serviceFeeCents: 1800,
+  totalCents: 19800,
+  itemCount: 2,
+  createdAt: new Date('2026-10-18T12:00:00.000Z'),
+};
+
+const eventFixture: EventEntity = {
+  id: '77777777-7777-4777-8777-777777777777',
+  slug: 'o-fantasma-da-opera',
+  title: 'O Fantasma da Ópera',
+  description: 'Um clássico do teatro musical.',
+  categorySlug: 'teatro',
+  categoryName: 'Teatro',
+  venueSlug: 'teatro-municipal',
+  venueName: 'Teatro Municipal',
+  venueCity: 'São Paulo',
+  venueState: 'SP',
+  startsAt: new Date('2026-10-22T20:00:00.000Z'),
+  priceFromCents: 12000,
+  imageUrl: null,
+  badgeLabel: null,
+  featured: true,
+  isHot: false,
+};
+
+const paidOrder: OrderRecord = {
+  ...orderFixture,
+  status: 'paid',
+  paidAt: new Date('2026-10-18T12:05:00.000Z'),
+  items: [
+    ...orderFixture.items,
+    {
+      seatId: SECOND_SEAT_ID,
+      rowId: '66666666-6666-4666-8666-666666666666',
+      sectorSlug: 'plateia',
+      sectorName: 'Plateia',
+      rowLabel: 'A',
+      seatLabel: '7',
+      ticketType: 'inteira',
+      priceCents: 12000,
+    },
+  ],
+};
+
+function ticketFor(seatId: string, code: string): TicketRecord {
+  return {
+    id: `ticket-${code}`,
+    orderId: ORDER_ID,
+    orderItemId: `item-${code}`,
+    seatId,
+    code,
+    createdAt: new Date('2026-10-18T12:05:00.000Z'),
+  };
+}
+
 const createdResult = {
   kind: 'created' as const,
   order: orderFixture,
@@ -76,6 +160,8 @@ const createdResult = {
 describe('order routes (unit)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(ticketRepository.findByOrderId).mockResolvedValue([]);
+    vi.mocked(eventsRepository.findBySlugs).mockResolvedValue([]);
   });
 
   it('exige sessão no POST de pedido', async () => {
@@ -314,6 +400,149 @@ describe('order routes (unit)', () => {
         ticket: null,
       },
     ]);
+    await app.close();
+  });
+
+  it('exige sessão no histórico de pedidos', async () => {
+    const app = buildTestApp();
+    const response = await app.inject({ method: 'GET', url: '/orders' });
+    expect(response.statusCode).toBe(401);
+    expect(response.json()).toEqual({ error: 'unauthorized' });
+    expect(orderRepository.listByUser).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it('rejeita a sessão anônima no histórico de pedidos', async () => {
+    const app = buildTestApp();
+    const response = await app.inject({
+      method: 'GET',
+      url: '/orders',
+      headers: {
+        'x-test-user-id': 'anon-user',
+        'x-test-anonymous': 'true',
+      },
+    });
+    expect(response.statusCode).toBe(401);
+    expect(response.json()).toEqual({ error: 'unauthorized' });
+    expect(orderRepository.listByUser).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it('devolve o histórico do usuário autenticado', async () => {
+    vi.mocked(orderRepository.listByUser).mockResolvedValueOnce([
+      summaryFixture,
+    ]);
+    vi.mocked(eventsRepository.findBySlugs).mockResolvedValueOnce([
+      eventFixture,
+    ]);
+    const app = buildTestApp();
+    const response = await app.inject({
+      method: 'GET',
+      url: '/orders',
+      headers: { 'x-test-user-id': 'user-a' },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(orderRepository.listByUser).toHaveBeenCalledWith({
+      userId: 'user-a',
+      limit: 50,
+    });
+    expect(eventsRepository.findBySlugs).toHaveBeenCalledWith([
+      'o-fantasma-da-opera',
+    ]);
+    const body = orderListResponseSchema.parse(response.json());
+    expect(body.orders).toEqual([
+      {
+        id: ORDER_ID,
+        eventSlug: 'o-fantasma-da-opera',
+        eventTitle: 'O Fantasma da Ópera',
+        eventStartsAt: '2026-10-22T20:00:00.000Z',
+        status: 'paid',
+        subtotalCents: 18000,
+        serviceFeeCents: 1800,
+        totalCents: 19800,
+        itemCount: 2,
+        createdAt: '2026-10-18T12:00:00.000Z',
+      },
+    ]);
+    await app.close();
+  });
+
+  it('devolve o histórico quando o evento não existe mais', async () => {
+    vi.mocked(orderRepository.listByUser).mockResolvedValueOnce([
+      summaryFixture,
+    ]);
+    const app = buildTestApp();
+    const response = await app.inject({
+      method: 'GET',
+      url: '/orders',
+      headers: { 'x-test-user-id': 'user-a' },
+    });
+    expect(response.statusCode).toBe(200);
+    const body = orderListResponseSchema.parse(response.json());
+    expect(body.orders[0]).toMatchObject({
+      eventSlug: 'o-fantasma-da-opera',
+      eventTitle: 'o-fantasma-da-opera',
+      eventStartsAt: '2026-10-18T12:00:00.000Z',
+    });
+    await app.close();
+  });
+
+  it('devolve o ingresso válido de cada item de um pedido pago', async () => {
+    vi.mocked(orderRepository.findById).mockResolvedValueOnce(paidOrder);
+    vi.mocked(ticketRepository.findByOrderId).mockResolvedValueOnce([
+      ticketFor('33333333-3333-4333-8333-333333333333', 'code-6'),
+      ticketFor(SECOND_SEAT_ID, 'code-7'),
+    ]);
+    const app = buildTestApp();
+    const response = await app.inject({
+      method: 'GET',
+      url: `/orders/${ORDER_ID}`,
+      headers: { 'x-test-user-id': 'user-a' },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(ticketRepository.findByOrderId).toHaveBeenCalledWith(ORDER_ID);
+    const body = orderResponseSchema.parse(response.json());
+    expect(body.order.items.map((item) => item.ticket)).toEqual([
+      { code: 'code-6', status: 'valid' },
+      { code: 'code-7', status: 'valid' },
+    ]);
+    await app.close();
+  });
+
+  it('devolve o ingresso como não válido quando o pedido expirou', async () => {
+    vi.mocked(orderRepository.findById).mockResolvedValueOnce({
+      ...orderFixture,
+      status: 'expired',
+    });
+    vi.mocked(ticketRepository.findByOrderId).mockResolvedValueOnce([
+      ticketFor('33333333-3333-4333-8333-333333333333', 'code-6'),
+    ]);
+    const app = buildTestApp();
+    const response = await app.inject({
+      method: 'GET',
+      url: `/orders/${ORDER_ID}`,
+      headers: { 'x-test-user-id': 'user-a' },
+    });
+    expect(response.statusCode).toBe(200);
+    const body = orderResponseSchema.parse(response.json());
+    expect(body.order.items[0]?.ticket).toEqual({
+      code: 'code-6',
+      status: 'invalid',
+    });
+    await app.close();
+  });
+
+  it('não devolve ingresso para um pedido pendente', async () => {
+    vi.mocked(orderRepository.findById).mockResolvedValueOnce(orderFixture);
+    const app = buildTestApp();
+    const response = await app.inject({
+      method: 'GET',
+      url: `/orders/${ORDER_ID}`,
+      headers: { 'x-test-user-id': 'user-a' },
+    });
+    expect(response.statusCode).toBe(200);
+    const body = orderResponseSchema.parse(response.json());
+    expect(body.order.items[0]?.ticket).toBeNull();
     await app.close();
   });
 });

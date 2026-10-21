@@ -60,6 +60,11 @@ export class InMemoryEventsRepository implements EventsRepository {
     return Promise.resolve(sorted);
   }
 
+  findBySlugs(slugs: string[]): Promise<EventEntity[]> {
+    const wanted = new Set(slugs);
+    return Promise.resolve(this.items.filter((item) => wanted.has(item.slug)));
+  }
+
   findBySlug(slug: string): Promise<EventDetailEntity | null> {
     const item = this.items.find((entry) => entry.slug === slug);
     if (!item) {
