@@ -20,6 +20,8 @@ import {
   listCategoriesResponseSchema,
   listEventsQuerySchema,
   listEventsResponseSchema,
+  orderItemSchema,
+  orderListResponseSchema,
   orderPaymentSchema,
   orderSchema,
   orderStatusSchema,
@@ -736,10 +738,12 @@ describe('order contracts', () => {
       items: [
         {
           sectorSlug: 'plateia',
+          sectorName: 'Plateia',
           rowLabel: 'A',
           seatLabel: '6',
           ticketType: 'meia',
           priceCents: 6000,
+          ticket: null,
         },
       ],
       createdAt: new Date().toISOString(),
@@ -783,6 +787,56 @@ describe('order contracts', () => {
         clientSecret: null,
       }).success,
     ).toBe(false);
+  });
+});
+
+describe('orderItemSchema', () => {
+  it('accepts an item with a ticket and a null ticket', () => {
+    expect(
+      orderItemSchema.parse({
+        sectorSlug: 'plateia',
+        sectorName: 'Plateia',
+        rowLabel: 'A',
+        seatLabel: '6',
+        ticketType: 'inteira',
+        priceCents: 12000,
+        ticket: { code: 'abc123', status: 'valid' },
+      }).ticket?.status,
+    ).toBe('valid');
+    expect(
+      orderItemSchema.parse({
+        sectorSlug: 'plateia',
+        sectorName: null,
+        rowLabel: 'A',
+        seatLabel: '6',
+        ticketType: 'inteira',
+        priceCents: 12000,
+        ticket: null,
+      }).ticket,
+    ).toBeNull();
+  });
+});
+
+describe('orderListResponseSchema', () => {
+  it('parses the order history', () => {
+    expect(
+      orderListResponseSchema.parse({
+        orders: [
+          {
+            id: '0f0f0f0f-0f0f-4f0f-8f0f-0f0f0f0f0f0f',
+            eventSlug: 'o-fantasma-da-opera',
+            eventTitle: 'O Fantasma da Ópera',
+            eventStartsAt: '2026-10-22T20:00:00.000Z',
+            status: 'paid',
+            subtotalCents: 12000,
+            serviceFeeCents: 1200,
+            totalCents: 13200,
+            itemCount: 1,
+            createdAt: '2026-10-18T12:00:00.000Z',
+          },
+        ],
+      }).orders[0]?.itemCount,
+    ).toBe(1);
   });
 });
 

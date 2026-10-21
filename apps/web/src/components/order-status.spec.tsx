@@ -26,10 +26,12 @@ const paidOrder = {
   items: [
     {
       sectorSlug: 'plateia',
+      sectorName: 'Plateia',
       rowLabel: 'A',
       seatLabel: '6',
       ticketType: 'meia',
       priceCents: 6000,
+      ticket: null,
     },
   ],
   createdAt: '2026-10-18T12:00:00.000Z',
@@ -52,7 +54,7 @@ describe('OrderStatus', () => {
 
     expect(await screen.findByText('Pedido confirmado')).toBeInTheDocument();
     expect(
-      screen.getByText('plateia · Fila A · Cadeira 6 · R$ 60,00'),
+      screen.getByText('Plateia · Fila A · Cadeira 6 · R$ 60,00'),
     ).toBeInTheDocument();
     expect(screen.getByText('Total: R$ 66,00')).toBeInTheDocument();
   });

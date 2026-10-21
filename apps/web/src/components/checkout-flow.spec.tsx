@@ -100,7 +100,11 @@ function buildOrder(
     subtotalCents: 6000,
     serviceFeeCents: 600,
     totalCents: 6600,
-    items: [cartItem],
+    items: [cartItem].map((item) => ({
+      ...item,
+      sectorName: 'Plateia',
+      ticket: null,
+    })),
     createdAt: '2026-10-18T12:00:00.000Z',
     paidAt: status === 'paid' ? '2026-10-18T12:05:00.000Z' : null,
   };

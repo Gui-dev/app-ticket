@@ -15,10 +15,12 @@ const baseOrder: OrderDto = {
   items: [
     {
       sectorSlug: 'plateia',
+      sectorName: 'Plateia',
       rowLabel: 'A',
       seatLabel: '6',
       ticketType: 'meia',
       priceCents: 6000,
+      ticket: null,
     },
   ],
   createdAt: '2026-10-18T12:00:00.000Z',
@@ -33,7 +35,7 @@ describe('OrderConfirmation', () => {
       screen.getByRole('heading', { name: 'Pedido confirmado' }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('plateia · Fila A · Cadeira 6 · R$ 60,00'),
+      screen.getByText('Plateia · Fila A · Cadeira 6 · R$ 60,00'),
     ).toBeInTheDocument();
     expect(screen.getByText('Total: R$ 198,00')).toBeInTheDocument();
   });

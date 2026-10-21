@@ -31,10 +31,12 @@ function serializeOrder(order: OrderRecord): OrderDto {
     totalCents: order.totalCents,
     items: order.items.map((item) => ({
       sectorSlug: item.sectorSlug,
+      sectorName: item.sectorName,
       rowLabel: item.rowLabel,
       seatLabel: item.seatLabel,
       ticketType: item.ticketType,
       priceCents: item.priceCents,
+      ticket: null,
     })),
     createdAt: order.createdAt.toISOString(),
     paidAt: order.paidAt?.toISOString() ?? null,

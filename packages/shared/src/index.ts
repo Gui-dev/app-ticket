@@ -327,12 +327,23 @@ export const orderStatusSchema = z.enum([
 ]);
 export type OrderStatus = z.infer<typeof orderStatusSchema>;
 
+export const ticketStatusSchema = z.enum(['valid', 'invalid']);
+export type TicketStatusDto = z.infer<typeof ticketStatusSchema>;
+
+export const orderTicketSchema = z.object({
+  code: z.string().min(1),
+  status: ticketStatusSchema,
+});
+export type OrderTicketDto = z.infer<typeof orderTicketSchema>;
+
 export const orderItemSchema = z.object({
   sectorSlug: z.string().min(1),
+  sectorName: z.string().min(1).nullable(),
   rowLabel: z.string().min(1),
   seatLabel: z.string().min(1),
   ticketType: ticketTypeSchema,
   priceCents: z.number().int().min(0),
+  ticket: orderTicketSchema.nullable(),
 });
 
 export type OrderItemDto = z.infer<typeof orderItemSchema>;
@@ -377,6 +388,27 @@ export type CreateOrderResponse = z.infer<typeof createOrderResponseSchema>;
 export const orderResponseSchema = z.object({ order: orderSchema });
 
 export type OrderResponse = z.infer<typeof orderResponseSchema>;
+
+export const orderSummarySchema = z.object({
+  id: z.uuid(),
+  eventSlug: z.string().min(1),
+  eventTitle: z.string().min(1),
+  eventStartsAt: z.iso.datetime(),
+  status: orderStatusSchema,
+  subtotalCents: z.number().int().min(0),
+  serviceFeeCents: z.number().int().min(0),
+  totalCents: z.number().int().min(0),
+  itemCount: z.number().int().min(0),
+  createdAt: z.iso.datetime(),
+});
+
+export type OrderSummaryDto = z.infer<typeof orderSummarySchema>;
+
+export const orderListResponseSchema = z.object({
+  orders: z.array(orderSummarySchema),
+});
+
+export type OrderListResponse = z.infer<typeof orderListResponseSchema>;
 
 const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
   day: '2-digit',

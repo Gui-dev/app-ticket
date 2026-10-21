@@ -47,8 +47,8 @@ export function OrderConfirmation({ order }: OrderConfirmationProps) {
             key={`${item.sectorSlug}:${item.rowLabel}:${item.seatLabel}`}
             className="text-sm text-foreground"
           >
-            {item.sectorSlug} · Fila {item.rowLabel} · Cadeira {item.seatLabel}{' '}
-            · {formatBRL(item.priceCents)}
+            {item.sectorName ?? item.sectorSlug} · Fila {item.rowLabel} ·
+            Cadeira {item.seatLabel} · {formatBRL(item.priceCents)}
           </li>
         ))}
       </ul>

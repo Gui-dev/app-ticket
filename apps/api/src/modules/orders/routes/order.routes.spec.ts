@@ -306,10 +306,12 @@ describe('order routes (unit)', () => {
     expect(body.order.items).toEqual([
       {
         sectorSlug: 'plateia',
+        sectorName: 'Plateia',
         rowLabel: 'A',
         seatLabel: '6',
         ticketType: 'meia',
         priceCents: 6000,
+        ticket: null,
       },
     ]);
     await app.close();
