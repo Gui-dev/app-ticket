@@ -20,6 +20,7 @@ import {
   listCategoriesResponseSchema,
   listEventsQuerySchema,
   listEventsResponseSchema,
+  orderDetailResponseSchema,
   orderItemSchema,
   orderListResponseSchema,
   orderPaymentSchema,
@@ -837,6 +838,48 @@ describe('orderListResponseSchema', () => {
         ],
       }).orders[0]?.itemCount,
     ).toBe(1);
+  });
+});
+
+describe('orderDetailResponseSchema', () => {
+  const validOrder = {
+    id: '0f0f0f0f-0f0f-4f0f-8f0f-0f0f0f0f0f0f',
+    eventSlug: 'o-fantasma-da-opera',
+    status: 'paid',
+    paymentMethod: 'card',
+    subtotalCents: 12000,
+    serviceFeeCents: 1200,
+    totalCents: 13200,
+    items: [],
+    createdAt: '2026-10-18T12:00:00.000Z',
+    paidAt: '2026-10-18T12:05:00.000Z',
+  };
+
+  it('accepts an event summary next to the order', () => {
+    const payload = {
+      order: validOrder,
+      event: {
+        slug: 'o-fantasma-da-opera',
+        title: 'O Fantasma da Ópera',
+        startsAt: '2026-11-20T23:00:00.000Z',
+      },
+    };
+    expect(orderDetailResponseSchema.parse(payload)).toEqual(payload);
+  });
+
+  it('accepts a null event for an order whose event is gone', () => {
+    expect(
+      orderDetailResponseSchema.parse({ order: validOrder, event: null }).event,
+    ).toBeNull();
+  });
+
+  it('rejects an event summary without startsAt', () => {
+    expect(
+      orderDetailResponseSchema.safeParse({
+        order: validOrder,
+        event: { slug: 'o-fantasma-da-opera', title: 'O Fantasma da Ópera' },
+      }).success,
+    ).toBe(false);
   });
 });
 

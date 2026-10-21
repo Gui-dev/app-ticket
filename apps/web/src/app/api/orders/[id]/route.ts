@@ -1,4 +1,4 @@
-import { orderResponseSchema } from '@ticketvibe/shared';
+import { orderDetailResponseSchema } from '@ticketvibe/shared';
 
 const API_URL = process.env.API_URL ?? 'http://localhost:3001';
 
@@ -42,7 +42,7 @@ export async function GET(
   }
 
   try {
-    const payload = orderResponseSchema.parse(await upstream.json());
+    const payload = orderDetailResponseSchema.parse(await upstream.json());
     return Response.json(payload);
   } catch (error) {
     console.error('Order upstream payload broke the contract:', error);

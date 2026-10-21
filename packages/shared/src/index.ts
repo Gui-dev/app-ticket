@@ -389,6 +389,21 @@ export const orderResponseSchema = z.object({ order: orderSchema });
 
 export type OrderResponse = z.infer<typeof orderResponseSchema>;
 
+export const eventSummarySchema = z.object({
+  slug: z.string().min(1),
+  title: z.string().min(1),
+  startsAt: z.iso.datetime(),
+});
+
+export type EventSummaryDto = z.infer<typeof eventSummarySchema>;
+
+export const orderDetailResponseSchema = z.object({
+  order: orderSchema,
+  event: eventSummarySchema.nullable(),
+});
+
+export type OrderDetailResponse = z.infer<typeof orderDetailResponseSchema>;
+
 export const orderSummarySchema = z.object({
   id: z.uuid(),
   eventSlug: z.string().min(1),

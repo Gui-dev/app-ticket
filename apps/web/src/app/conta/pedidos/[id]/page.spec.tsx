@@ -51,6 +51,11 @@ const orderResponse = {
     createdAt: '2026-10-18T12:00:00.000Z',
     paidAt: '2026-10-18T12:05:00.000Z',
   },
+  event: {
+    slug: 'o-fantasma-da-opera',
+    title: 'O Fantasma da Ópera',
+    startsAt: '2026-11-20T23:00:00.000Z',
+  },
 };
 
 describe('PedidoPage', () => {
@@ -73,6 +78,10 @@ describe('PedidoPage', () => {
       await screen.findByText('Plateia · Fila A · Cadeira 6'),
     ).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Pedido' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'O Fantasma da Ópera' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('20 de Novembro, 2026')).toBeInTheDocument();
     expect(screen.getByText('18 de Outubro, 2026')).toBeInTheDocument();
     expect(screen.getByText('Pagamento confirmado')).toBeInTheDocument();
     expect(screen.getByText('R$ 132,00')).toBeInTheDocument();
@@ -121,5 +130,52 @@ describe('PedidoPage', () => {
     expect(
       await screen.findByText('Não foi possível carregar o pedido.'),
     ).toBeInTheDocument();
+  });
+
+  it('mostra o slug do evento quando o evento não existe mais', async () => {
+    server.use(
+      http.get(orderUrl, () =>
+        HttpResponse.json({ ...orderResponse, event: null }),
+      ),
+    );
+
+    render(<PedidoPage />);
+
+    expect(
+      await screen.findByRole('heading', { name: 'o-fantasma-da-opera' }),
+    ).toBeInTheDocument();
+  });
+
+  it('recarrega o pedido quando o id muda depois de um 404', async () => {
+    const otherOrderId = '22222222-2222-4222-8222-222222222222';
+
+    server.use(
+      http.get(orderUrl, ({ request }) => {
+        const { pathname } = new URL(request.url);
+        if (pathname.endsWith(orderId)) {
+          return HttpResponse.json(
+            { error: 'order_not_found' },
+            { status: 404 },
+          );
+        }
+        return HttpResponse.json(orderResponse);
+      }),
+    );
+
+    const { rerender } = render(<PedidoPage />);
+
+    expect(
+      await screen.findByText('Pedido não encontrado.'),
+    ).toBeInTheDocument();
+
+    useParams.mockReturnValue({ id: otherOrderId });
+    rerender(<PedidoPage />);
+
+    expect(
+      await screen.findByRole('heading', { name: 'O Fantasma da Ópera' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('Pedido não encontrado.'),
+    ).not.toBeInTheDocument();
   });
 });

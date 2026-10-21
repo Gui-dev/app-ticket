@@ -1,6 +1,10 @@
 'use client';
 
-import { type OrderDto, orderResponseSchema } from '@ticketvibe/shared';
+import {
+  type EventSummaryDto,
+  type OrderDto,
+  orderDetailResponseSchema,
+} from '@ticketvibe/shared';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
@@ -23,10 +27,14 @@ type LoadState = 'loading' | 'not_found' | 'failed';
 function PedidoContent() {
   const { id } = useParams<{ id: string }>();
   const [order, setOrder] = useState<OrderDto | null>(null);
+  const [event, setEvent] = useState<EventSummaryDto | null>(null);
   const [state, setState] = useState<LoadState>('loading');
 
   useEffect(() => {
     const controller = new AbortController();
+    setOrder(null);
+    setEvent(null);
+    setState('loading');
 
     async function loadOrder() {
       try {
@@ -39,9 +47,10 @@ function PedidoContent() {
           return;
         }
         if (!response.ok) throw new Error('order_request_failed');
-        const payload = orderResponseSchema.parse(await response.json());
+        const payload = orderDetailResponseSchema.parse(await response.json());
         if (controller.signal.aborted) return;
         setOrder(payload.order);
+        setEvent(payload.event);
       } catch {
         if (controller.signal.aborted) return;
         setState('failed');
@@ -78,6 +87,16 @@ function PedidoContent() {
 
   return (
     <>
+      <div className="flex flex-col gap-1">
+        <h2 className="font-heading text-2xl font-semibold text-foreground">
+          {event?.title ?? order.eventSlug}
+        </h2>
+        {event ? (
+          <p className="text-sm text-muted-foreground">
+            {formatDatePtBR(event.startsAt)}
+          </p>
+        ) : null}
+      </div>
       <section
         aria-label="Resumo do pedido"
         className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4"

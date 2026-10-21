@@ -2,8 +2,8 @@ import {
   createOrderRequestSchema,
   createOrderResponseSchema,
   type OrderDto,
+  orderDetailResponseSchema,
   orderListResponseSchema,
-  orderResponseSchema,
   orderSchema,
 } from '@ticketvibe/shared';
 import type { FastifyInstance } from 'fastify';
@@ -157,9 +157,17 @@ export function registerOrderRoutes(
     const ticketsBySeatId = new Map(
       tickets.map((ticket) => [ticket.seatId, ticket]),
     );
+    const [event] = await deps.eventsRepository.findBySlugs([order.eventSlug]);
     return reply.send(
-      orderResponseSchema.parse({
+      orderDetailResponseSchema.parse({
         order: serializeOrder(order, ticketsBySeatId),
+        event: event
+          ? {
+              slug: event.slug,
+              title: event.title,
+              startsAt: event.startsAt.toISOString(),
+            }
+          : null,
       }),
     );
   });

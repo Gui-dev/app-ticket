@@ -1,4 +1,4 @@
-import { orderResponseSchema } from '@ticketvibe/shared';
+import { orderDetailResponseSchema } from '@ticketvibe/shared';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import {
@@ -44,6 +44,11 @@ const orderResponse = {
     createdAt: '2026-10-18T12:00:00.000Z',
     paidAt: null,
   },
+  event: {
+    slug: 'o-fantasma-da-opera',
+    title: 'O Fantasma da Ópera',
+    startsAt: '2026-11-20T23:00:00.000Z',
+  },
 };
 
 describe('proxy GET /api/orders/[id]', () => {
@@ -71,13 +76,14 @@ describe('proxy GET /api/orders/[id]', () => {
     expect(forwardedCookie).toBe('better-auth.session_token=abc');
   });
 
-  it('retorna 200 com um payload que satisfaz orderResponseSchema', async () => {
+  it('retorna 200 com um payload que satisfaz orderDetailResponseSchema', async () => {
     server.use(http.get(upstreamUrl, () => HttpResponse.json(orderResponse)));
 
     const res = await GET(request(), context);
     expect(res.status).toBe(200);
-    const body = orderResponseSchema.parse(await res.json());
+    const body = orderDetailResponseSchema.parse(await res.json());
     expect(body.order.id).toBe(orderId);
+    expect(body.event?.title).toBe('O Fantasma da Ópera');
   });
 
   it('repassa o 401', async () => {

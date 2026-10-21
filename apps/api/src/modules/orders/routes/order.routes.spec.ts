@@ -1,5 +1,6 @@
 import {
   createOrderResponseSchema,
+  orderDetailResponseSchema,
   orderListResponseSchema,
   orderResponseSchema,
 } from '@ticketvibe/shared';
@@ -400,6 +401,44 @@ describe('order routes (unit)', () => {
         ticket: null,
       },
     ]);
+    await app.close();
+  });
+
+  it('devolve o evento do pedido no detalhe', async () => {
+    vi.mocked(orderRepository.findById).mockResolvedValueOnce(orderFixture);
+    vi.mocked(eventsRepository.findBySlugs).mockResolvedValueOnce([
+      eventFixture,
+    ]);
+    const app = buildTestApp();
+    const response = await app.inject({
+      method: 'GET',
+      url: `/orders/${ORDER_ID}`,
+      headers: { 'x-test-user-id': 'user-a' },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(eventsRepository.findBySlugs).toHaveBeenCalledWith([
+      'o-fantasma-da-opera',
+    ]);
+    const body = orderDetailResponseSchema.parse(response.json());
+    expect(body.event).toEqual({
+      slug: 'o-fantasma-da-opera',
+      title: 'O Fantasma da Ópera',
+      startsAt: '2026-10-22T20:00:00.000Z',
+    });
+    await app.close();
+  });
+
+  it('devolve evento nulo quando o evento não existe mais', async () => {
+    vi.mocked(orderRepository.findById).mockResolvedValueOnce(orderFixture);
+    const app = buildTestApp();
+    const response = await app.inject({
+      method: 'GET',
+      url: `/orders/${ORDER_ID}`,
+      headers: { 'x-test-user-id': 'user-a' },
+    });
+    expect(response.statusCode).toBe(200);
+    const body = orderDetailResponseSchema.parse(response.json());
+    expect(body.event).toBeNull();
     await app.close();
   });
 
