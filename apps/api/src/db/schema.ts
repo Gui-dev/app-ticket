@@ -208,6 +208,30 @@ export const orderItems = pgTable(
   ],
 );
 
+export const tickets = pgTable(
+  'tickets',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    orderId: uuid('order_id')
+      .notNull()
+      .references(() => orders.id, { onDelete: 'cascade' }),
+    orderItemId: uuid('order_item_id')
+      .notNull()
+      .references(() => orderItems.id, { onDelete: 'cascade' }),
+    seatId: uuid('seat_id')
+      .notNull()
+      .references(() => seats.id),
+    code: text('code').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('tickets_code_unique').on(table.code),
+    uniqueIndex('tickets_order_item_unique').on(table.orderItemId),
+  ],
+);
+
 export const orderConfirmationEmails = pgTable('order_confirmation_emails', {
   orderId: uuid('order_id')
     .primaryKey()

@@ -116,6 +116,31 @@ describe('confirmação do pagamento (postgres + redis integration)', () => {
     return seat;
   };
 
+  const readTickets = async (orderId: string) => {
+    const result = await testDb.execute<{
+      order_item_id: string;
+      seat_id: string;
+      code: string;
+    }>(sql`
+      select order_item_id, seat_id, code
+      from tickets
+      where order_id = ${orderId}
+      order by seat_id
+    `);
+    return result.rows;
+  };
+
+  const reserve = async (seatId: string) => {
+    await testDb
+      .update(seats)
+      .set({
+        status: 'reserved',
+        holdUserId: 'user-a',
+        holdExpiresAt: new Date(NOW.getTime() + 60_000),
+      })
+      .where(eq(seats.id, seatId));
+  };
+
   const hold = async (seatLabel: string, userId: string) => {
     const result = await holdSeat.execute({
       userId,
@@ -253,6 +278,81 @@ describe('confirmação do pagamento (postgres + redis integration)', () => {
     expect(await redis.exists(`cart:user-a:${EVENT_SLUG}`)).toBe(0);
     expect(await redis.get(holdSeatKey(eventId, seat.rowId, seat.seatId))).toBe(
       'user-b',
+    );
+  });
+
+  it('emite um ingresso por item na captura e não duplica na reentrega', async () => {
+    const seat6 = await findSeat('6');
+    const seat7 = await findSeat('7');
+    await reserve(seat6.seatId);
+    await reserve(seat7.seatId);
+    const order = await orderRepository.create({
+      userId: 'user-a',
+      eventId,
+      paymentMethod: 'card',
+      provider: 'fake',
+      buyerEmail: 'comprador@example.com',
+      subtotalCents: 24000,
+      serviceFeeCents: 2400,
+      totalCents: 26400,
+      items: [
+        {
+          seatId: seat6.seatId,
+          rowId: seat6.rowId,
+          sectorSlug: 'plateia',
+          sectorName: 'Plateia',
+          rowLabel: 'A',
+          seatLabel: '6',
+          ticketType: 'inteira',
+          priceCents: 12000,
+        },
+        {
+          seatId: seat7.seatId,
+          rowId: seat7.rowId,
+          sectorSlug: 'plateia',
+          sectorName: 'Plateia',
+          rowLabel: 'A',
+          seatLabel: '7',
+          ticketType: 'inteira',
+          priceCents: 12000,
+        },
+      ],
+    });
+    await orderRepository.setProviderRef({
+      orderId: order.id,
+      providerRef: 'pi_tickets',
+    });
+
+    const result = await confirmOrderPayment.execute({
+      providerRef: 'pi_tickets',
+      amountCents: order.totalCents,
+    });
+
+    expect(result).toEqual({ kind: 'paid', orderId: order.id });
+    const tickets = await readTickets(order.id);
+    expect(tickets).toHaveLength(2);
+    expect(new Set(tickets.map((ticket) => ticket.order_item_id)).size).toBe(2);
+    expect(new Set(tickets.map((ticket) => ticket.seat_id)).size).toBe(2);
+    expect(tickets.map((ticket) => ticket.seat_id).sort()).toEqual(
+      [seat6.seatId, seat7.seatId].sort(),
+    );
+    expect(tickets.every((ticket) => ticket.code.length > 0)).toBe(true);
+    expect(new Set(tickets.map((ticket) => ticket.code)).size).toBe(2);
+
+    const redelivered = await confirmOrderPayment.execute({
+      providerRef: 'pi_tickets',
+      amountCents: order.totalCents,
+    });
+
+    expect(redelivered).toEqual({
+      kind: 'already',
+      status: 'paid',
+      orderId: order.id,
+    });
+    const afterRedelivery = await readTickets(order.id);
+    expect(afterRedelivery).toHaveLength(2);
+    expect(afterRedelivery.map((ticket) => ticket.code).sort()).toEqual(
+      tickets.map((ticket) => ticket.code).sort(),
     );
   });
 });

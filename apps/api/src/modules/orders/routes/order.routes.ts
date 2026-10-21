@@ -10,12 +10,14 @@ import type { FastifyInstance } from 'fastify';
 import type { GetSessionFn } from '../../auth/get-session.js';
 import type { OrderRecord } from '../domain/order-entity.js';
 import type { OrderRepository } from '../domain/order-repository.js';
+import type { TicketRepository } from '../domain/ticket-repository.js';
 import type { CreateOrderUseCase } from '../use-cases/create-order.use-case.js';
 
 interface OrderRoutesDeps {
   getSession: GetSessionFn;
   createOrder: CreateOrderUseCase;
   orderRepository: OrderRepository;
+  ticketRepository: TicketRepository;
 }
 
 const orderIdSchema = orderSchema.shape.id;

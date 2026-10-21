@@ -1,13 +1,14 @@
 import { asc, eq, inArray } from 'drizzle-orm';
 
 import type { Db } from '../../../db/client.js';
-import { orderItems, orders, seats } from '../../../db/schema.js';
+import { orderItems, orders, seats, tickets } from '../../../db/schema.js';
 import { holdSeatKey } from '../../seatmaps/domain/hold-entity.js';
 import { decideOrderCapture } from '../domain/order-entity.js';
 import type {
   ConfirmPaidResult,
   SeatCaptureGateway,
 } from '../domain/seat-capture-gateway.js';
+import { generateTicketCode } from '../domain/ticket-entity.js';
 
 export class DrizzleSeatCaptureGateway implements SeatCaptureGateway {
   constructor(private readonly db: Db) {}
@@ -64,6 +65,14 @@ export class DrizzleSeatCaptureGateway implements SeatCaptureGateway {
         .update(orders)
         .set({ status: 'paid', paidAt: input.now })
         .where(eq(orders.id, order.id));
+      await tx.insert(tickets).values(
+        items.map((item) => ({
+          orderId: order.id,
+          orderItemId: item.id,
+          seatId: item.seatId,
+          code: generateTicketCode(),
+        })),
+      );
       return { kind: 'paid' };
     });
   }

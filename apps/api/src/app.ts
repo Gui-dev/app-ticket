@@ -21,9 +21,11 @@ import { registerEventRoutes } from './modules/events/routes/events.routes.js';
 import type { OrderRepository } from './modules/orders/domain/order-repository.js';
 import type { PaymentEventRepository } from './modules/orders/domain/payment-event-repository.js';
 import type { SeatCaptureGateway } from './modules/orders/domain/seat-capture-gateway.js';
+import type { TicketRepository } from './modules/orders/domain/ticket-repository.js';
 import { DrizzleOrderRepository } from './modules/orders/infra/drizzle-order-repository.js';
 import { DrizzlePaymentEventRepository } from './modules/orders/infra/drizzle-payment-event-repository.js';
 import { DrizzleSeatCaptureGateway } from './modules/orders/infra/drizzle-seat-capture-gateway.js';
+import { DrizzleTicketRepository } from './modules/orders/infra/drizzle-ticket-repository.js';
 import { registerOrderRoutes } from './modules/orders/routes/order.routes.js';
 import { CreateOrderUseCase } from './modules/orders/use-cases/create-order.use-case.js';
 import { createPaymentProvider } from './modules/payments/create-payment-provider.js';
@@ -81,6 +83,7 @@ export function buildApp(
     paymentEventRepository?: PaymentEventRepository;
     paymentEventQueue?: PaymentEventQueue;
     orderRepository?: OrderRepository;
+    ticketRepository?: TicketRepository;
     seatCaptureGateway?: SeatCaptureGateway;
     createOrder?: CreateOrderUseCase;
   } = {},
@@ -135,6 +138,8 @@ export function buildApp(
     new DrizzlePaymentEventRepository(getDefaultDb());
   const orderRepository =
     options.orderRepository ?? new DrizzleOrderRepository(getDefaultDb());
+  const ticketRepository =
+    options.ticketRepository ?? new DrizzleTicketRepository(getDefaultDb());
   const seatCaptureGateway =
     options.seatCaptureGateway ?? new DrizzleSeatCaptureGateway(getDefaultDb());
 
@@ -266,6 +271,7 @@ export function buildApp(
   registerOrderRoutes(app, {
     getSession,
     orderRepository,
+    ticketRepository,
     createOrder:
       options.createOrder ??
       new CreateOrderUseCase(
