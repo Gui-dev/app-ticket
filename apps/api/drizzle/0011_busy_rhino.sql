@@ -1,0 +1,1 @@
+CREATE INDEX "tickets_order_id_idx" ON "tickets" USING btree ("order_id");

@@ -229,6 +229,7 @@ export const tickets = pgTable(
   (table) => [
     uniqueIndex('tickets_code_unique').on(table.code),
     uniqueIndex('tickets_order_item_unique').on(table.orderItemId),
+    index('tickets_order_id_idx').on(table.orderId),
   ],
 );
 
