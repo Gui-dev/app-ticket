@@ -6,7 +6,7 @@ import {
   orderDetailResponseSchema,
 } from '@ticketvibe/shared';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 
 import { Header } from '@/components/header';
@@ -22,10 +22,16 @@ const STATUS_LABELS: Record<OrderDto['status'], string> = {
   expired: 'Pedido expirado',
 };
 
+const PAYMENT_METHOD_LABELS: Record<OrderDto['paymentMethod'], string> = {
+  card: 'Cartão',
+  boleto: 'Boleto',
+};
+
 type LoadState = 'loading' | 'not_found' | 'failed';
 
 function PedidoContent() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const [order, setOrder] = useState<OrderDto | null>(null);
   const [event, setEvent] = useState<EventSummaryDto | null>(null);
   const [state, setState] = useState<LoadState>('loading');
@@ -42,6 +48,10 @@ function PedidoContent() {
           cache: 'no-store',
           signal: controller.signal,
         });
+        if (response.status === 401) {
+          router.push('/entrar');
+          return;
+        }
         if (response.status === 404) {
           if (!controller.signal.aborted) setState('not_found');
           return;
@@ -59,7 +69,7 @@ function PedidoContent() {
 
     void loadOrder();
     return () => controller.abort();
-  }, [id]);
+  }, [id, router]);
 
   if (state === 'failed') {
     return (
@@ -121,6 +131,12 @@ function PedidoContent() {
             <dt className="text-muted-foreground">Taxa de serviço</dt>
             <dd className="text-foreground">
               {formatBRL(order.serviceFeeCents)}
+            </dd>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <dt className="text-muted-foreground">Pagamento</dt>
+            <dd className="text-foreground">
+              {PAYMENT_METHOD_LABELS[order.paymentMethod]}
             </dd>
           </div>
           <div className="flex items-center justify-between gap-2 font-semibold">

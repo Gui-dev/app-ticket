@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { delay, HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import {
@@ -12,9 +12,12 @@ import {
   vi,
 } from 'vitest';
 
-const { useParams } = vi.hoisted(() => ({ useParams: vi.fn() }));
+const { useParams, push, router } = vi.hoisted(() => {
+  const pushMock = vi.fn();
+  return { useParams: vi.fn(), push: pushMock, router: { push: pushMock } };
+});
 
-vi.mock('next/navigation', () => ({ useParams }));
+vi.mock('next/navigation', () => ({ useParams, useRouter: () => router }));
 
 vi.mock('@/components/header', () => ({
   Header: () => <header />,
@@ -66,6 +69,7 @@ describe('PedidoPage', () => {
   afterEach(() => {
     server.resetHandlers();
     useParams.mockReset();
+    push.mockReset();
   });
   afterAll(() => server.close());
 
@@ -84,6 +88,9 @@ describe('PedidoPage', () => {
     expect(screen.getByText('20 de Novembro, 2026')).toBeInTheDocument();
     expect(screen.getByText('18 de Outubro, 2026')).toBeInTheDocument();
     expect(screen.getByText('Pagamento confirmado')).toBeInTheDocument();
+    expect(screen.getByText('Pagamento').parentElement).toHaveTextContent(
+      'Cartão',
+    );
     expect(screen.getByText('R$ 132,00')).toBeInTheDocument();
     expect(screen.getByText('Válido para entrada')).toBeInTheDocument();
     expect(
@@ -116,6 +123,21 @@ describe('PedidoPage', () => {
     expect(
       await screen.findByText('Pedido não encontrado.'),
     ).toBeInTheDocument();
+  });
+
+  it('redireciona para /entrar quando a API responde 401', async () => {
+    server.use(
+      http.get(orderUrl, () =>
+        HttpResponse.json({ error: 'unauthorized' }, { status: 401 }),
+      ),
+    );
+
+    render(<PedidoPage />);
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/entrar'));
+    expect(
+      screen.queryByText('Não foi possível carregar o pedido.'),
+    ).not.toBeInTheDocument();
   });
 
   it('mostra o erro quando a API falha', async () => {
