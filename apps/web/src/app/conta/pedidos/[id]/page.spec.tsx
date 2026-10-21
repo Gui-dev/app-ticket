@@ -1,0 +1,125 @@
+import { render, screen } from '@testing-library/react';
+import { delay, HttpResponse, http } from 'msw';
+import { setupServer } from 'msw/node';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
+
+const { useParams } = vi.hoisted(() => ({ useParams: vi.fn() }));
+
+vi.mock('next/navigation', () => ({ useParams }));
+
+vi.mock('@/components/header', () => ({
+  Header: () => <header />,
+}));
+
+const PedidoPage = (await import('./page')).default;
+
+const server = setupServer();
+
+const orderId = '0f0f0f0f-0f0f-4f0f-8f0f-0f0f0f0f0f0f';
+
+const orderUrl = /\/api\/orders\/[^/]+$/;
+
+const orderResponse = {
+  order: {
+    id: orderId,
+    eventSlug: 'o-fantasma-da-opera',
+    status: 'paid',
+    paymentMethod: 'card',
+    subtotalCents: 12000,
+    serviceFeeCents: 1200,
+    totalCents: 13200,
+    items: [
+      {
+        sectorSlug: 'plateia',
+        sectorName: 'Plateia',
+        rowLabel: 'A',
+        seatLabel: '6',
+        ticketType: 'inteira',
+        priceCents: 12000,
+        ticket: { code: 'abc123', status: 'valid' },
+      },
+    ],
+    createdAt: '2026-10-18T12:00:00.000Z',
+    paidAt: '2026-10-18T12:05:00.000Z',
+  },
+};
+
+describe('PedidoPage', () => {
+  beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+  beforeEach(() => {
+    useParams.mockReturnValue({ id: orderId });
+  });
+  afterEach(() => {
+    server.resetHandlers();
+    useParams.mockReset();
+  });
+  afterAll(() => server.close());
+
+  it('mostra o resumo do pedido com os ingressos', async () => {
+    server.use(http.get(orderUrl, () => HttpResponse.json(orderResponse)));
+
+    render(<PedidoPage />);
+
+    expect(
+      await screen.findByText('Plateia · Fila A · Cadeira 6'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Pedido' })).toBeInTheDocument();
+    expect(screen.getByText('18 de Outubro, 2026')).toBeInTheDocument();
+    expect(screen.getByText('Pagamento confirmado')).toBeInTheDocument();
+    expect(screen.getByText('R$ 132,00')).toBeInTheDocument();
+    expect(screen.getByText('Válido para entrada')).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', { name: 'QR Code do ingresso' }),
+    ).toBeInTheDocument();
+  });
+
+  it('mostra o carregamento enquanto busca o pedido', () => {
+    server.use(
+      http.get(orderUrl, async () => {
+        await delay('infinite');
+        return HttpResponse.json(orderResponse);
+      }),
+    );
+
+    render(<PedidoPage />);
+
+    expect(screen.getByText('Carregando o pedido...')).toBeInTheDocument();
+  });
+
+  it('mostra que o pedido não foi encontrado quando a API responde 404', async () => {
+    server.use(
+      http.get(orderUrl, () =>
+        HttpResponse.json({ error: 'order_not_found' }, { status: 404 }),
+      ),
+    );
+
+    render(<PedidoPage />);
+
+    expect(
+      await screen.findByText('Pedido não encontrado.'),
+    ).toBeInTheDocument();
+  });
+
+  it('mostra o erro quando a API falha', async () => {
+    server.use(
+      http.get(orderUrl, () =>
+        HttpResponse.json({ error: 'upstream_error' }, { status: 502 }),
+      ),
+    );
+
+    render(<PedidoPage />);
+
+    expect(
+      await screen.findByText('Não foi possível carregar o pedido.'),
+    ).toBeInTheDocument();
+  });
+});
