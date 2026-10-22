@@ -1,3 +1,4 @@
+import websocket from '@fastify/websocket';
 import { Queue } from 'bullmq';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { createDb, type Db } from './db/client.js';
@@ -44,9 +45,14 @@ import type { SeatmapRepository } from './modules/seatmaps/domain/seatmap-reposi
 import { DrizzleSeatmapRepository } from './modules/seatmaps/infra/drizzle-seatmap-repository.js';
 import { RedisCartRepository } from './modules/seatmaps/infra/redis-cart-repository.js';
 import { RedisHoldRepository } from './modules/seatmaps/infra/redis-hold-repository.js';
-import { createRedisSeatAvailabilityBroker } from './modules/seatmaps/infra/redis-seat-availability-broker.js';
+import {
+  createRedisSeatAvailabilityBroker,
+  subscribeSeatAvailabilityFanout,
+} from './modules/seatmaps/infra/redis-seat-availability-broker.js';
+import { SeatAvailabilityFanout } from './modules/seatmaps/infra/seat-availability-fanout.js';
 import { registerCartRoutes } from './modules/seatmaps/routes/cart.routes.js';
 import { registerHoldRoutes } from './modules/seatmaps/routes/holds.routes.js';
+import { registerSeatAvailabilityRoutes } from './modules/seatmaps/routes/seat-availability.routes.js';
 import { registerSeatmapRoutes } from './modules/seatmaps/routes/seatmap.routes.js';
 import { FindBestSeatUseCase } from './modules/seatmaps/use-cases/find-best-seat.use-case.js';
 import { GetCartUseCase } from './modules/seatmaps/use-cases/get-cart.use-case.js';
@@ -90,6 +96,8 @@ export function buildApp(
   } = {},
 ): FastifyInstance {
   const app = Fastify({ logger: false });
+
+  app.register(websocket);
 
   app.addContentTypeParser(
     'application/json',
@@ -142,6 +150,29 @@ export function buildApp(
   };
 
   const seatAvailabilityBroker = createRedisSeatAvailabilityBroker(getRedis());
+
+  const seatAvailabilityFanout = new SeatAvailabilityFanout();
+
+  const seatAvailabilitySubscriber = createRedis();
+  seatAvailabilitySubscriber.on('error', () => {});
+
+  let subscriberClosing = false;
+  let subscriberSubscribeStarted = false;
+  const subscriberSubscribed = new Promise<void>((resolve) => {
+    seatAvailabilitySubscriber.once('subscribe', () => resolve());
+  });
+
+  void seatAvailabilitySubscriber
+    .connect()
+    .then(() => {
+      if (subscriberClosing) return;
+      subscriberSubscribeStarted = true;
+      subscribeSeatAvailabilityFanout(
+        seatAvailabilitySubscriber,
+        seatAvailabilityFanout,
+      );
+    })
+    .catch(() => {});
 
   const seatmapRepository =
     options.seatmapRepository ??
@@ -222,6 +253,17 @@ export function buildApp(
     }
   });
 
+  app.addHook('onClose', async () => {
+    subscriberClosing = true;
+    if (subscriberSubscribeStarted) {
+      await Promise.race([
+        subscriberSubscribed,
+        new Promise<void>((resolve) => setTimeout(resolve, 5000)),
+      ]);
+    }
+    seatAvailabilitySubscriber.disconnect();
+  });
+
   registerEventRoutes(app, eventsRepository);
   registerCategoryRoutes(app, categoriesRepository);
   registerArtistRoutes(app, artistsRepository);
@@ -242,6 +284,11 @@ export function buildApp(
     getSeatmap: new GetSeatmapUseCase(seatmapRepository),
     findBestSeat: new FindBestSeatUseCase(seatmapRepository),
     getSession,
+  });
+
+  registerSeatAvailabilityRoutes(app, {
+    getSeatmap: new GetSeatmapUseCase(seatmapRepository),
+    fanout: seatAvailabilityFanout,
   });
 
   registerHoldRoutes(app, {
