@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import {
@@ -13,13 +13,54 @@ import {
 
 const server = setupServer();
 
+class FakeSeatSocket {
+  static instances: FakeSeatSocket[] = [];
+
+  url: string;
+  onopen: ((event: Event) => void) | null = null;
+  onmessage: ((event: MessageEvent) => void) | null = null;
+  onerror: ((event: Event) => void) | null = null;
+  onclose: ((event: CloseEvent) => void) | null = null;
+
+  constructor(url: string) {
+    this.url = url;
+    FakeSeatSocket.instances.push(this);
+  }
+
+  close() {}
+
+  openOnServer() {
+    this.onopen?.(new Event('open'));
+  }
+
+  messageOnServer(data: unknown) {
+    this.onmessage?.(
+      new MessageEvent('message', { data: JSON.stringify(data) }),
+    );
+  }
+
+  closeOnServer(code: number) {
+    this.onclose?.(new CloseEvent('close', { code, wasClean: true }));
+  }
+}
+
+function lastSeatSocket() {
+  const socket = FakeSeatSocket.instances.at(-1);
+  if (!socket) throw new Error('nenhum socket do WS criado');
+  return socket;
+}
+
 let SeatMap: typeof import('./seat-map').SeatMap;
 
 beforeAll(async () => {
   server.listen({ onUnhandledRequest: 'error' });
+  vi.stubGlobal('WebSocket', FakeSeatSocket);
   ({ SeatMap } = await import('./seat-map'));
 });
-afterEach(() => server.resetHandlers());
+afterEach(() => {
+  server.resetHandlers();
+  FakeSeatSocket.instances = [];
+});
 afterAll(() => server.close());
 
 const seatmapPayload = {
@@ -854,5 +895,158 @@ describe('SeatMap', () => {
     expect(
       await screen.findByText('Nenhum assento no carrinho.'),
     ).toBeInTheDocument();
+  });
+
+  it('aplica delta vindo do WS sem recarregar a página', async () => {
+    server.use(
+      http.get(/\/api\/events\/o-fantasma-da-opera\/seatmap$/, () =>
+        HttpResponse.json({
+          ...seatmapPayload,
+          seatmap: {
+            ...seatmapPayload.seatmap,
+            sectors: seatmapPayload.seatmap.sectors.map((sector) =>
+              sector.slug === 'plateia'
+                ? {
+                    ...sector,
+                    rows: sector.rows.map((row) =>
+                      row.label === 'A'
+                        ? {
+                            ...row,
+                            seats: row.seats.map((seat) =>
+                              seat.label === '2'
+                                ? { ...seat, status: 'available' }
+                                : seat,
+                            ),
+                          }
+                        : row,
+                    ),
+                  }
+                : sector,
+            ),
+          },
+        }),
+      ),
+    );
+    render(<SeatMap eventSlug="o-fantasma-da-opera" />);
+
+    expect(await screen.findByText(/9 de 10 livres/)).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Cadeira 2, fila A' }),
+    ).toBeEnabled();
+
+    act(() => {
+      lastSeatSocket().openOnServer();
+    });
+    act(() => {
+      lastSeatSocket().messageOnServer({
+        type: 'seat_status_changed',
+        eventSlug: 'o-fantasma-da-opera',
+        changes: [
+          {
+            sectorSlug: 'plateia',
+            rowLabel: 'A',
+            seatLabel: '2',
+            status: 'occupied',
+          },
+        ],
+      });
+    });
+
+    const seat = screen.getByRole('button', { name: 'Cadeira 2, fila A' });
+    expect(seat).toBeDisabled();
+    expect(seat).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByText(/8 de 10 livres/)).toBeInTheDocument();
+  });
+
+  it('preserva a minha seleção quando o delta diz occupied da minha cadeira', async () => {
+    mockSeatmap();
+    mockHold('6');
+    render(<SeatMap eventSlug="o-fantasma-da-opera" />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Cadeira 6, fila A' }),
+    );
+    await screen.findByText(CART_ITEM_6);
+
+    const seat = screen.getByRole('button', { name: 'Cadeira 6, fila A' });
+    expect(seat).toHaveAttribute('aria-pressed', 'true');
+
+    act(() => {
+      lastSeatSocket().openOnServer();
+    });
+    act(() => {
+      lastSeatSocket().messageOnServer({
+        type: 'seat_status_changed',
+        eventSlug: 'o-fantasma-da-opera',
+        changes: [
+          {
+            sectorSlug: 'plateia',
+            rowLabel: 'A',
+            seatLabel: '6',
+            status: 'occupied',
+          },
+        ],
+      });
+    });
+
+    expect(seat).toHaveAttribute('aria-pressed', 'true');
+    expect(seat).not.toBeDisabled();
+    expect(screen.getByText(CART_ITEM_6)).toBeInTheDocument();
+  });
+
+  it('não faz polling enquanto o WS está aberto e volta a fazer quando ele cai', async () => {
+    vi.useFakeTimers();
+    try {
+      let gets = 0;
+      server.use(
+        http.get(/\/api\/events\/o-fantasma-da-opera\/seatmap$/, () => {
+          gets += 1;
+          return HttpResponse.json(seatmapPayload);
+        }),
+      );
+      render(<SeatMap eventSlug="o-fantasma-da-opera" />);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(gets).toBe(1);
+
+      act(() => {
+        lastSeatSocket().openOnServer();
+      });
+      await vi.advanceTimersByTimeAsync(25_000);
+      expect(gets).toBe(1);
+
+      act(() => {
+        lastSeatSocket().closeOnServer(1006);
+      });
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(gets).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('refaz o fetch do mapa quando o WS anuncia connected', async () => {
+    let gets = 0;
+    server.use(
+      http.get(/\/api\/events\/o-fantasma-da-opera\/seatmap$/, () => {
+        gets += 1;
+        return HttpResponse.json(seatmapPayload);
+      }),
+    );
+    render(<SeatMap eventSlug="o-fantasma-da-opera" />);
+    await screen.findByText(/8 de 10 livres/);
+    expect(gets).toBe(1);
+
+    act(() => {
+      lastSeatSocket().openOnServer();
+    });
+    act(() => {
+      lastSeatSocket().messageOnServer({
+        type: 'connected',
+        eventSlug: 'o-fantasma-da-opera',
+      });
+    });
+
+    await vi.waitFor(() => expect(gets).toBe(2));
+    expect(screen.getByText(/8 de 10 livres/)).toBeInTheDocument();
   });
 });

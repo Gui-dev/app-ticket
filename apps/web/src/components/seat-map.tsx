@@ -7,6 +7,7 @@ import {
   holdRequestSchema,
   holdResponseSchema,
   SEAT_HOLD_RENEW_AFTER_SECONDS,
+  type SeatAvailabilityMessage,
   type SeatmapDto,
   seatmapResponseSchema,
   type TicketType,
@@ -25,6 +26,10 @@ import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { ensureAnonymousSession } from '@/lib/auth-client';
 import { formatBRL } from '@/lib/format';
+import {
+  applySeatStatuses,
+  useSeatAvailability,
+} from '@/lib/use-seat-availability';
 
 interface SeatMapProps {
   eventSlug: string;
@@ -253,11 +258,31 @@ export function SeatMap({ eventSlug }: SeatMapProps) {
 
   useEffect(() => {
     fetchSeatmap();
+  }, [fetchSeatmap]);
+
+  const wsOpen = useSeatAvailability({
+    eventSlug,
+    onMessage: useCallback(
+      (message: SeatAvailabilityMessage) => {
+        if (message.type === 'connected') {
+          void fetchSeatmap();
+          return;
+        }
+        setSeatmap((prev) =>
+          prev ? applySeatStatuses(prev, message.changes) : prev,
+        );
+      },
+      [fetchSeatmap],
+    ),
+  });
+
+  useEffect(() => {
+    if (wsOpen) return;
     const interval = setInterval(() => {
       fetchSeatmap();
     }, POLL_MS);
     return () => clearInterval(interval);
-  }, [fetchSeatmap]);
+  }, [wsOpen, fetchSeatmap]);
 
   async function sendHold(seat: SeatCandidate): Promise<string> {
     let response = await postHold(eventSlug, seat);
