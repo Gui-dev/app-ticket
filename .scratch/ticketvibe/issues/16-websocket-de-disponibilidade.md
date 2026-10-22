@@ -57,3 +57,6 @@ Nenhuma falha apareceu nos gates finais no head `b75c3a6`: o único ajuste foi o
 - `onerror` do socket fica sem handler no cliente: os navegadores sempre emitem `close` após `error`, que é o caminho tratado.
 - `buildApp` instancia o broker Redis mesmo com fakes injetadas (conexão extra, benigna).
 - Mapeadores de delta `'available'` duplicados em três lugares (tamanho ok, sem divergência de protocolo).
+- Schemas WS colocadas no fim de `packages/shared/src/index.ts` (EOF) em vez de coladas ao bloco de schemas de seat (linhas 104-133) — brief ambíguo ("ao final" vs "junto"); sem impacto funcional.
+- Cobertura do spec do shared não testa `min(1)` individuais (`sectorSlug`/`rowLabel`/`seatLabel`) nem `status` inválido — a lista de testes veio verbatim do plano.
+- Hook web: `reconnectTimer` reassinado sem clear prévio do timer antigo — latente e inalcançável com um WebSocket conforme (close emite uma vez), mas paridade só implícita.
