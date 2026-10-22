@@ -13,6 +13,7 @@ import {
   migrateTestDatabase,
   resetDatabase,
 } from '../../../db/test-helpers.js';
+import { InMemorySeatAvailabilityBroker } from '../../seatmaps/infra/in-memory-seat-availability-broker.js';
 import { DrizzleSeatmapRepository } from '../infra/drizzle-seatmap-repository.js';
 
 describe('seatmap routes (postgres integration)', () => {
@@ -23,7 +24,12 @@ describe('seatmap routes (postgres integration)', () => {
     await ensureTestDatabase();
     testDb = createDb(TEST_DATABASE_URL);
     await migrateTestDatabase(testDb);
-    app = buildApp({ seatmapRepository: new DrizzleSeatmapRepository(testDb) });
+    app = buildApp({
+      seatmapRepository: new DrizzleSeatmapRepository(
+        testDb,
+        new InMemorySeatAvailabilityBroker(),
+      ),
+    });
     await app.ready();
   });
 

@@ -19,6 +19,7 @@ import {
 import { FakePaymentProvider } from '../../payments/infra/fake-payment-provider.js';
 import { holdSeatKey } from '../../seatmaps/domain/hold-entity.js';
 import { DrizzleSeatmapRepository } from '../../seatmaps/infra/drizzle-seatmap-repository.js';
+import { InMemorySeatAvailabilityBroker } from '../../seatmaps/infra/in-memory-seat-availability-broker.js';
 import { RedisCartRepository } from '../../seatmaps/infra/redis-cart-repository.js';
 import { RedisHoldRepository } from '../../seatmaps/infra/redis-hold-repository.js';
 import { HoldSeatUseCase } from '../../seatmaps/use-cases/hold-seat.use-case.js';
@@ -64,12 +65,18 @@ describe('confirmação do pagamento (postgres + redis integration)', () => {
     eventId = event.id;
 
     orderRepository = new DrizzleOrderRepository(testDb);
-    gateway = new DrizzleSeatCaptureGateway(testDb);
+    gateway = new DrizzleSeatCaptureGateway(
+      testDb,
+      new InMemorySeatAvailabilityBroker(),
+    );
     holdRepository = new RedisHoldRepository(redis);
     cartRepository = new RedisCartRepository(redis);
     payments = new FakePaymentProvider('whsec_test');
     holdSeat = new HoldSeatUseCase(
-      new DrizzleSeatmapRepository(testDb),
+      new DrizzleSeatmapRepository(
+        testDb,
+        new InMemorySeatAvailabilityBroker(),
+      ),
       holdRepository,
       cartRepository,
       () => NOW,
@@ -213,7 +220,7 @@ describe('confirmação do pagamento (postgres + redis integration)', () => {
     expect(paid?.paidAt).toEqual(NOW);
     expect(payments.refundedRefs).toEqual([]);
 
-    expect(await expireExpiredHolds(testDb)).toBe(0);
+    expect(await expireExpiredHolds(testDb)).toEqual([]);
     expect(await readSeat(seat.seatId)).toMatchObject({ status: 'occupied' });
   });
 
@@ -230,7 +237,9 @@ describe('confirmação do pagamento (postgres + redis integration)', () => {
     await testDb.execute(
       sql`update seats set hold_expires_at = now() - interval '1 second' where id = ${seat.seatId}`,
     );
-    expect(await expireExpiredHolds(testDb)).toBe(1);
+    const expiredBeforeCapture = await expireExpiredHolds(testDb);
+    expect(expiredBeforeCapture).toHaveLength(1);
+    expect(expiredBeforeCapture[0]).toMatchObject({ seatLabel: '6' });
 
     const result = await confirmOrderPayment.execute({
       providerRef: 'pi_late',

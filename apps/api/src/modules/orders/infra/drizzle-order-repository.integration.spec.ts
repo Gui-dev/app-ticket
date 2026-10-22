@@ -19,6 +19,7 @@ import {
   resetDatabase,
 } from '../../../db/test-helpers.js';
 import { holdSeatKey } from '../../seatmaps/domain/hold-entity.js';
+import { InMemorySeatAvailabilityBroker } from '../../seatmaps/infra/in-memory-seat-availability-broker.js';
 import type { OrderItemRecord } from '../domain/order-entity.js';
 import { DrizzleOrderRepository } from './drizzle-order-repository.js';
 import { DrizzlePaymentEventRepository } from './drizzle-payment-event-repository.js';
@@ -47,6 +48,7 @@ describe('ordens (postgres integration)', () => {
   let testDb: Db;
   let repository: DrizzleOrderRepository;
   let gateway: DrizzleSeatCaptureGateway;
+  let broker: InMemorySeatAvailabilityBroker;
   let paymentEventRepository: DrizzlePaymentEventRepository;
   let eventId: string;
 
@@ -55,13 +57,15 @@ describe('ordens (postgres integration)', () => {
     testDb = createDb(TEST_DATABASE_URL);
     await migrateTestDatabase(testDb);
     repository = new DrizzleOrderRepository(testDb);
-    gateway = new DrizzleSeatCaptureGateway(testDb);
+    broker = new InMemorySeatAvailabilityBroker();
+    gateway = new DrizzleSeatCaptureGateway(testDb, broker);
     paymentEventRepository = new DrizzlePaymentEventRepository(testDb);
   });
 
   beforeEach(async () => {
     await resetDatabase(testDb);
     await seedFixtures(testDb);
+    broker.published.length = 0;
     await testDb.insert(user).values([
       { id: 'user-a', name: 'User A', email: 'user-a@example.com' },
       { id: 'user-b', name: 'User B', email: 'user-b@example.com' },
@@ -438,6 +442,167 @@ describe('ordens (postgres integration)', () => {
       holdUserId: null,
       holdExpiresAt: null,
     });
+  });
+
+  it('publica occupied por item pago após a transação', async () => {
+    const seat6 = await findSeat('6');
+    const seat7 = await findSeat('7');
+    const now = new Date('2026-10-18T12:00:00.000Z');
+    await reserve(seat6.seatId, 'user-a', new Date('2026-10-18T12:05:00.000Z'));
+    await reserve(seat7.seatId, 'user-a', new Date('2026-10-18T12:05:00.000Z'));
+    const created = await repository.create({
+      userId: 'user-a',
+      eventId,
+      paymentMethod: 'card',
+      provider: 'fake',
+      buyerEmail: 'comprador@example.com',
+      subtotalCents: 18000,
+      serviceFeeCents: 1800,
+      totalCents: 19800,
+      items: [
+        item(seat6, '6', 'inteira', 12000),
+        item(seat7, '7', 'meia', 6000),
+      ],
+    });
+    await repository.setProviderRef({
+      orderId: created.id,
+      providerRef: 'pi_publicado',
+    });
+
+    const result = await gateway.confirmOrderPayment({
+      providerRef: 'pi_publicado',
+      now,
+    });
+
+    expect(result).toEqual({ kind: 'paid' });
+    const deltas = [...broker.published].sort((a, b) =>
+      a.seatLabel.localeCompare(b.seatLabel),
+    );
+    expect(deltas).toEqual([
+      {
+        eventSlug: EVENT_SLUG,
+        sectorSlug: 'plateia',
+        rowLabel: 'A',
+        seatLabel: '6',
+        status: 'occupied',
+      },
+      {
+        eventSlug: EVENT_SLUG,
+        sectorSlug: 'plateia',
+        rowLabel: 'A',
+        seatLabel: '7',
+        status: 'occupied',
+      },
+    ]);
+    expect(await readSeat(seat6.seatId)).toMatchObject({ status: 'occupied' });
+    expect(await readSeat(seat7.seatId)).toMatchObject({ status: 'occupied' });
+  });
+
+  it('publica available para assentos liberados', async () => {
+    const seat6 = await findSeat('6');
+    const seat7 = await findSeat('7');
+    await reserve(seat6.seatId, 'user-a', new Date('2026-10-18T12:05:00.000Z'));
+    await reserve(seat7.seatId, 'user-a', new Date('2026-10-18T12:05:00.000Z'));
+    const created = await repository.create({
+      userId: 'user-a',
+      eventId,
+      paymentMethod: 'card',
+      provider: 'fake',
+      buyerEmail: 'comprador@example.com',
+      subtotalCents: 18000,
+      serviceFeeCents: 1800,
+      totalCents: 19800,
+      items: [
+        item(seat6, '6', 'inteira', 12000),
+        item(seat7, '7', 'meia', 6000),
+      ],
+    });
+
+    const released = await gateway.releaseOrderSeats({
+      orderId: created.id,
+      now: new Date('2026-10-18T12:00:00.000Z'),
+    });
+    expect(released.seatKeys).toHaveLength(2);
+
+    expect(await readSeat(seat6.seatId)).toMatchObject({
+      status: 'available',
+    });
+    expect(await readSeat(seat7.seatId)).toMatchObject({
+      status: 'available',
+    });
+    expect(broker.published).toEqual([
+      {
+        eventSlug: EVENT_SLUG,
+        sectorSlug: 'plateia',
+        rowLabel: 'A',
+        seatLabel: '6',
+        status: 'available',
+      },
+      {
+        eventSlug: EVENT_SLUG,
+        sectorSlug: 'plateia',
+        rowLabel: 'A',
+        seatLabel: '7',
+        status: 'available',
+      },
+    ]);
+  });
+
+  it('não publica em seats_lost nem em already', async () => {
+    const seat6 = await findSeat('6');
+    const now = new Date('2026-10-18T12:00:00.000Z');
+    await reserve(seat6.seatId, 'user-a', new Date('2026-10-18T11:59:00.000Z'));
+    const lost = await repository.create({
+      userId: 'user-a',
+      eventId,
+      paymentMethod: 'card',
+      provider: 'fake',
+      buyerEmail: 'comprador@example.com',
+      subtotalCents: 12000,
+      serviceFeeCents: 1200,
+      totalCents: 13200,
+      items: [item(seat6, '6', 'inteira', 12000)],
+    });
+    await repository.setProviderRef({
+      orderId: lost.id,
+      providerRef: 'pi_perdido',
+    });
+
+    expect(
+      await gateway.confirmOrderPayment({
+        providerRef: 'pi_perdido',
+        now,
+      }),
+    ).toEqual({ kind: 'seats_lost' });
+    expect(broker.published.length).toBe(0);
+
+    await reserve(seat6.seatId, 'user-a', new Date('2026-10-18T12:05:00.000Z'));
+    const paid = await repository.create({
+      userId: 'user-a',
+      eventId,
+      paymentMethod: 'card',
+      provider: 'fake',
+      buyerEmail: 'comprador@example.com',
+      subtotalCents: 12000,
+      serviceFeeCents: 1200,
+      totalCents: 13200,
+      items: [item(seat6, '6', 'inteira', 12000)],
+    });
+    await repository.setProviderRef({
+      orderId: paid.id,
+      providerRef: 'pi_ja_pago',
+    });
+    expect(
+      await gateway.confirmOrderPayment({ providerRef: 'pi_ja_pago', now }),
+    ).toEqual({ kind: 'paid' });
+    broker.published.length = 0;
+    expect(
+      await gateway.confirmOrderPayment({
+        providerRef: 'pi_ja_pago',
+        now: new Date('2026-10-18T12:01:00.000Z'),
+      }),
+    ).toEqual({ kind: 'already', status: 'paid' });
+    expect(broker.published.length).toBe(0);
   });
 
   it('não toca nos assentos de um pedido pago', async () => {

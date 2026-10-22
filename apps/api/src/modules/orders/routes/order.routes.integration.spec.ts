@@ -33,6 +33,7 @@ import type { GetSessionFn } from '../../auth/get-session.js';
 import { DrizzleEventsRepository } from '../../events/infra/drizzle-events-repository.js';
 import { FakePaymentProvider } from '../../payments/infra/fake-payment-provider.js';
 import { DrizzleSeatmapRepository } from '../../seatmaps/infra/drizzle-seatmap-repository.js';
+import { InMemorySeatAvailabilityBroker } from '../../seatmaps/infra/in-memory-seat-availability-broker.js';
 import { RedisCartRepository } from '../../seatmaps/infra/redis-cart-repository.js';
 import { RedisHoldRepository } from '../../seatmaps/infra/redis-hold-repository.js';
 import { DrizzleOrderRepository } from '../infra/drizzle-order-repository.js';
@@ -60,13 +61,19 @@ describe('order routes (postgres + redis integration)', () => {
     await redis.connect();
 
     app = buildApp({
-      seatmapRepository: new DrizzleSeatmapRepository(testDb),
+      seatmapRepository: new DrizzleSeatmapRepository(
+        testDb,
+        new InMemorySeatAvailabilityBroker(),
+      ),
       holdRepository: new RedisHoldRepository(redis),
       cartRepository: new RedisCartRepository(redis),
       eventsRepository: new DrizzleEventsRepository(testDb),
       orderRepository: new DrizzleOrderRepository(testDb),
       ticketRepository: new DrizzleTicketRepository(testDb),
-      seatCaptureGateway: new DrizzleSeatCaptureGateway(testDb),
+      seatCaptureGateway: new DrizzleSeatCaptureGateway(
+        testDb,
+        new InMemorySeatAvailabilityBroker(),
+      ),
       paymentProvider: new FakePaymentProvider('whsec_test'),
       getSession,
     });

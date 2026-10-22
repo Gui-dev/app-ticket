@@ -17,6 +17,7 @@ import {
   TEST_REDIS_URL,
 } from '../../../redis/client.js';
 import type { GetSessionFn } from '../../auth/get-session.js';
+import { InMemorySeatAvailabilityBroker } from '../../seatmaps/infra/in-memory-seat-availability-broker.js';
 import { DrizzleSeatmapRepository } from '../infra/drizzle-seatmap-repository.js';
 import { RedisCartRepository } from '../infra/redis-cart-repository.js';
 import { RedisHoldRepository } from '../infra/redis-hold-repository.js';
@@ -40,7 +41,10 @@ describe('hold routes (postgres + redis integration)', () => {
     await redis.connect();
 
     app = buildApp({
-      seatmapRepository: new DrizzleSeatmapRepository(testDb),
+      seatmapRepository: new DrizzleSeatmapRepository(
+        testDb,
+        new InMemorySeatAvailabilityBroker(),
+      ),
       holdRepository: new RedisHoldRepository(redis),
       cartRepository: new RedisCartRepository(redis),
       getSession,

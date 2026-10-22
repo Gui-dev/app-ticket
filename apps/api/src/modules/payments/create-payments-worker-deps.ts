@@ -7,6 +7,7 @@ import { ExpirePendingOrdersUseCase } from '../orders/use-cases/expire-pending-o
 import { FailOrderUseCase } from '../orders/use-cases/fail-order.use-case.js';
 import { RedisCartRepository } from '../seatmaps/infra/redis-cart-repository.js';
 import { RedisHoldRepository } from '../seatmaps/infra/redis-hold-repository.js';
+import { createRedisSeatAvailabilityBroker } from '../seatmaps/infra/redis-seat-availability-broker.js';
 import { createPaymentProvider } from './create-payment-provider.js';
 
 export function createPaymentsWorkerDeps(input: {
@@ -18,7 +19,10 @@ export function createPaymentsWorkerDeps(input: {
   expirePendingOrders: ExpirePendingOrdersUseCase;
 } {
   const orderRepository = new DrizzleOrderRepository(input.db);
-  const seatCaptureGateway = new DrizzleSeatCaptureGateway(input.db);
+  const seatCaptureGateway = new DrizzleSeatCaptureGateway(
+    input.db,
+    createRedisSeatAvailabilityBroker(input.redis),
+  );
   const holdRepository = new RedisHoldRepository(input.redis);
   const cartRepository = new RedisCartRepository(input.redis);
   const paymentProvider = createPaymentProvider();

@@ -44,6 +44,7 @@ import type { SeatmapRepository } from './modules/seatmaps/domain/seatmap-reposi
 import { DrizzleSeatmapRepository } from './modules/seatmaps/infra/drizzle-seatmap-repository.js';
 import { RedisCartRepository } from './modules/seatmaps/infra/redis-cart-repository.js';
 import { RedisHoldRepository } from './modules/seatmaps/infra/redis-hold-repository.js';
+import { createRedisSeatAvailabilityBroker } from './modules/seatmaps/infra/redis-seat-availability-broker.js';
 import { registerCartRoutes } from './modules/seatmaps/routes/cart.routes.js';
 import { registerHoldRoutes } from './modules/seatmaps/routes/holds.routes.js';
 import { registerSeatmapRoutes } from './modules/seatmaps/routes/seatmap.routes.js';
@@ -130,18 +131,6 @@ export function buildApp(
     options.artistsRepository ?? new DrizzleArtistsRepository(getDefaultDb());
   const venuesRepository =
     options.venuesRepository ?? new DrizzleVenuesRepository(getDefaultDb());
-  const seatmapRepository =
-    options.seatmapRepository ?? new DrizzleSeatmapRepository(getDefaultDb());
-  const paymentProvider = options.paymentProvider ?? createPaymentProvider();
-  const paymentEventRepository =
-    options.paymentEventRepository ??
-    new DrizzlePaymentEventRepository(getDefaultDb());
-  const orderRepository =
-    options.orderRepository ?? new DrizzleOrderRepository(getDefaultDb());
-  const ticketRepository =
-    options.ticketRepository ?? new DrizzleTicketRepository(getDefaultDb());
-  const seatCaptureGateway =
-    options.seatCaptureGateway ?? new DrizzleSeatCaptureGateway(getDefaultDb());
 
   let defaultRedis: RedisClient | null = null;
   const getRedis = (): RedisClient => {
@@ -151,6 +140,23 @@ export function buildApp(
     }
     return defaultRedis;
   };
+
+  const seatAvailabilityBroker = createRedisSeatAvailabilityBroker(getRedis());
+
+  const seatmapRepository =
+    options.seatmapRepository ??
+    new DrizzleSeatmapRepository(getDefaultDb(), seatAvailabilityBroker);
+  const paymentProvider = options.paymentProvider ?? createPaymentProvider();
+  const paymentEventRepository =
+    options.paymentEventRepository ??
+    new DrizzlePaymentEventRepository(getDefaultDb());
+  const orderRepository =
+    options.orderRepository ?? new DrizzleOrderRepository(getDefaultDb());
+  const ticketRepository =
+    options.ticketRepository ?? new DrizzleTicketRepository(getDefaultDb());
+  const seatCaptureGateway =
+    options.seatCaptureGateway ??
+    new DrizzleSeatCaptureGateway(getDefaultDb(), seatAvailabilityBroker);
 
   const getHoldRepository = (): HoldRepository => {
     if (options.holdRepository) return options.holdRepository;

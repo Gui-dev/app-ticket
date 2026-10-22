@@ -1,8 +1,15 @@
 import { and, asc, eq, gt, inArray } from 'drizzle-orm';
 
 import type { Db } from '../../../db/client.js';
-import { expireExpiredHolds } from '../../../db/hold-expiry.js';
+import {
+  type ExpiredHoldSeat,
+  expireExpiredHolds,
+} from '../../../db/hold-expiry.js';
 import { events, seatRows, seats, sectors } from '../../../db/schema.js';
+import type {
+  SeatAvailabilityBroker,
+  SeatStatusDelta,
+} from '../domain/seat-availability-broker.js';
 import type {
   SeatmapEntity,
   SeatmapRow,
@@ -14,8 +21,21 @@ import type {
   SeatmapRepository,
 } from '../domain/seatmap-repository.js';
 
+const expiredHoldSeatToAvailableDelta = (
+  seat: ExpiredHoldSeat,
+): SeatStatusDelta => ({
+  eventSlug: seat.eventSlug,
+  sectorSlug: seat.sectorSlug,
+  rowLabel: seat.rowLabel,
+  seatLabel: seat.seatLabel,
+  status: 'available',
+});
+
 export class DrizzleSeatmapRepository implements SeatmapRepository {
-  constructor(private readonly db: Db) {}
+  constructor(
+    private readonly db: Db,
+    private readonly broker: SeatAvailabilityBroker,
+  ) {}
 
   async findSeatmap(eventSlug: string): Promise<SeatmapEntity | null> {
     const [event] = await this.db
@@ -174,8 +194,33 @@ export class DrizzleSeatmapRepository implements SeatmapRepository {
       }));
   }
 
+  private async findSeatIdentity(
+    seatId: string,
+  ): Promise<Pick<
+    SeatStatusDelta,
+    'eventSlug' | 'sectorSlug' | 'rowLabel' | 'seatLabel'
+  > | null> {
+    const [identity] = await this.db
+      .select({
+        eventSlug: events.slug,
+        sectorSlug: sectors.slug,
+        rowLabel: seatRows.label,
+        seatLabel: seats.label,
+      })
+      .from(seats)
+      .innerJoin(seatRows, eq(seatRows.id, seats.rowId))
+      .innerJoin(sectors, eq(sectors.id, seatRows.sectorId))
+      .innerJoin(events, eq(events.id, sectors.eventId))
+      .where(eq(seats.id, seatId))
+      .limit(1);
+    return identity ?? null;
+  }
+
   async expireHolds(): Promise<void> {
-    await expireExpiredHolds(this.db);
+    const expired = await expireExpiredHolds(this.db);
+    if (expired.length > 0) {
+      this.broker.publish(expired.map(expiredHoldSeatToAvailableDelta));
+    }
   }
 
   async reserveSeat(input: {
@@ -191,7 +236,14 @@ export class DrizzleSeatmapRepository implements SeatmapRepository {
         holdExpiresAt: input.expiresAt,
       })
       .where(and(eq(seats.id, input.seatId), eq(seats.status, 'available')));
-    return (result.rowCount ?? 0) > 0;
+    const reserved = (result.rowCount ?? 0) > 0;
+    if (reserved) {
+      const identity = await this.findSeatIdentity(input.seatId);
+      if (identity) {
+        this.broker.publish([{ ...identity, status: 'occupied' }]);
+      }
+    }
+    return reserved;
   }
 
   async renewSeatHold(input: {
@@ -209,11 +261,18 @@ export class DrizzleSeatmapRepository implements SeatmapRepository {
   }
 
   async releaseSeat(input: { seatId: string; userId: string }): Promise<void> {
-    await this.db
+    const result = await this.db
       .update(seats)
       .set({ status: 'available', holdUserId: null, holdExpiresAt: null })
       .where(
         and(eq(seats.id, input.seatId), eq(seats.holdUserId, input.userId)),
       );
+    const released = (result.rowCount ?? 0) > 0;
+    if (released) {
+      const identity = await this.findSeatIdentity(input.seatId);
+      if (identity) {
+        this.broker.publish([{ ...identity, status: 'available' }]);
+      }
+    }
   }
 }

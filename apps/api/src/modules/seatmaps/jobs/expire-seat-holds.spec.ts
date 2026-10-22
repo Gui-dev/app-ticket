@@ -9,6 +9,7 @@ import {
   migrateTestDatabase,
   resetDatabase,
 } from '../../../db/test-helpers.js';
+import { InMemorySeatAvailabilityBroker } from '../infra/in-memory-seat-availability-broker.js';
 import {
   createExpireSeatHoldsJob,
   SEAT_HOLD_QUEUE_NAME,
@@ -49,8 +50,15 @@ describe('expire seat holds job', () => {
       where row_id = ${rowA.id} and label = '1'
     `);
 
-    const job = createExpireSeatHoldsJob(db);
+    const broker = new InMemorySeatAvailabilityBroker();
+    const job = createExpireSeatHoldsJob(db, broker);
     await expect(job()).resolves.toBe(1);
-    expect(await expireExpiredHolds(db)).toBe(0);
+    expect(await expireExpiredHolds(db)).toEqual([]);
+    expect(broker.published).toEqual([
+      expect.objectContaining({
+        eventSlug: 'o-fantasma-da-opera',
+        status: 'available',
+      }),
+    ]);
   });
 });

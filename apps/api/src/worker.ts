@@ -4,6 +4,7 @@ import { createDb } from './db/client.js';
 import { loadEnvFile } from './load-env.js';
 import { createEmailsWorker } from './modules/emails/create-emails-worker.js';
 import { createPaymentsWorker } from './modules/payments/create-payments-worker.js';
+import { createRedisSeatAvailabilityBroker } from './modules/seatmaps/infra/redis-seat-availability-broker.js';
 import {
   createExpireSeatHoldsJob,
   EXPIRE_HOLDS_EVERY_MS,
@@ -28,7 +29,7 @@ await queue.upsertJobScheduler(
 
 const worker = new Worker<unknown, number>(
   SEAT_HOLD_QUEUE_NAME,
-  createExpireSeatHoldsJob(db),
+  createExpireSeatHoldsJob(db, createRedisSeatAvailabilityBroker(connection)),
   { connection },
 );
 

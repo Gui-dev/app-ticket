@@ -48,7 +48,14 @@ describe('expireExpiredHolds (postgres integration)', () => {
     `);
 
     const freed = await expireExpiredHolds(testDb);
-    expect(freed).toBe(1);
+    expect(freed).toEqual([
+      expect.objectContaining({
+        eventSlug: 'o-fantasma-da-opera',
+        sectorSlug: 'plateia',
+        rowLabel: 'A',
+        seatLabel: '1',
+      }),
+    ]);
 
     const statuses = await testDb.execute<{
       label: string;
