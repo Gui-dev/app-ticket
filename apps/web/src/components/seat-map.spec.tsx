@@ -181,6 +181,8 @@ function mockRelease() {
 
 const CART_ITEM_6 = 'Plateia · Fila A · Cadeira 6 · R$ 120,00';
 
+type PartialJson = Record<string, unknown>;
+
 describe('SeatMap', () => {
   it('renders sectors, rows and seat states', async () => {
     mockSeatmap();
@@ -1075,5 +1077,155 @@ describe('SeatMap', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('mantém o delta quando a resposta do refetch é anterior a ele', async () => {
+    const pendentes: Array<(payload: PartialJson) => void> = [];
+    server.use(
+      http.get(/\/api\/events\/o-fantasma-da-opera\/seatmap$/, async () => {
+        return await new Promise((resolve) => {
+          pendentes.push((payload) => resolve(HttpResponse.json(payload)));
+        });
+      }),
+    );
+    render(<SeatMap eventSlug="o-fantasma-da-opera" />);
+    await vi.waitFor(() => expect(pendentes).toHaveLength(1));
+
+    const estadoInicial = {
+      ...seatmapPayload,
+      seatmap: {
+        ...seatmapPayload.seatmap,
+        sectors: seatmapPayload.seatmap.sectors.map((sector) =>
+          sector.slug === 'plateia'
+            ? {
+                ...sector,
+                rows: sector.rows.map((row) =>
+                  row.label === 'A'
+                    ? {
+                        ...row,
+                        seats: row.seats.map((seat) =>
+                          seat.label === '2'
+                            ? { ...seat, status: 'available' }
+                            : seat,
+                        ),
+                      }
+                    : row,
+                ),
+              }
+            : sector,
+        ),
+      },
+    };
+    act(() => {
+      pendentes[0](estadoInicial);
+    });
+    expect(await screen.findByText(/9 de 10 livres/)).toBeInTheDocument();
+
+    act(() => {
+      lastSeatSocket().openOnServer();
+    });
+    act(() => {
+      lastSeatSocket().messageOnServer({
+        type: 'connected',
+        eventSlug: 'o-fantasma-da-opera',
+      });
+    });
+    await vi.waitFor(() => expect(pendentes).toHaveLength(2));
+
+    act(() => {
+      lastSeatSocket().messageOnServer({
+        type: 'seat_status_changed',
+        eventSlug: 'o-fantasma-da-opera',
+        changes: [
+          {
+            sectorSlug: 'plateia',
+            rowLabel: 'A',
+            seatLabel: '2',
+            status: 'occupied',
+          },
+        ],
+      });
+    });
+    expect(await screen.findByText(/8 de 10 livres/)).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Cadeira 2, fila A' }),
+    ).toBeDisabled();
+
+    act(() => {
+      pendentes[1](estadoInicial);
+    });
+    await vi.waitFor(() => {
+      expect(screen.getByText(/8 de 10 livres/)).toBeInTheDocument();
+    });
+    expect(
+      screen.getByRole('button', { name: 'Cadeira 2, fila A' }),
+    ).toBeDisabled();
+  });
+
+  it('mantém a resposta mais recente entre fetches sobrepostos', async () => {
+    const pendentes: Array<(payload: PartialJson) => void> = [];
+    server.use(
+      http.get(/\/api\/events\/o-fantasma-da-opera\/seatmap$/, async () => {
+        return await new Promise((resolve) => {
+          pendentes.push((payload) => resolve(HttpResponse.json(payload)));
+        });
+      }),
+    );
+    render(<SeatMap eventSlug="o-fantasma-da-opera" />);
+    await vi.waitFor(() => expect(pendentes).toHaveLength(1));
+
+    act(() => {
+      lastSeatSocket().openOnServer();
+    });
+    act(() => {
+      lastSeatSocket().messageOnServer({
+        type: 'connected',
+        eventSlug: 'o-fantasma-da-opera',
+      });
+    });
+    await vi.waitFor(() => expect(pendentes).toHaveLength(2));
+
+    act(() => {
+      pendentes[1](seatmapPayload);
+    });
+    expect(await screen.findByText(/8 de 10 livres/)).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Cadeira 2, fila A' }),
+    ).toBeDisabled();
+
+    const instantâneoDefasado = {
+      ...seatmapPayload,
+      seatmap: {
+        ...seatmapPayload.seatmap,
+        sectors: seatmapPayload.seatmap.sectors.map((sector) =>
+          sector.slug === 'plateia'
+            ? {
+                ...sector,
+                rows: sector.rows.map((row) =>
+                  row.label === 'A'
+                    ? {
+                        ...row,
+                        seats: row.seats.map((seat) =>
+                          seat.label === '2'
+                            ? { ...seat, status: 'available' }
+                            : seat,
+                        ),
+                      }
+                    : row,
+                ),
+              }
+            : sector,
+        ),
+      },
+    };
+    act(() => {
+      pendentes[0](instantâneoDefasado);
+    });
+    await vi.waitFor(() => {
+      expect(screen.getByText(/8 de 10 livres/)).toBeInTheDocument();
+    });
+    expect(
+      screen.getByRole('button', { name: 'Cadeira 2, fila A' }),
+    ).toBeDisabled();
   });
 });

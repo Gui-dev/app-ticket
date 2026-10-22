@@ -168,6 +168,7 @@ export function SeatMap({ eventSlug }: SeatMapProps) {
   const cancelledDuringPendingRef = useRef<Set<string>>(new Set());
   const typesFetchedRef = useRef(false);
   const hasLoadedRef = useRef(false);
+  const fetchGenerationRef = useRef(0);
 
   const applyItems = useCallback((next: SelectedSeat[]) => {
     itemsRef.current = next;
@@ -204,17 +205,20 @@ export function SeatMap({ eventSlug }: SeatMapProps) {
   }, [eventSlug, applyItems]);
 
   const fetchSeatmap = useCallback(async () => {
+    const generation = ++fetchGenerationRef.current;
     try {
       const response = await fetch(
         `/api/events/${encodeURIComponent(eventSlug)}/seatmap`,
         { signal: AbortSignal.timeout(5000) },
       );
       if (response.status === 404) {
+        if (generation !== fetchGenerationRef.current) return;
         setLoading(false);
         return;
       }
       if (!response.ok) throw new Error('seatmap_request_failed');
       const payload = seatmapResponseSchema.parse(await response.json());
+      if (generation !== fetchGenerationRef.current) return;
       setSeatmap(payload.seatmap);
       setLoading(false);
       hasLoadedRef.current = true;
@@ -252,6 +256,7 @@ export function SeatMap({ eventSlug }: SeatMapProps) {
         void fetchTypes();
       }
     } catch {
+      if (generation !== fetchGenerationRef.current) return;
       setLoading(false);
       if (!hasLoadedRef.current) setError(true);
     }
@@ -268,6 +273,9 @@ export function SeatMap({ eventSlug }: SeatMapProps) {
         if (message.type === 'connected') {
           void fetchSeatmap();
           return;
+        }
+        if (hasLoadedRef.current) {
+          fetchGenerationRef.current += 1;
         }
         setSeatmap((prev) =>
           prev ? applySeatStatuses(prev, message.changes) : prev,
