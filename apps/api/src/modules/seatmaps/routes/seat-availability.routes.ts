@@ -10,12 +10,19 @@ interface SeatAvailabilityRoutesDeps {
 }
 
 const WS_OPEN_READY_STATE = 1;
+const WS_HEARTBEAT_MS = 30_000;
 
 export function registerSeatAvailabilityRoutes(
   app: FastifyInstance,
   deps: SeatAvailabilityRoutesDeps,
 ): void {
   app.register((instance) => {
+    const heartbeat = setInterval(() => deps.fanout.sweep(), WS_HEARTBEAT_MS);
+    heartbeat.unref();
+    instance.addHook('onClose', async () => {
+      clearInterval(heartbeat);
+      deps.fanout.terminateAll();
+    });
     instance.get(
       '/events/:slug/seat-availability',
       { websocket: true },
@@ -23,6 +30,7 @@ export function registerSeatAvailabilityRoutes(
         const slug = (request.params as { slug: string }).slug;
         let unregister: (() => void) | null = null;
         let closed = false;
+        socket.on('pong', () => deps.fanout.markAlive(socket));
         socket.once('close', () => {
           closed = true;
           unregister?.();

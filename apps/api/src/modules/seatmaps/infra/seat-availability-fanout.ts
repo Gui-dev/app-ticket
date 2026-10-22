@@ -2,10 +2,13 @@ import { seatAvailabilityMessageSchema } from '@ticketvibe/shared';
 
 export interface FanoutTarget {
   send(text: string): void;
+  ping(): void;
+  terminate(): void;
 }
 
 export class SeatAvailabilityFanout {
   private readonly rooms = new Map<string, Set<FanoutTarget>>();
+  private readonly awaitingPong = new WeakSet<FanoutTarget>();
 
   register(eventSlug: string, target: FanoutTarget): () => void {
     const targets = this.rooms.get(eventSlug) ?? new Set();
@@ -17,6 +20,35 @@ export class SeatAvailabilityFanout {
       current.delete(target);
       if (current.size === 0) this.rooms.delete(eventSlug);
     };
+  }
+
+  markAlive(target: FanoutTarget): void {
+    this.awaitingPong.delete(target);
+  }
+
+  sweep(): void {
+    for (const [eventSlug, targets] of [...this.rooms]) {
+      for (const target of [...targets]) {
+        if (this.awaitingPong.has(target)) {
+          targets.delete(target);
+          target.terminate();
+        } else {
+          this.awaitingPong.add(target);
+          target.ping();
+        }
+      }
+      if (targets.size === 0) this.rooms.delete(eventSlug);
+    }
+  }
+
+  terminateAll(): void {
+    for (const [eventSlug, targets] of [...this.rooms]) {
+      for (const target of [...targets]) {
+        targets.delete(target);
+        target.terminate();
+      }
+      this.rooms.delete(eventSlug);
+    }
   }
 
   fanout(text: string): void {
