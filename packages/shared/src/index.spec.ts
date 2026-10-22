@@ -32,6 +32,7 @@ import {
   SEAT_HOLD_TTL_SECONDS,
   SERVICE_FEE_BPS,
   searchFiltersSchema,
+  seatAvailabilityMessageSchema,
   seatmapResponseSchema,
   sectorSchema,
   serviceFeeCents,
@@ -905,5 +906,50 @@ describe('TICKET_TYPE_LABELS', () => {
       meia: 'Meia',
       vip: 'VIP',
     });
+  });
+});
+
+describe('seatAvailabilityMessageSchema', () => {
+  it('accepts a connected message', () => {
+    expect(
+      seatAvailabilityMessageSchema.safeParse({
+        type: 'connected',
+        eventSlug: 'o-fantasma-da-opera',
+      }).success,
+    ).toBe(true);
+  });
+
+  it('accepts a seat_status_changed message', () => {
+    const parsed = seatAvailabilityMessageSchema.safeParse({
+      type: 'seat_status_changed',
+      eventSlug: 'o-fantasma-da-opera',
+      changes: [
+        {
+          sectorSlug: 'plateia',
+          rowLabel: 'Fila A',
+          seatLabel: 'Cadeira 1',
+          status: 'occupied',
+        },
+      ],
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success)
+      expect(parsed.data).toMatchObject({ type: 'seat_status_changed' });
+  });
+
+  it('rejects unknown types and empty change lists', () => {
+    expect(
+      seatAvailabilityMessageSchema.safeParse({
+        type: 'seat_added',
+        eventSlug: 'x',
+      }).success,
+    ).toBe(false);
+    expect(
+      seatAvailabilityMessageSchema.safeParse({
+        type: 'seat_status_changed',
+        eventSlug: 'x',
+        changes: [],
+      }).success,
+    ).toBe(false);
   });
 });

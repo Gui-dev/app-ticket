@@ -450,3 +450,24 @@ export function formatDatePtBR(isoDate: string): string {
 export function formatBRL(cents: number): string {
   return brlFormatter.format(cents / 100).replace(/\u00a0/g, ' ');
 }
+
+export const seatStatusChangeSchema = z.object({
+  sectorSlug: z.string().min(1),
+  rowLabel: z.string().min(1),
+  seatLabel: z.string().min(1),
+  status: seatStatusSchema,
+});
+
+export const seatAvailabilityMessageSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('connected'), eventSlug: z.string().min(1) }),
+  z.object({
+    type: z.literal('seat_status_changed'),
+    eventSlug: z.string().min(1),
+    changes: z.array(seatStatusChangeSchema).min(1),
+  }),
+]);
+
+export type SeatStatusChange = z.infer<typeof seatStatusChangeSchema>;
+export type SeatAvailabilityMessage = z.infer<
+  typeof seatAvailabilityMessageSchema
+>;
