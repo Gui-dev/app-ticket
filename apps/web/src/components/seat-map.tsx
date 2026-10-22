@@ -62,6 +62,7 @@ function cartSeatKey(seat: {
 
 const TICK_MS = 1_000;
 const POLL_MS = 10_000;
+const LIVE_POLL_MS = 60_000;
 
 function LegendItem({ swatch, label }: { swatch: ReactNode; label: string }) {
   return (
@@ -277,10 +278,12 @@ export function SeatMap({ eventSlug }: SeatMapProps) {
   });
 
   useEffect(() => {
-    if (wsOpen) return;
-    const interval = setInterval(() => {
-      fetchSeatmap();
-    }, POLL_MS);
+    const interval = setInterval(
+      () => {
+        fetchSeatmap();
+      },
+      wsOpen ? LIVE_POLL_MS : POLL_MS,
+    );
     return () => clearInterval(interval);
   }, [wsOpen, fetchSeatmap]);
 

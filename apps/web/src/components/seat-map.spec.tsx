@@ -1049,4 +1049,31 @@ describe('SeatMap', () => {
     await vi.waitFor(() => expect(gets).toBe(2));
     expect(screen.getByText(/8 de 10 livres/)).toBeInTheDocument();
   });
+
+  it('mantém uma passada lenta de segurança enquanto o WS está aberto', async () => {
+    vi.useFakeTimers();
+    try {
+      let gets = 0;
+      server.use(
+        http.get(/\/api\/events\/o-fantasma-da-opera\/seatmap$/, () => {
+          gets += 1;
+          return HttpResponse.json(seatmapPayload);
+        }),
+      );
+      render(<SeatMap eventSlug="o-fantasma-da-opera" />);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(gets).toBe(1);
+
+      act(() => {
+        lastSeatSocket().openOnServer();
+      });
+      await vi.advanceTimersByTimeAsync(25_000);
+      expect(gets).toBe(1);
+
+      await vi.advanceTimersByTimeAsync(40_000);
+      expect(gets).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
