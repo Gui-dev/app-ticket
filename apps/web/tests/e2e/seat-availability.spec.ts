@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 import { WEB } from './helpers/auth';
 import { restoreSeat } from './helpers/db';
@@ -9,7 +9,7 @@ const CART_ITEM_TEXT = 'Plateia · Fila A · Cadeira 1 · R$ 120,00';
 
 type WindowMarker = { noReload?: boolean };
 
-async function readNoReload(page: Awaited<ReturnType<typeof newPage>>) {
+async function readNoReload(page: Page) {
   const value = await page.evaluate(
     () => (window as unknown as WindowMarker).noReload,
   );
