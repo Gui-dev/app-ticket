@@ -63,7 +63,7 @@ Nenhuma falha apareceu nos gates finais do fechamento no head `b75c3a6` (o únic
 - **Corrida sweep vs nova reserva:** um delta `'available'` pode chegar depois de um `'occupied'` criado na janela entre o select e o update do sweep; o próximo delta/poll e o fetch disparado ao `connected` curam o estado — não há ordenação offline acessível sem replumar o protocolo.
 - **E2E de queda do servidor WS (restart da API):** fica no teste de componente do fallback (Task 5); reiniciar a API no meio do E2E seria flaky demais para o ganho.
 - O timer do sub-ack do WebSocket (Promise.race de 5s) não faz `.unref()`: fica vivo por até 5s, sem efeito no encerramento do processo.
-- Um erro no handle do socket fecha o WS com código 1011 sem log (`logger: false` é o padrão do repo): a falha fica invisível nos logs da API.
+- Falhas na cadeia de disponibilidade (publish no broker, erro do assinante no `app.ts` e falha de resolução da rota no caminho 1011) passam a registrar `console.error` com prefixo `[seat-availability]` (fixes `1bc970d`/`4c9c641`, seguindo o padrão `logger: false` do app) — o silêncio total dos logs foi revertido na onda final de revisão.
 - `onerror` do socket fica sem handler no cliente: os navegadores sempre emitem `close` após `error`, que é o caminho tratado.
 - `buildApp` instancia o broker Redis mesmo com fakes injetadas (conexão extra, benigna).
 - Mapeadores de delta `'available'` duplicados em três lugares (tamanho ok, sem divergência de protocolo).
