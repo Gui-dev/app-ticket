@@ -37,6 +37,15 @@ export class DrizzleSeatmapRepository implements SeatmapRepository {
     private readonly broker: SeatAvailabilityBroker,
   ) {}
 
+  async existsBySlug(eventSlug: string): Promise<boolean> {
+    const [event] = await this.db
+      .select({ id: events.id })
+      .from(events)
+      .where(eq(events.slug, eventSlug))
+      .limit(1);
+    return event !== undefined;
+  }
+
   async findSeatmap(eventSlug: string): Promise<SeatmapEntity | null> {
     const [event] = await this.db
       .select({ id: events.id })

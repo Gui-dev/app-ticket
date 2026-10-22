@@ -1,11 +1,11 @@
 import { seatAvailabilityMessageSchema } from '@ticketvibe/shared';
 import type { FastifyInstance } from 'fastify';
 
+import type { SeatmapRepository } from '../domain/seatmap-repository.js';
 import type { SeatAvailabilityFanout } from '../infra/seat-availability-fanout.js';
-import type { GetSeatmapUseCase } from '../use-cases/get-seatmap.use-case.js';
 
 interface SeatAvailabilityRoutesDeps {
-  getSeatmap: GetSeatmapUseCase;
+  seatmapRepository: SeatmapRepository;
   fanout: SeatAvailabilityFanout;
 }
 
@@ -30,9 +30,9 @@ export function registerSeatAvailabilityRoutes(
         });
         void (async () => {
           try {
-            const result = await deps.getSeatmap.execute(slug);
+            const exists = await deps.seatmapRepository.existsBySlug(slug);
             if (closed || socket.readyState !== WS_OPEN_READY_STATE) return;
-            if (!result) {
+            if (!exists) {
               socket.close(4004, 'event_not_found');
               return;
             }
@@ -45,7 +45,8 @@ export function registerSeatAvailabilityRoutes(
                 }),
               ),
             );
-          } catch {
+          } catch (error) {
+            console.error('[seat-availability] lookup failed', error);
             socket.close(1011, 'internal_error');
           }
         })();

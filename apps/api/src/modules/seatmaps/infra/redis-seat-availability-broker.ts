@@ -35,7 +35,9 @@ export function createRedisSeatAvailabilityBroker(
           changes,
         };
         const text = JSON.stringify(message);
-        void redis.publish(SEAT_AVAILABILITY_CHANNEL, text).catch(() => {});
+        void redis.publish(SEAT_AVAILABILITY_CHANNEL, text).catch((error) => {
+          console.error('[seat-availability] publish failed', error);
+        });
       }
     },
   };

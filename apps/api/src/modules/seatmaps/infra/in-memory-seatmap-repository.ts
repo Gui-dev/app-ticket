@@ -29,6 +29,10 @@ export class InMemorySeatmapRepository implements SeatmapRepository {
     this.userHolds = holds;
   }
 
+  async existsBySlug(eventSlug: string): Promise<boolean> {
+    return this.seatmaps.has(eventSlug);
+  }
+
   async findSeatmap(eventSlug: string): Promise<SeatmapEntity | null> {
     return this.seatmaps.get(eventSlug) ?? null;
   }

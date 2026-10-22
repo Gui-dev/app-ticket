@@ -97,7 +97,9 @@ export function buildApp(
 ): FastifyInstance {
   const app = Fastify({ logger: false });
 
-  app.register(websocket);
+  app.register(websocket, {
+    options: { maxPayload: 1_048_576 },
+  });
 
   app.addContentTypeParser(
     'application/json',
@@ -154,7 +156,9 @@ export function buildApp(
   const seatAvailabilityFanout = new SeatAvailabilityFanout();
 
   const seatAvailabilitySubscriber = createRedis();
-  seatAvailabilitySubscriber.on('error', () => {});
+  seatAvailabilitySubscriber.on('error', (error) => {
+    console.error('[seat-availability] subscriber error', error);
+  });
 
   let subscriberClosing = false;
   let subscriberSubscribeStarted = false;
@@ -287,7 +291,7 @@ export function buildApp(
   });
 
   registerSeatAvailabilityRoutes(app, {
-    getSeatmap: new GetSeatmapUseCase(seatmapRepository),
+    seatmapRepository,
     fanout: seatAvailabilityFanout,
   });
 

@@ -18,6 +18,7 @@ const gig: SeatmapEntity = {
 
 function stubRepository(overrides: Partial<SeatmapRepository>) {
   return {
+    existsBySlug: vi.fn(async () => true),
     findSeatmap: vi.fn(async () => null),
     findSeatByCoords: vi.fn(),
     findHoldsByUser: vi.fn(async () => []),

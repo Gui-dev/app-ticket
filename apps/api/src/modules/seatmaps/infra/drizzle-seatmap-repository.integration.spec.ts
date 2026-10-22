@@ -34,6 +34,11 @@ describe('DrizzleSeatmapRepository (postgres integration)', () => {
     broker.published.length = 0;
   });
 
+  it('confere existência de evento pelo slug', async () => {
+    expect(await repository.existsBySlug(EVENT_SLUG)).toBe(true);
+    expect(await repository.existsBySlug('evento-inexistente')).toBe(false);
+  });
+
   afterAll(async () => {
     await testDb.$client.end();
   });

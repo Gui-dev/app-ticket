@@ -31,6 +31,7 @@ export interface SeatHoldRecord {
 }
 
 export interface SeatmapRepository {
+  existsBySlug(eventSlug: string): Promise<boolean>;
   findSeatmap(eventSlug: string): Promise<SeatmapEntity | null>;
   findSeatByCoords(input: {
     eventSlug: string;
