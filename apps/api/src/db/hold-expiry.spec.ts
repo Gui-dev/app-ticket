@@ -69,4 +69,50 @@ describe('expireExpiredHolds (postgres integration)', () => {
       { label: '2', status: 'reserved', hold_user_id: 'user-active' },
     ]);
   });
+
+  it('nao libera nem limpa hold de assento pago ocupado com hold expirado', async () => {
+    const rows = await testDb.execute<{ id: string }>(sql`
+      select sr.id from seat_rows sr
+      join sectors s on s.id = sr.sector_id
+      join events e on e.id = s.event_id
+      where e.slug = 'o-fantasma-da-opera' and sr.label = 'A'
+      limit 1
+    `);
+    const rowA = rows.rows[0];
+    expect(rowA).toBeDefined();
+    await testDb.execute(sql`
+      update seats set status = 'reserved', hold_user_id = 'user-expired', hold_expires_at = now() - interval '1 second'
+      where row_id = ${rowA.id} and label = '1'
+    `);
+    await testDb.execute(sql`
+      update seats set status = 'occupied', hold_user_id = 'user-paid', hold_expires_at = now() - interval '1 second'
+      where row_id = ${rowA.id} and label = '3'
+    `);
+
+    const freed = await expireExpiredHolds(testDb);
+    expect(freed).toEqual([
+      expect.objectContaining({
+        eventSlug: 'o-fantasma-da-opera',
+        sectorSlug: 'plateia',
+        rowLabel: 'A',
+        seatLabel: '1',
+      }),
+    ]);
+
+    const seat = await testDb.execute<{
+      status: string;
+      hold_user_id: string | null;
+      hold_expires_at: Date | null;
+    }>(sql`
+      select status, hold_user_id, hold_expires_at from seats where row_id = ${rowA.id} and label = '3'
+    `);
+    expect(seat.rows).toEqual([
+      {
+        status: 'occupied',
+        hold_user_id: 'user-paid',
+        hold_expires_at: seat.rows[0]?.hold_expires_at ?? null,
+      },
+    ]);
+    expect(seat.rows[0]?.hold_expires_at).not.toBeNull();
+  });
 });
