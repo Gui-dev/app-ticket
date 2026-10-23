@@ -167,5 +167,14 @@ describe('DeleteSectorUseCase recálculo residual', () => {
     });
 
     expect(result).toBe('ok');
+    expect(await repository.listSectorsForEvent('evt-meu')).toEqual([]);
+
+    const eventAfter = await repository.findEventForOrganizer({
+      eventId: 'evt-meu',
+      userId: 'user-a',
+    });
+    expect(eventAfter.kind).toBe('ok');
+    if (eventAfter.kind !== 'ok') return;
+    expect(eventAfter.event.priceFromCents).toBe(5000);
   });
 });
