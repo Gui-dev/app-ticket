@@ -13,6 +13,8 @@ import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
+import { fromDateTimeLocalValue } from '@/lib/format';
+
 const EditarEventoPage = (await import('./page')).default;
 
 const server = setupServer();
@@ -127,7 +129,7 @@ describe('página Editar evento', () => {
     expect(screen.getByLabelText('Categoria')).toHaveValue('shows');
 
     expect(screen.getByLabelText('Data e hora')).toHaveValue(
-      '2026-11-20T23:00',
+      '2026-11-20T20:00',
     );
 
     const setor = screen.getByRole('listitem', { name: 'Plateia' });
@@ -169,7 +171,26 @@ describe('página Editar evento', () => {
     expect(parsed.description).toBe('Uma noite de rock com bandas convidadas.');
     expect(parsed.categorySlug).toBe('shows');
     expect(parsed.venueSlug).toBe('audio-club');
-    expect(parsed.startsAt).toBe(new Date('2026-11-21T21:00').toISOString());
+    expect(parsed.startsAt).toBe(fromDateTimeLocalValue('2026-11-21T21:00'));
+  });
+
+  it('mantém o instante do evento quando a data só é salva sem alteração', async () => {
+    const { detalheCalls } = await renderEditarEventoPage();
+
+    let received: unknown;
+    server.use(
+      http.patch(detailUrl, async (info) => {
+        received = await info.request.json();
+        return HttpResponse.json({ event: montarEvento() });
+      }),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar alterações' }));
+
+    await waitFor(() => expect(detalheCalls()).toBe(2));
+
+    const parsed = organizerEventCreateSchema.parse(received);
+    expect(parsed.startsAt).toBe('2026-11-20T23:00:00.000Z');
   });
 
   it('mostra o erro quando o PATCH é recusado por event_has_orders e não recarrega', async () => {

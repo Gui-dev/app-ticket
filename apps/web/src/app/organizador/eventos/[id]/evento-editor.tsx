@@ -9,6 +9,7 @@ import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import { OrganizerSectorEditor } from '@/components/organizer-sector-editor';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { fromDateTimeLocalValue, toDateTimeLocalValue } from '@/lib/format';
 import {
   fetchOrganizerEvent,
   fetchOrganizerVenues,
@@ -101,7 +102,7 @@ function EventoEditor({ eventId, categories }: EventoEditorProps) {
         description: String(form.get('description') ?? ''),
         categorySlug: String(form.get('categorySlug') ?? ''),
         venueSlug: String(form.get('venueSlug') ?? ''),
-        startsAt: new Date(String(form.get('startsAt'))).toISOString(),
+        startsAt: fromDateTimeLocalValue(String(form.get('startsAt') ?? '')),
       });
       await recarregarEvento();
     } catch (cause) {
@@ -225,7 +226,7 @@ function EventoEditor({ eventId, categories }: EventoEditorProps) {
                 type="datetime-local"
                 name="startsAt"
                 required
-                defaultValue={event.startsAt.slice(0, 16)}
+                defaultValue={toDateTimeLocalValue(event.startsAt)}
               />
             </label>
             <Button type="submit" disabled={pending}>
