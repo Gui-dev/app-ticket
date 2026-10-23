@@ -14,6 +14,10 @@ export function query(sql: string): string {
   ).trim();
 }
 
+export function promoteOrganizerByEmail(email: string): void {
+  query(`update "user" set role = 'organizer' where email = '${email}'`);
+}
+
 export function backdateHold(seatLabel: string): void {
   query(
     `update seats set hold_expires_at = now() - interval '1 second' where label = '${seatLabel}' and hold_user_id is not null and ${PLATEIA_ROW_A}`,
