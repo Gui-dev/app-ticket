@@ -3,6 +3,7 @@ import Link from 'next/link';
 const SHORTCUTS = [
   { href: '/organizador', label: 'Painel' },
   { href: '/organizador/eventos', label: 'Meus eventos' },
+  { href: '/organizador/locais', label: 'Locais' },
 ] as const;
 
 export default function OrganizadorPage() {
