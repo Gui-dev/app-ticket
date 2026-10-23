@@ -29,6 +29,8 @@ import { DrizzleSeatCaptureGateway } from './modules/orders/infra/drizzle-seat-c
 import { DrizzleTicketRepository } from './modules/orders/infra/drizzle-ticket-repository.js';
 import { registerOrderRoutes } from './modules/orders/routes/order.routes.js';
 import { CreateOrderUseCase } from './modules/orders/use-cases/create-order.use-case.js';
+import type { OrganizerRepository } from './modules/organizer/domain/organizer-repository.js';
+import { DrizzleOrganizerRepository } from './modules/organizer/infra/drizzle-organizer-repository.js';
 import { registerOrganizerRoutes } from './modules/organizer/routes/organizer.routes.js';
 import { createPaymentProvider } from './modules/payments/create-payment-provider.js';
 import type { PaymentEventQueue } from './modules/payments/domain/payment-event-queue.js';
@@ -94,6 +96,7 @@ export function buildApp(
     ticketRepository?: TicketRepository;
     seatCaptureGateway?: SeatCaptureGateway;
     createOrder?: CreateOrderUseCase;
+    organizerRepository?: OrganizerRepository;
   } = {},
 ): FastifyInstance {
   const app = Fastify({ logger: false });
@@ -193,6 +196,9 @@ export function buildApp(
   const seatCaptureGateway =
     options.seatCaptureGateway ??
     new DrizzleSeatCaptureGateway(getDefaultDb(), seatAvailabilityBroker);
+  const organizerRepository =
+    options.organizerRepository ??
+    new DrizzleOrganizerRepository(getDefaultDb());
 
   const getHoldRepository = (): HoldRepository => {
     if (options.holdRepository) return options.holdRepository;
@@ -344,7 +350,7 @@ export function buildApp(
       ),
   });
 
-  registerOrganizerRoutes(app, { getSession });
+  registerOrganizerRoutes(app, { getSession, organizerRepository });
 
   registerWebhookRoutes(app, {
     paymentProvider,
