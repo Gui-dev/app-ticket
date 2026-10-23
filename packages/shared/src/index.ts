@@ -471,3 +471,151 @@ export type SeatStatusChange = z.infer<typeof seatStatusChangeSchema>;
 export type SeatAvailabilityMessage = z.infer<
   typeof seatAvailabilityMessageSchema
 >;
+
+export const organizerEventCreateSchema = z.object({
+  title: z.string().trim().min(3).max(120),
+  description: z.string().trim().min(10).max(2000),
+  categorySlug: z.string().min(1),
+  venueSlug: z.string().min(1),
+  startsAt: z.iso.datetime(),
+});
+
+export type OrganizerEventCreate = z.infer<typeof organizerEventCreateSchema>;
+
+export const organizerVenueCreateSchema = z.object({
+  name: z.string().trim().min(3).max(120),
+  city: z.string().trim().min(2).max(60),
+  state: z
+    .string()
+    .trim()
+    .length(2)
+    .transform((value) => value.toUpperCase()),
+});
+
+export type OrganizerVenueCreate = z.input<typeof organizerVenueCreateSchema>;
+
+export const organizerRowCreateSchema = z.object({
+  label: z.string().trim().min(1).max(10),
+  seatCount: z.number().int().min(1).max(200),
+});
+
+export type OrganizerRowCreate = z.infer<typeof organizerRowCreateSchema>;
+
+export const organizerSectorCreateSchema = z.object({
+  name: z.string().trim().min(1).max(60),
+  priceFromCents: z.number().int().min(0),
+  rows: z.array(organizerRowCreateSchema).min(1).max(60),
+});
+
+export type OrganizerSectorCreate = z.infer<typeof organizerSectorCreateSchema>;
+
+export const organizerLotCreateSchema = z.object({
+  name: z.string().trim().min(1).max(60),
+  priceCents: z.number().int().min(0),
+  startsAt: z.iso.datetime(),
+  endsAt: z.iso.datetime(),
+});
+
+export type OrganizerLotCreate = z.infer<typeof organizerLotCreateSchema>;
+
+export const organizerEventDtoSchema = z.object({
+  id: z.uuid(),
+  slug: z.string().min(1),
+  title: z.string().min(1),
+  description: z.string().min(1),
+  category: categorySchema,
+  venue: venueSchema,
+  startsAt: z.iso.datetime(),
+  priceFromCents: z.number().int().min(0),
+  platform: z.boolean(),
+});
+
+export type OrganizerEventDto = z.infer<typeof organizerEventDtoSchema>;
+
+export const organizerSeatRowDtoSchema = z.object({
+  id: z.uuid(),
+  label: z.string().min(1),
+  seatCount: z.number().int().min(0),
+});
+
+export type OrganizerSeatRowDto = z.infer<typeof organizerSeatRowDtoSchema>;
+
+export const organizerLotDtoSchema = z.object({
+  id: z.uuid(),
+  name: z.string().min(1),
+  priceCents: z.number().int().min(0),
+  startsAt: z.iso.datetime(),
+  endsAt: z.iso.datetime(),
+});
+
+export type OrganizerLotDto = z.infer<typeof organizerLotDtoSchema>;
+
+export const organizerSectorDtoSchema = z.object({
+  id: z.uuid(),
+  slug: z.string().min(1),
+  name: z.string().min(1),
+  priceFromCents: z.number().int().min(0),
+  seatsTotal: z.number().int().min(0),
+  rows: z.array(organizerSeatRowDtoSchema),
+  lots: z.array(organizerLotDtoSchema),
+});
+
+export type OrganizerSectorDto = z.infer<typeof organizerSectorDtoSchema>;
+
+export const organizerEventDetailSchema = organizerEventDtoSchema.extend({
+  sectors: z.array(organizerSectorDtoSchema),
+});
+
+export type OrganizerEventDetailDto = z.infer<
+  typeof organizerEventDetailSchema
+>;
+
+export const organizerEventListResponseSchema = z.object({
+  events: z.array(organizerEventDtoSchema),
+});
+
+export type OrganizerEventListResponse = z.infer<
+  typeof organizerEventListResponseSchema
+>;
+
+export const organizerVenueDtoSchema = z.object({
+  id: z.uuid(),
+  slug: z.string().min(1),
+  name: z.string().min(1),
+  city: z.string().min(1),
+  state: z.string().length(2),
+});
+
+export type OrganizerVenueDto = z.infer<typeof organizerVenueDtoSchema>;
+
+export const organizerVenueListResponseSchema = z.object({
+  venues: z.array(organizerVenueDtoSchema),
+});
+
+export type OrganizerVenueListResponse = z.infer<
+  typeof organizerVenueListResponseSchema
+>;
+
+export const organizerEventResponseSchema = z.object({
+  event: organizerEventDtoSchema,
+});
+
+export type OrganizerEventResponse = z.infer<
+  typeof organizerEventResponseSchema
+>;
+
+export const organizerEventDetailResponseSchema = z.object({
+  event: organizerEventDetailSchema,
+});
+
+export type OrganizerEventDetailResponse = z.infer<
+  typeof organizerEventDetailResponseSchema
+>;
+
+export const organizerVenueResponseSchema = z.object({
+  venue: organizerVenueDtoSchema,
+});
+
+export type OrganizerVenueResponse = z.infer<
+  typeof organizerVenueResponseSchema
+>;

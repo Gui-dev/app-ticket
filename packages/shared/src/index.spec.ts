@@ -27,6 +27,22 @@ import {
   orderSchema,
   orderStatusSchema,
   orderTotals,
+  organizerEventCreateSchema,
+  organizerEventDetailResponseSchema,
+  organizerEventDetailSchema,
+  organizerEventDtoSchema,
+  organizerEventListResponseSchema,
+  organizerEventResponseSchema,
+  organizerLotCreateSchema,
+  organizerLotDtoSchema,
+  organizerRowCreateSchema,
+  organizerSeatRowDtoSchema,
+  organizerSectorCreateSchema,
+  organizerSectorDtoSchema,
+  organizerVenueCreateSchema,
+  organizerVenueDtoSchema,
+  organizerVenueListResponseSchema,
+  organizerVenueResponseSchema,
   releaseResponseSchema,
   SEAT_HOLD_RENEW_AFTER_SECONDS,
   SEAT_HOLD_TTL_SECONDS,
@@ -950,6 +966,358 @@ describe('seatAvailabilityMessageSchema', () => {
         eventSlug: 'x',
         changes: [],
       }).success,
+    ).toBe(false);
+  });
+});
+
+describe('organizerEventCreateSchema', () => {
+  const valid = {
+    title: '  Rock Night  ',
+    description: 'A night of rock music.',
+    categorySlug: 'shows',
+    venueSlug: 'audio-club',
+    startsAt: '2026-11-10T20:00:00.000Z',
+  };
+
+  it('accepts and trims a valid event payload', () => {
+    expect(organizerEventCreateSchema.parse(valid)).toEqual({
+      title: 'Rock Night',
+      description: 'A night of rock music.',
+      categorySlug: 'shows',
+      venueSlug: 'audio-club',
+      startsAt: '2026-11-10T20:00:00.000Z',
+    });
+  });
+
+  it('rejects a title shorter than three characters', () => {
+    expect(() =>
+      organizerEventCreateSchema.parse({ ...valid, title: 'ab' }),
+    ).toThrow();
+  });
+
+  it('rejects a description shorter than ten characters', () => {
+    expect(() =>
+      organizerEventCreateSchema.parse({ ...valid, description: 'too short' }),
+    ).toThrow();
+  });
+
+  it('rejects a startsAt that is not an iso datetime', () => {
+    expect(() =>
+      organizerEventCreateSchema.parse({ ...valid, startsAt: '10/11/2026' }),
+    ).toThrow();
+  });
+});
+
+describe('organizerVenueCreateSchema', () => {
+  const valid = {
+    name: 'Teatro Renault',
+    city: 'São Paulo',
+    state: 'sp',
+  };
+
+  it('uppercases the state', () => {
+    expect(organizerVenueCreateSchema.parse(valid).state).toBe('SP');
+  });
+
+  it('rejects a state that is not exactly two letters', () => {
+    expect(() =>
+      organizerVenueCreateSchema.parse({ ...valid, state: 'SPX' }),
+    ).toThrow();
+  });
+
+  it('rejects a name shorter than three characters', () => {
+    expect(() =>
+      organizerVenueCreateSchema.parse({ ...valid, name: 'ab' }),
+    ).toThrow();
+  });
+});
+
+describe('organizerRowCreateSchema', () => {
+  const valid = { label: 'A', seatCount: 20 };
+
+  it('accepts and trims a valid row', () => {
+    expect(
+      organizerRowCreateSchema.parse({ label: '  A  ', seatCount: 20 }),
+    ).toEqual({
+      label: 'A',
+      seatCount: 20,
+    });
+  });
+
+  it('rejects a seatCount of zero', () => {
+    expect(() =>
+      organizerRowCreateSchema.parse({ ...valid, seatCount: 0 }),
+    ).toThrow();
+  });
+
+  it('rejects a seatCount above two hundred', () => {
+    expect(() =>
+      organizerRowCreateSchema.parse({ ...valid, seatCount: 201 }),
+    ).toThrow();
+  });
+});
+
+describe('organizerSectorCreateSchema', () => {
+  const valid = {
+    name: 'Plateia',
+    priceFromCents: 12000,
+    rows: [
+      { label: 'A', seatCount: 3 },
+      { label: 'B', seatCount: 1 },
+    ],
+  };
+
+  it('accepts a valid sector with rows', () => {
+    expect(organizerSectorCreateSchema.parse(valid)).toEqual(valid);
+  });
+
+  it('rejects an empty rows list', () => {
+    expect(() =>
+      organizerSectorCreateSchema.parse({ ...valid, rows: [] }),
+    ).toThrow();
+  });
+
+  it('rejects a row list with more than sixty rows', () => {
+    expect(() =>
+      organizerSectorCreateSchema.parse({
+        ...valid,
+        rows: Array.from({ length: 61 }, () => ({ label: 'A', seatCount: 1 })),
+      }),
+    ).toThrow();
+  });
+
+  it('rejects a negative priceFromCents', () => {
+    expect(() =>
+      organizerSectorCreateSchema.parse({ ...valid, priceFromCents: -1 }),
+    ).toThrow();
+  });
+});
+
+describe('organizerLotCreateSchema', () => {
+  const valid = {
+    name: 'Primeiro lote',
+    priceCents: 10000,
+    startsAt: '2026-11-01T10:00:00.000Z',
+    endsAt: '2026-11-15T10:00:00.000Z',
+  };
+
+  it('accepts a valid lot', () => {
+    expect(organizerLotCreateSchema.parse(valid)).toEqual(valid);
+  });
+
+  it('rejects a non-iso startsAt', () => {
+    expect(() =>
+      organizerLotCreateSchema.parse({ ...valid, startsAt: '01/11/2026' }),
+    ).toThrow();
+  });
+
+  it('rejects a non-iso endsAt', () => {
+    expect(() =>
+      organizerLotCreateSchema.parse({ ...valid, endsAt: '15/11/2026' }),
+    ).toThrow();
+  });
+
+  it('rejects a negative priceCents', () => {
+    expect(() =>
+      organizerLotCreateSchema.parse({ ...valid, priceCents: -1 }),
+    ).toThrow();
+  });
+});
+
+const validOrganizerEventDto = {
+  id: '7f9c1a2e-3b4d-4e5f-8a9b-0c1d2e3f4a5b',
+  slug: 'rock-night-sao-paulo',
+  title: 'Rock Night',
+  description: 'A night of rock music.',
+  category: { slug: 'music', name: 'Music' },
+  venue: {
+    slug: 'audio-club',
+    name: 'Audio Club',
+    city: 'São Paulo',
+    state: 'SP',
+  },
+  startsAt: '2026-11-10T20:00:00.000Z',
+  priceFromCents: 8000,
+  platform: false,
+};
+
+describe('organizerEventDtoSchema', () => {
+  it('accepts an organizer event', () => {
+    expect(organizerEventDtoSchema.parse(validOrganizerEventDto)).toEqual(
+      validOrganizerEventDto,
+    );
+  });
+
+  it('accepts a platform event', () => {
+    expect(
+      organizerEventDtoSchema.parse({
+        ...validOrganizerEventDto,
+        platform: true,
+      }).platform,
+    ).toBe(true);
+  });
+
+  it('rejects an event without the platform flag', () => {
+    const { platform: _omitted, ...withoutPlatform } = validOrganizerEventDto;
+    expect(() => organizerEventDtoSchema.parse(withoutPlatform)).toThrow();
+  });
+});
+
+describe('organizerSeatRowDtoSchema', () => {
+  const valid = {
+    id: 'f1a5f6b2-9c3d-4c4a-9a1b-2c3d4e5f6a7b',
+    label: 'A',
+    seatCount: 20,
+  };
+
+  it('accepts a valid row dto', () => {
+    expect(organizerSeatRowDtoSchema.parse(valid)).toEqual(valid);
+  });
+
+  it('rejects a row dto with negative seatCount', () => {
+    expect(() =>
+      organizerSeatRowDtoSchema.parse({ ...valid, seatCount: -1 }),
+    ).toThrow();
+  });
+});
+
+describe('organizerLotDtoSchema', () => {
+  const valid = {
+    id: 'a2b3c4d5-e6f7-4a8b-9c0d-1e2f3a4b5c6d',
+    name: 'Primeiro lote',
+    priceCents: 10000,
+    startsAt: '2026-11-01T10:00:00.000Z',
+    endsAt: '2026-11-15T10:00:00.000Z',
+  };
+
+  it('accepts a valid lot dto', () => {
+    expect(organizerLotDtoSchema.parse(valid)).toEqual(valid);
+  });
+
+  it('rejects a lot dto without an id', () => {
+    const { id: _omitted, ...withoutId } = valid;
+    expect(() => organizerLotDtoSchema.parse(withoutId)).toThrow();
+  });
+});
+
+describe('organizerSectorDtoSchema', () => {
+  const valid = {
+    id: 'c3d4e5f6-a7b8-4c9d-8e0f-1a2b3c4d5e6f',
+    slug: 'plateia',
+    name: 'Plateia',
+    priceFromCents: 12000,
+    seatsTotal: 4,
+    rows: [
+      { id: 'f1a5f6b2-9c3d-4c4a-9a1b-2c3d4e5f6a7b', label: 'A', seatCount: 3 },
+    ],
+    lots: [
+      {
+        id: 'a2b3c4d5-e6f7-4a8b-9c0d-1e2f3a4b5c6d',
+        name: 'Primeiro lote',
+        priceCents: 10000,
+        startsAt: '2026-11-01T10:00:00.000Z',
+        endsAt: '2026-11-15T10:00:00.000Z',
+      },
+    ],
+  };
+
+  it('accepts a sector with rows and lots', () => {
+    expect(organizerSectorDtoSchema.parse(valid)).toEqual(valid);
+  });
+
+  it('accepts a sector without rows and lots', () => {
+    expect(
+      organizerSectorDtoSchema.parse({ ...valid, rows: [], lots: [] }).rows,
+    ).toEqual([]);
+  });
+
+  it('rejects a sector with an invalid row', () => {
+    expect(() =>
+      organizerSectorDtoSchema.parse({
+        ...valid,
+        rows: [{ label: 'A' }],
+      }),
+    ).toThrow();
+  });
+});
+
+describe('organizerEventDetailSchema', () => {
+  it('extends the dto with sectors', () => {
+    const detail = {
+      ...validOrganizerEventDto,
+      sectors: [],
+    };
+    expect(organizerEventDetailSchema.parse(detail)).toEqual(detail);
+  });
+
+  it('rejects a sector that violates the organizer sector contract', () => {
+    expect(() =>
+      organizerEventDetailSchema.parse({
+        ...validOrganizerEventDto,
+        sectors: [{ slug: 'plateia', name: 'Plateia' }],
+      }),
+    ).toThrow();
+  });
+});
+
+describe('organizer response schemas', () => {
+  const validOrganizerVenueDto = {
+    id: 'd4e5f6a7-b8c9-4d0e-9f1a-2b3c4d5e6f7a',
+    slug: 'teatro-renault',
+    name: 'Teatro Renault',
+    city: 'São Paulo',
+    state: 'SP',
+  };
+
+  it('parses the organizer event list response', () => {
+    expect(
+      organizerEventListResponseSchema.parse({
+        events: [validOrganizerEventDto],
+      }),
+    ).toEqual({ events: [validOrganizerEventDto] });
+    expect(
+      organizerEventListResponseSchema.safeParse({ events: [{}] }).success,
+    ).toBe(false);
+  });
+
+  it('parses the organizer venue list response', () => {
+    expect(
+      organizerVenueListResponseSchema.parse({
+        venues: [validOrganizerVenueDto],
+      }),
+    ).toEqual({ venues: [validOrganizerVenueDto] });
+    expect(
+      organizerVenueListResponseSchema.safeParse({ venues: [{}] }).success,
+    ).toBe(false);
+  });
+
+  it('parses the single event and detail responses', () => {
+    expect(
+      organizerEventResponseSchema.parse({ event: validOrganizerEventDto }),
+    ).toEqual({ event: validOrganizerEventDto });
+    expect(
+      organizerEventResponseSchema.safeParse({ event: { slug: 'x' } }).success,
+    ).toBe(false);
+
+    const detailPayload = {
+      event: { ...validOrganizerEventDto, sectors: [] },
+    };
+    expect(organizerEventDetailResponseSchema.parse(detailPayload)).toEqual(
+      detailPayload,
+    );
+    expect(
+      organizerEventDetailResponseSchema.safeParse({
+        event: validOrganizerEventDto,
+      }).success,
+    ).toBe(false);
+  });
+
+  it('parses the single venue response', () => {
+    expect(
+      organizerVenueResponseSchema.parse({ venue: validOrganizerVenueDto }),
+    ).toEqual({ venue: validOrganizerVenueDto });
+    expect(
+      organizerVenueResponseSchema.safeParse({ venue: { slug: 'x' } }).success,
     ).toBe(false);
   });
 });

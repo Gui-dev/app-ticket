@@ -51,6 +51,7 @@ export const events = pgTable(
     venueId: uuid('venue_id')
       .notNull()
       .references(() => venues.id),
+    organizerId: text('organizer_id').references(() => user.id),
     startsAt: timestamp('starts_at', {
       withTimezone: true,
       mode: 'date',
@@ -140,6 +141,32 @@ export const seats = pgTable(
   (table) => [
     unique('seats_row_id_label_unique').on(table.rowId, table.label),
     index('seats_row_id_idx').on(table.rowId),
+  ],
+);
+
+export const priceLots = pgTable(
+  'price_lots',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    sectorId: uuid('sector_id')
+      .notNull()
+      .references(() => sectors.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    priceCents: integer('price_cents').notNull(),
+    startsAt: timestamp('starts_at', {
+      withTimezone: true,
+      mode: 'date',
+    }).notNull(),
+    endsAt: timestamp('ends_at', {
+      withTimezone: true,
+      mode: 'date',
+    }).notNull(),
+  },
+  (table) => [
+    index('price_lots_sector_id_starts_at_idx').on(
+      table.sectorId,
+      table.startsAt,
+    ),
   ],
 );
 
