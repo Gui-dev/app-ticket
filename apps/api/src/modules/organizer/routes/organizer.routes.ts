@@ -1,11 +1,18 @@
 import {
   type OrganizerEventDto,
   type OrganizerSectorDto,
+  type OrganizerVenueDto,
   organizerEventCreateSchema,
   organizerEventDetailResponseSchema,
   organizerEventDtoSchema,
   organizerEventListResponseSchema,
   organizerEventResponseSchema,
+  organizerRowCreateSchema,
+  organizerSectorCreateSchema,
+  organizerSectorDtoSchema,
+  organizerVenueCreateSchema,
+  organizerVenueListResponseSchema,
+  organizerVenueResponseSchema,
 } from '@ticketvibe/shared';
 import type { FastifyInstance } from 'fastify';
 
@@ -15,12 +22,20 @@ import type {
   OrganizerEventRecord,
   OrganizerRepository,
   OrganizerSectorRecord,
+  OrganizerVenueRecord,
 } from '../domain/organizer-repository.js';
 import { CreateEventUseCase } from '../use-cases/create-event.use-case.js';
+import { CreateRowUseCase } from '../use-cases/create-row.use-case.js';
+import { CreateSectorUseCase } from '../use-cases/create-sector.use-case.js';
+import { CreateVenueUseCase } from '../use-cases/create-venue.use-case.js';
 import { DeleteEventUseCase } from '../use-cases/delete-event.use-case.js';
+import { DeleteRowUseCase } from '../use-cases/delete-row.use-case.js';
+import { DeleteSectorUseCase } from '../use-cases/delete-sector.use-case.js';
 import { GetOrganizerEventDetailUseCase } from '../use-cases/get-organizer-event-detail.use-case.js';
 import { ListOrganizerEventsUseCase } from '../use-cases/list-organizer-events.use-case.js';
+import { ListVenuesUseCase } from '../use-cases/list-venues.use-case.js';
 import { UpdateEventUseCase } from '../use-cases/update-event.use-case.js';
+import { UpdateVenueUseCase } from '../use-cases/update-venue.use-case.js';
 
 interface OrganizerRoutesDeps {
   getSession: GetSessionFn;
@@ -70,6 +85,16 @@ function toSectorDto(sector: OrganizerSectorRecord): OrganizerSectorDto {
   };
 }
 
+function toVenueDto(venue: OrganizerVenueRecord): OrganizerVenueDto {
+  return {
+    id: venue.id,
+    slug: venue.slug,
+    name: venue.name,
+    city: venue.city,
+    state: venue.state,
+  };
+}
+
 export function registerOrganizerRoutes(
   app: FastifyInstance,
   deps: OrganizerRoutesDeps,
@@ -81,6 +106,13 @@ export function registerOrganizerRoutes(
   const createEvent = new CreateEventUseCase(deps.organizerRepository);
   const updateEvent = new UpdateEventUseCase(deps.organizerRepository);
   const deleteEvent = new DeleteEventUseCase(deps.organizerRepository);
+  const listVenues = new ListVenuesUseCase(deps.organizerRepository);
+  const createVenue = new CreateVenueUseCase(deps.organizerRepository);
+  const updateVenue = new UpdateVenueUseCase(deps.organizerRepository);
+  const createSector = new CreateSectorUseCase(deps.organizerRepository);
+  const deleteSector = new DeleteSectorUseCase(deps.organizerRepository);
+  const createRow = new CreateRowUseCase(deps.organizerRepository);
+  const deleteRow = new DeleteRowUseCase(deps.organizerRepository);
 
   app.get('/organizer/session', async (request, reply) => {
     const session = await deps.getSession(request.headers);
@@ -258,6 +290,213 @@ export function registerOrganizerRoutes(
     }
     if (result === 'has_orders') {
       return reply.code(409).send({ error: 'event_has_orders' });
+    }
+    return reply.code(200).send({ ok: true });
+  });
+
+  app.get('/organizer/venues', async (request, reply) => {
+    const session = await deps.getSession(request.headers);
+    if (!session) {
+      return reply.code(401).send({ error: 'not_authenticated' });
+    }
+    const guard = guardOrganizer(session);
+    if (guard.kind !== 'ok') {
+      return reply.code(403).send({ error: 'not_organizer' });
+    }
+    const venues = await listVenues.execute();
+    return reply.code(200).send(
+      organizerVenueListResponseSchema.parse({
+        venues: venues.map(toVenueDto),
+      }),
+    );
+  });
+
+  app.post('/organizer/venues', async (request, reply) => {
+    const session = await deps.getSession(request.headers);
+    if (!session) {
+      return reply.code(401).send({ error: 'not_authenticated' });
+    }
+    const guard = guardOrganizer(session);
+    if (guard.kind !== 'ok') {
+      return reply.code(403).send({ error: 'not_organizer' });
+    }
+    const parsed = organizerVenueCreateSchema.safeParse(request.body ?? {});
+    if (!parsed.success) {
+      return reply
+        .code(400)
+        .send({ error: 'invalid_body', issues: parsed.error.issues });
+    }
+    const venue = await createVenue.execute(parsed.data);
+    return reply.code(201).send(
+      organizerVenueResponseSchema.parse({
+        venue: toVenueDto(venue),
+      }),
+    );
+  });
+
+  app.patch('/organizer/venues/:id', async (request, reply) => {
+    const session = await deps.getSession(request.headers);
+    if (!session) {
+      return reply.code(401).send({ error: 'not_authenticated' });
+    }
+    const guard = guardOrganizer(session);
+    if (guard.kind !== 'ok') {
+      return reply.code(403).send({ error: 'not_organizer' });
+    }
+    const { id } = request.params as { id: string };
+    if (!eventIdSchema.safeParse(id).success) {
+      return reply.code(404).send({ error: 'venue_not_found' });
+    }
+    const parsed = organizerVenueCreateSchema.safeParse(request.body ?? {});
+    if (!parsed.success) {
+      return reply
+        .code(400)
+        .send({ error: 'invalid_body', issues: parsed.error.issues });
+    }
+    const venue = await updateVenue.execute({ venueId: id, ...parsed.data });
+    if (!venue) {
+      return reply.code(404).send({ error: 'venue_not_found' });
+    }
+    return reply.code(200).send(
+      organizerVenueResponseSchema.parse({
+        venue: toVenueDto(venue),
+      }),
+    );
+  });
+
+  app.post('/organizer/events/:id/sectors', async (request, reply) => {
+    const session = await deps.getSession(request.headers);
+    if (!session) {
+      return reply.code(401).send({ error: 'not_authenticated' });
+    }
+    const guard = guardOrganizer(session);
+    if (guard.kind !== 'ok') {
+      return reply.code(403).send({ error: 'not_organizer' });
+    }
+    const { id } = request.params as { id: string };
+    if (!eventIdSchema.safeParse(id).success) {
+      return reply.code(404).send({ error: 'event_not_found' });
+    }
+    const parsed = organizerSectorCreateSchema.safeParse(request.body ?? {});
+    if (!parsed.success) {
+      return reply
+        .code(400)
+        .send({ error: 'invalid_body', issues: parsed.error.issues });
+    }
+    const result = await createSector.execute({
+      eventId: id,
+      userId: session.userId,
+      name: parsed.data.name,
+      priceFromCents: parsed.data.priceFromCents,
+      rows: parsed.data.rows,
+    });
+    if (result.kind === 'not_found') {
+      return reply.code(404).send({ error: 'event_not_found' });
+    }
+    if (result.kind === 'forbidden') {
+      return reply.code(403).send({ error: 'event_forbidden' });
+    }
+    if (result.kind === 'label_conflict') {
+      return reply.code(409).send({ error: 'row_label_conflict' });
+    }
+    return reply.code(201).send({
+      sector: organizerSectorDtoSchema.parse(toSectorDto(result.sector)),
+    });
+  });
+
+  app.delete('/organizer/sectors/:sectorId', async (request, reply) => {
+    const session = await deps.getSession(request.headers);
+    if (!session) {
+      return reply.code(401).send({ error: 'not_authenticated' });
+    }
+    const guard = guardOrganizer(session);
+    if (guard.kind !== 'ok') {
+      return reply.code(403).send({ error: 'not_organizer' });
+    }
+    const { sectorId } = request.params as { sectorId: string };
+    if (!organizerSectorDtoSchema.shape.id.safeParse(sectorId).success) {
+      return reply.code(404).send({ error: 'sector_not_found' });
+    }
+    const result = await deleteSector.execute({
+      sectorId,
+      userId: session.userId,
+    });
+    if (result === 'not_found') {
+      return reply.code(404).send({ error: 'sector_not_found' });
+    }
+    if (result === 'forbidden') {
+      return reply.code(403).send({ error: 'sector_forbidden' });
+    }
+    if (result === 'has_orders') {
+      return reply.code(409).send({ error: 'sector_has_orders' });
+    }
+    return reply.code(200).send({ ok: true });
+  });
+
+  app.post('/organizer/sectors/:sectorId/rows', async (request, reply) => {
+    const session = await deps.getSession(request.headers);
+    if (!session) {
+      return reply.code(401).send({ error: 'not_authenticated' });
+    }
+    const guard = guardOrganizer(session);
+    if (guard.kind !== 'ok') {
+      return reply.code(403).send({ error: 'not_organizer' });
+    }
+    const { sectorId } = request.params as { sectorId: string };
+    if (!organizerSectorDtoSchema.shape.id.safeParse(sectorId).success) {
+      return reply.code(404).send({ error: 'sector_not_found' });
+    }
+    const parsed = organizerRowCreateSchema.safeParse(request.body ?? {});
+    if (!parsed.success) {
+      return reply
+        .code(400)
+        .send({ error: 'invalid_body', issues: parsed.error.issues });
+    }
+    const result = await createRow.execute({
+      sectorId,
+      userId: session.userId,
+      label: parsed.data.label,
+      seatCount: parsed.data.seatCount,
+    });
+    if (result.kind === 'not_found') {
+      return reply.code(404).send({ error: 'sector_not_found' });
+    }
+    if (result.kind === 'forbidden') {
+      return reply.code(403).send({ error: 'sector_forbidden' });
+    }
+    if (result.kind === 'label_conflict') {
+      return reply.code(409).send({ error: 'row_label_conflict' });
+    }
+    return reply.code(201).send({
+      sector: organizerSectorDtoSchema.parse(toSectorDto(result.sector)),
+    });
+  });
+
+  app.delete('/organizer/rows/:rowId', async (request, reply) => {
+    const session = await deps.getSession(request.headers);
+    if (!session) {
+      return reply.code(401).send({ error: 'not_authenticated' });
+    }
+    const guard = guardOrganizer(session);
+    if (guard.kind !== 'ok') {
+      return reply.code(403).send({ error: 'not_organizer' });
+    }
+    const { rowId } = request.params as { rowId: string };
+    if (!organizerSectorDtoSchema.shape.id.safeParse(rowId).success) {
+      return reply.code(404).send({ error: 'row_not_found' });
+    }
+    const result = await deleteRow.execute({
+      rowId,
+      userId: session.userId,
+    });
+    if (result === 'not_found') {
+      return reply.code(404).send({ error: 'row_not_found' });
+    }
+    if (result === 'forbidden') {
+      return reply.code(403).send({ error: 'row_forbidden' });
+    }
+    if (result === 'has_orders') {
+      return reply.code(409).send({ error: 'row_has_orders' });
     }
     return reply.code(200).send({ ok: true });
   });

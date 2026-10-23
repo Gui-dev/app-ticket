@@ -1,9 +1,10 @@
-import { asc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 
 import type { Db } from '../../../db/client.js';
 import {
   categories,
   events,
+  orderItems,
   orders,
   priceLots,
   seatRows,
@@ -13,11 +14,16 @@ import {
 } from '../../../db/schema.js';
 import type {
   CreateEventResult,
+  CreateSectorInput,
+  CreateSectorResult,
   DeleteEventResult,
   FindEventForOrganizerResult,
   OrganizerEventRecord,
   OrganizerRepository,
+  OrganizerSectorRecord,
+  OrganizerVenueRecord,
   UpdateEventResult,
+  WriteSectorResult,
 } from '../domain/organizer-repository.js';
 import { slugify } from '../domain/slugify.js';
 
@@ -313,6 +319,414 @@ export class DrizzleOrganizerRepository implements OrganizerRepository {
     return 'ok';
   }
 
+  async listVenues(): Promise<OrganizerVenueRecord[]> {
+    return this.db
+      .select({
+        id: venues.id,
+        slug: venues.slug,
+        name: venues.name,
+        city: venues.city,
+        state: venues.state,
+      })
+      .from(venues)
+      .orderBy(asc(venues.name), asc(venues.slug));
+  }
+
+  async findVenue(venueId: string): Promise<OrganizerVenueRecord | null> {
+    const [venue] = await this.db
+      .select({
+        id: venues.id,
+        slug: venues.slug,
+        name: venues.name,
+        city: venues.city,
+        state: venues.state,
+      })
+      .from(venues)
+      .where(eq(venues.id, venueId))
+      .limit(1);
+    return venue ?? null;
+  }
+
+  async createVenue(input: {
+    name: string;
+    city: string;
+    state: string;
+  }): Promise<OrganizerVenueRecord> {
+    const slug = await this.uniqueVenueSlug(slugify(input.name));
+    const [venue] = await this.db
+      .insert(venues)
+      .values({
+        slug,
+        name: input.name,
+        city: input.city,
+        state: input.state,
+      })
+      .returning({
+        id: venues.id,
+        slug: venues.slug,
+        name: venues.name,
+        city: venues.city,
+        state: venues.state,
+      });
+    return venue;
+  }
+
+  async updateVenue(input: {
+    venueId: string;
+    name: string;
+    city: string;
+    state: string;
+  }): Promise<OrganizerVenueRecord | null> {
+    const [venue] = await this.db
+      .update(venues)
+      .set({ name: input.name, city: input.city, state: input.state })
+      .where(eq(venues.id, input.venueId))
+      .returning({
+        id: venues.id,
+        slug: venues.slug,
+        name: venues.name,
+        city: venues.city,
+        state: venues.state,
+      });
+    return venue ?? null;
+  }
+
+  async listSectorsForEvent(eventId: string): Promise<OrganizerSectorRecord[]> {
+    const sectorRows = await this.db
+      .select({
+        id: sectors.id,
+        slug: sectors.slug,
+        name: sectors.name,
+        priceFromCents: sectors.priceFromCents,
+      })
+      .from(sectors)
+      .where(eq(sectors.eventId, eventId))
+      .orderBy(asc(sectors.priceFromCents), asc(sectors.slug));
+    if (sectorRows.length === 0) {
+      return [];
+    }
+
+    const rowRows = await this.db
+      .select({
+        id: seatRows.id,
+        sectorId: seatRows.sectorId,
+        label: seatRows.label,
+        position: seatRows.position,
+        seatCount: sql<number>`count(${seats.id})::int`,
+      })
+      .from(seatRows)
+      .leftJoin(seats, eq(seats.rowId, seatRows.id))
+      .where(
+        inArray(
+          seatRows.sectorId,
+          sectorRows.map((sector) => sector.id),
+        ),
+      )
+      .groupBy(
+        seatRows.id,
+        seatRows.sectorId,
+        seatRows.label,
+        seatRows.position,
+      )
+      .orderBy(asc(seatRows.position), asc(seatRows.id));
+
+    return sectorRows.map((sector) => {
+      const rows = rowRows.filter((row) => row.sectorId === sector.id);
+      return {
+        id: sector.id,
+        slug: sector.slug,
+        name: sector.name,
+        priceFromCents: sector.priceFromCents,
+        seatsTotal: rows.reduce((total, row) => total + row.seatCount, 0),
+        rows: rows.map((row) => ({
+          id: row.id,
+          label: row.label,
+          seatCount: row.seatCount,
+        })),
+        lots: [] as OrganizerSectorRecord['lots'],
+      };
+    });
+  }
+
+  async createSector(input: CreateSectorInput): Promise<CreateSectorResult> {
+    const [event] = await this.db
+      .select({ organizerId: events.organizerId })
+      .from(events)
+      .where(eq(events.id, input.eventId))
+      .limit(1);
+    if (!event) {
+      return { kind: 'not_found' };
+    }
+    if (event.organizerId === null || event.organizerId !== input.userId) {
+      return { kind: 'forbidden' };
+    }
+
+    const slug = await this.uniqueSectorSlug(
+      input.eventId,
+      slugify(input.name),
+    );
+    if (!slug) {
+      return { kind: 'label_conflict' };
+    }
+
+    const sector = await this.db.transaction(async (tx) => {
+      const [inserted] = await tx
+        .insert(sectors)
+        .values({
+          eventId: input.eventId,
+          slug,
+          name: input.name,
+          priceFromCents: input.priceFromCents,
+        })
+        .returning({
+          id: sectors.id,
+          slug: sectors.slug,
+          name: sectors.name,
+          priceFromCents: sectors.priceFromCents,
+        });
+
+      const rows: { id: string; label: string; seatCount: number }[] = [];
+      for (const [index, row] of input.rows.entries()) {
+        const [insertedRow] = await tx
+          .insert(seatRows)
+          .values({
+            sectorId: inserted.id,
+            label: row.label,
+            position: index + 1,
+          })
+          .returning({ id: seatRows.id });
+        await tx.insert(seats).values(
+          Array.from({ length: row.seatCount }, (_, seatIndex) => ({
+            rowId: insertedRow.id,
+            label: String(seatIndex + 1),
+            position: seatIndex + 1,
+          })),
+        );
+        rows.push({
+          id: insertedRow.id,
+          label: row.label,
+          seatCount: row.seatCount,
+        });
+      }
+
+      return {
+        ...inserted,
+        seatsTotal: input.rows.reduce((total, row) => total + row.seatCount, 0),
+        rows,
+        lots: [] as OrganizerSectorRecord['lots'],
+      } satisfies OrganizerSectorRecord;
+    });
+
+    await this.recalculateEventPriceFrom(input.eventId);
+    return { kind: 'ok', sector };
+  }
+
+  async deleteSector(input: {
+    sectorId: string;
+    userId: string;
+  }): Promise<WriteSectorResult> {
+    const [existing] = await this.db
+      .select({
+        eventId: sectors.eventId,
+        organizerId: events.organizerId,
+      })
+      .from(sectors)
+      .innerJoin(events, eq(sectors.eventId, events.id))
+      .where(eq(sectors.id, input.sectorId))
+      .limit(1);
+    if (!existing) {
+      return 'not_found';
+    }
+    if (
+      existing.organizerId === null ||
+      existing.organizerId !== input.userId
+    ) {
+      return 'forbidden';
+    }
+    if (await this.sectorHasOrders(input.sectorId)) {
+      return 'has_orders';
+    }
+
+    const rowIds = (
+      await this.db
+        .select({ id: seatRows.id })
+        .from(seatRows)
+        .where(eq(seatRows.sectorId, input.sectorId))
+    ).map((row) => row.id);
+
+    await this.db.transaction(async (tx) => {
+      if (rowIds.length > 0) {
+        await tx.delete(seats).where(inArray(seats.rowId, rowIds));
+      }
+      await tx.delete(priceLots).where(eq(priceLots.sectorId, input.sectorId));
+      await tx.delete(seatRows).where(eq(seatRows.sectorId, input.sectorId));
+      await tx.delete(sectors).where(eq(sectors.id, input.sectorId));
+    });
+
+    await this.recalculateEventPriceFrom(existing.eventId);
+    return 'ok';
+  }
+
+  async createRow(input: {
+    sectorId: string;
+    userId: string;
+    label: string;
+    seatCount: number;
+  }): Promise<CreateSectorResult> {
+    const [sector] = await this.db
+      .select({
+        id: sectors.id,
+        eventId: sectors.eventId,
+        slug: sectors.slug,
+        name: sectors.name,
+        priceFromCents: sectors.priceFromCents,
+        organizerId: events.organizerId,
+      })
+      .from(sectors)
+      .innerJoin(events, eq(sectors.eventId, events.id))
+      .where(eq(sectors.id, input.sectorId))
+      .limit(1);
+    if (!sector) {
+      return { kind: 'not_found' };
+    }
+    if (sector.organizerId === null || sector.organizerId !== input.userId) {
+      return { kind: 'forbidden' };
+    }
+
+    const [duplicate] = await this.db
+      .select({ id: seatRows.id })
+      .from(seatRows)
+      .where(
+        and(
+          eq(seatRows.sectorId, input.sectorId),
+          eq(seatRows.label, input.label),
+        ),
+      )
+      .limit(1);
+    if (duplicate) {
+      return { kind: 'label_conflict' };
+    }
+
+    const [{ max }] = await this.db
+      .select({ max: sql<number | null>`max(${seatRows.position})` })
+      .from(seatRows)
+      .where(eq(seatRows.sectorId, input.sectorId));
+
+    await this.db.transaction(async (tx) => {
+      const [inserted] = await tx
+        .insert(seatRows)
+        .values({
+          sectorId: input.sectorId,
+          label: input.label,
+          position: (max ?? 0) + 1,
+        })
+        .returning({ id: seatRows.id });
+      await tx.insert(seats).values(
+        Array.from({ length: input.seatCount }, (_, seatIndex) => ({
+          rowId: inserted.id,
+          label: String(seatIndex + 1),
+          position: seatIndex + 1,
+        })),
+      );
+    });
+
+    const rows = await this.seatCountBySector(input.sectorId);
+    return {
+      kind: 'ok',
+      sector: {
+        id: sector.id,
+        slug: sector.slug,
+        name: sector.name,
+        priceFromCents: sector.priceFromCents,
+        seatsTotal: rows.reduce((total, row) => total + row.seatCount, 0),
+        rows,
+        lots: [],
+      },
+    };
+  }
+
+  async deleteRow(input: {
+    rowId: string;
+    userId: string;
+  }): Promise<WriteSectorResult> {
+    const [row] = await this.db
+      .select({
+        rowId: seatRows.id,
+        eventId: sectors.eventId,
+        organizerId: events.organizerId,
+      })
+      .from(seatRows)
+      .innerJoin(sectors, eq(seatRows.sectorId, sectors.id))
+      .innerJoin(events, eq(sectors.eventId, events.id))
+      .where(eq(seatRows.id, input.rowId))
+      .limit(1);
+    if (!row) {
+      return 'not_found';
+    }
+    if (row.organizerId === null || row.organizerId !== input.userId) {
+      return 'forbidden';
+    }
+
+    const [{ count }] = await this.db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(orderItems)
+      .where(eq(orderItems.rowId, input.rowId));
+    if (count > 0) {
+      return 'has_orders';
+    }
+
+    await this.db.transaction(async (tx) => {
+      await tx.delete(seats).where(eq(seats.rowId, input.rowId));
+      await tx.delete(seatRows).where(eq(seatRows.id, input.rowId));
+    });
+    return 'ok';
+  }
+
+  async recalculateEventPriceFrom(eventId: string): Promise<void> {
+    const [row] = await this.db
+      .select({ min: sql<number | null>`min(${sectors.priceFromCents})` })
+      .from(sectors)
+      .where(eq(sectors.eventId, eventId));
+    if (row?.min === null || row?.min === undefined) {
+      return;
+    }
+    await this.db
+      .update(events)
+      .set({ priceFromCents: row.min })
+      .where(eq(events.id, eventId));
+  }
+
+  private async seatCountBySector(
+    sectorId: string,
+  ): Promise<{ id: string; label: string; seatCount: number }[]> {
+    const rowRows = await this.db
+      .select({
+        id: seatRows.id,
+        label: seatRows.label,
+        position: seatRows.position,
+        seatCount: sql<number>`count(${seats.id})::int`,
+      })
+      .from(seatRows)
+      .leftJoin(seats, eq(seats.rowId, seatRows.id))
+      .where(eq(seatRows.sectorId, sectorId))
+      .groupBy(seatRows.id, seatRows.label, seatRows.position)
+      .orderBy(asc(seatRows.position), asc(seatRows.id));
+    return rowRows.map((row) => ({
+      id: row.id,
+      label: row.label,
+      seatCount: row.seatCount,
+    }));
+  }
+
+  private async sectorHasOrders(sectorId: string): Promise<boolean> {
+    const [{ count }] = await this.db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(orderItems)
+      .innerJoin(seatRows, eq(orderItems.rowId, seatRows.id))
+      .where(eq(seatRows.sectorId, sectorId));
+    return count > 0;
+  }
+
   private async findRow(
     eventId: string,
   ): Promise<OrganizerEventRow | undefined> {
@@ -324,6 +738,37 @@ export class DrizzleOrganizerRepository implements OrganizerRepository {
       .where(eq(events.id, eventId))
       .limit(1);
     return row;
+  }
+
+  private async uniqueSectorSlug(
+    eventId: string,
+    base: string,
+  ): Promise<string | null> {
+    const stem = base === '' ? 'setor' : base;
+    const [existing] = await this.db
+      .select({ id: sectors.id })
+      .from(sectors)
+      .where(and(eq(sectors.eventId, eventId), eq(sectors.slug, stem)))
+      .limit(1);
+    return existing ? null : stem;
+  }
+
+  private async uniqueVenueSlug(base: string): Promise<string> {
+    const stem = base === '' ? 'local' : base;
+    let candidate = stem;
+    let suffix = 2;
+    for (;;) {
+      const [existing] = await this.db
+        .select({ id: venues.id })
+        .from(venues)
+        .where(eq(venues.slug, candidate))
+        .limit(1);
+      if (!existing) {
+        return candidate;
+      }
+      candidate = `${stem}-${suffix}`;
+      suffix += 1;
+    }
   }
 
   private async uniqueEventSlug(title: string): Promise<string> {

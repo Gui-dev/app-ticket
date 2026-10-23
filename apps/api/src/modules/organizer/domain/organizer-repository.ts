@@ -51,6 +51,30 @@ export type UpdateEventResult =
 
 export type DeleteEventResult = 'ok' | 'not_found' | 'forbidden' | 'has_orders';
 
+export interface OrganizerVenueRecord {
+  id: string;
+  slug: string;
+  name: string;
+  city: string;
+  state: string;
+}
+
+export interface CreateSectorInput {
+  eventId: string;
+  userId: string;
+  name: string;
+  priceFromCents: number;
+  rows: { label: string; seatCount: number }[];
+}
+
+export type CreateSectorResult =
+  | { kind: 'ok'; sector: OrganizerSectorRecord }
+  | { kind: 'not_found' }
+  | { kind: 'forbidden' }
+  | { kind: 'label_conflict' };
+
+export type WriteSectorResult = 'ok' | 'not_found' | 'forbidden' | 'has_orders';
+
 export interface OrganizerRepository {
   listEventsForOrganizer(userId: string): Promise<OrganizerEventRecord[]>;
   findEventForOrganizer(input: {
@@ -78,4 +102,34 @@ export interface OrganizerRepository {
     eventId: string;
     userId: string;
   }): Promise<DeleteEventResult>;
+  listVenues(): Promise<OrganizerVenueRecord[]>;
+  findVenue(venueId: string): Promise<OrganizerVenueRecord | null>;
+  createVenue(input: {
+    name: string;
+    city: string;
+    state: string;
+  }): Promise<OrganizerVenueRecord>;
+  updateVenue(input: {
+    venueId: string;
+    name: string;
+    city: string;
+    state: string;
+  }): Promise<OrganizerVenueRecord | null>;
+  listSectorsForEvent(eventId: string): Promise<OrganizerSectorRecord[]>;
+  createSector(input: CreateSectorInput): Promise<CreateSectorResult>;
+  deleteSector(input: {
+    sectorId: string;
+    userId: string;
+  }): Promise<WriteSectorResult>;
+  createRow(input: {
+    sectorId: string;
+    userId: string;
+    label: string;
+    seatCount: number;
+  }): Promise<CreateSectorResult>;
+  deleteRow(input: {
+    rowId: string;
+    userId: string;
+  }): Promise<WriteSectorResult>;
+  recalculateEventPriceFrom(eventId: string): Promise<void>;
 }

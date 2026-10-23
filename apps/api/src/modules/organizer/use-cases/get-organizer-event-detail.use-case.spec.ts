@@ -28,10 +28,17 @@ function createRepository(events: InMemoryOrganizerEventSeed[]) {
 }
 
 describe('GetOrganizerEventDetailUseCase', () => {
-  it('retorna evento próprio com setores vazios nesta fase', async () => {
-    const repository = createRepository([
-      seedEvent({ id: 'evt-meu', title: 'Meu Show', organizerId: 'user-a' }),
-    ]);
+  const detailSeed = (values: Partial<InMemoryOrganizerEventSeed> = {}) => [
+    seedEvent({
+      id: 'evt-meu',
+      title: 'Meu Show',
+      organizerId: 'user-a',
+      ...values,
+    }),
+  ];
+
+  it('retorna evento próprio com setores vazios quando não há setores', async () => {
+    const repository = createRepository(detailSeed());
 
     const result = await new GetOrganizerEventDetailUseCase(repository).execute(
       { eventId: 'evt-meu', userId: 'user-a' },
@@ -41,6 +48,42 @@ describe('GetOrganizerEventDetailUseCase', () => {
     if (result.kind !== 'ok') return;
     expect(result.event.slug).toBe('meu-show');
     expect(result.sectors).toEqual([]);
+  });
+
+  it('monta o detail com setores, filas e contagem de cadeiras', async () => {
+    const repository = new InMemoryOrganizerRepository({
+      categories: [{ slug: 'shows', name: 'Shows' }],
+      venues: [
+        { slug: 'arena-sp', name: 'Arena SP', city: 'São Paulo', state: 'SP' },
+      ],
+      events: detailSeed(),
+      sectors: [
+        {
+          eventId: 'evt-meu',
+          id: 'sector-palco',
+          name: 'Palco',
+          priceFromCents: 5000,
+          rows: [
+            { label: 'A', seatCount: 3 },
+            { label: 'B', seatCount: 1 },
+          ],
+        },
+      ],
+    });
+
+    const result = await new GetOrganizerEventDetailUseCase(repository).execute(
+      { eventId: 'evt-meu', userId: 'user-a' },
+    );
+
+    expect(result.kind).toBe('ok');
+    if (result.kind !== 'ok') return;
+    expect(result.sectors).toHaveLength(1);
+    const sector = result.sectors[0];
+    if (!sector) return;
+    expect(sector.name).toBe('Palco');
+    expect(sector.seatsTotal).toBe(4);
+    expect(sector.rows.map((row) => row.label)).toEqual(['A', 'B']);
+    expect(sector.lots).toEqual([]);
   });
 
   it('permite leitura de evento da plataforma', async () => {

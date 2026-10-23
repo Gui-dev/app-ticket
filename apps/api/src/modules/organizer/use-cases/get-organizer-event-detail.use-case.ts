@@ -24,6 +24,8 @@ export class GetOrganizerEventDetailUseCase {
     const result: FindEventForOrganizerResult =
       await this.organizerRepository.findEventForOrganizer(input);
     if (result.kind !== 'ok') return result;
-    return { kind: 'ok', event: result.event, sectors: [] };
+    const sectors: OrganizerSectorRecord[] =
+      await this.organizerRepository.listSectorsForEvent(input.eventId);
+    return { kind: 'ok', event: result.event, sectors };
   }
 }

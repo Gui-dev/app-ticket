@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
@@ -7,6 +7,7 @@ import { createDb, type Db, TEST_DATABASE_URL } from '../../../db/client.js';
 import {
   categories,
   events,
+  orderItems,
   orders,
   priceLots,
   seatRows,
@@ -481,6 +482,359 @@ describe('organizer routes (postgres integration)', () => {
     expect(remainingRows4).toHaveLength(0);
   });
 
+  const VENUE_PAYLOAD = {
+    name: 'Teatro Municipal',
+    city: 'Curitiba',
+    state: 'pr',
+  };
+
+  const SECTOR_PAYLOAD = {
+    name: 'Palco',
+    priceFromCents: 5000,
+    rows: [
+      { label: 'A', seatCount: 3 },
+      { label: 'B', seatCount: 1 },
+    ],
+  };
+
+  async function seedPaidSeat(input: {
+    eventId: string;
+    seatId: string;
+    rowId: string;
+    sectorSlug: string;
+  }) {
+    const [order] = await testDb
+      .insert(orders)
+      .values({
+        userId: 'user-a',
+        eventId: input.eventId,
+        status: 'paid',
+        paymentMethod: 'card',
+        provider: 'stripe',
+        subtotalCents: 5000,
+        serviceFeeCents: 0,
+        totalCents: 5000,
+      })
+      .returning();
+    await testDb.insert(orderItems).values({
+      orderId: order.id,
+      seatId: input.seatId,
+      rowId: input.rowId,
+      sectorSlug: input.sectorSlug,
+      rowLabel: 'A',
+      seatLabel: '1',
+      ticketType: 'inteira',
+      priceCents: 5000,
+    });
+  }
+
+  async function createSector(
+    eventId: string,
+    payload: {
+      name?: string;
+      priceFromCents?: number;
+      rows?: { label: string; seatCount: number }[];
+    } = {},
+  ) {
+    return app.inject({
+      method: 'POST',
+      url: `/organizer/events/${eventId}/sectors`,
+      headers: { 'x-test-user-id': 'user-a' },
+      payload: {
+        name: 'Palco',
+        priceFromCents: 5000,
+        rows: [
+          { label: 'A', seatCount: 3 },
+          { label: 'B', seatCount: 1 },
+        ],
+        ...payload,
+      },
+    });
+  }
+
+  async function fetchSeats(sectorId: string) {
+    return testDb
+      .select({
+        id: seats.id,
+        rowId: seats.rowId,
+        label: seats.label,
+        position: seats.position,
+        rowLabel: seatRows.label,
+      })
+      .from(seats)
+      .innerJoin(seatRows, eq(seats.rowId, seatRows.id))
+      .where(eq(seatRows.sectorId, sectorId))
+      .orderBy(asc(seatRows.position), asc(seats.position));
+  }
+
+  it('catálogo de locais é compartilhado', async () => {
+    await promoteOrganizers('user-a');
+    await seedCatalog();
+
+    const list = await app.inject({
+      method: 'GET',
+      url: '/organizer/venues',
+      headers: { 'x-test-user-id': 'user-a' },
+    });
+    expect(list.statusCode).toBe(200);
+    expect(list.json().venues).toEqual([
+      {
+        id: expect.any(String),
+        slug: 'arena-sp',
+        name: 'Arena SP',
+        city: 'São Paulo',
+        state: 'SP',
+      },
+    ]);
+
+    const created = await app.inject({
+      method: 'POST',
+      url: '/organizer/venues',
+      headers: { 'x-test-user-id': 'user-a' },
+      payload: VENUE_PAYLOAD,
+    });
+    expect(created.statusCode).toBe(201);
+    expect(created.json().venue.slug).toBe('teatro-municipal');
+    expect(created.json().venue.state).toBe('PR');
+
+    const renamed = await app.inject({
+      method: 'PATCH',
+      url: `/organizer/venues/${created.json().venue.id}`,
+      headers: { 'x-test-user-id': 'user-a' },
+      payload: { ...VENUE_PAYLOAD, name: 'Teatro Municipal Novo', state: 'PR' },
+    });
+    expect(renamed.statusCode).toBe(200);
+    expect(renamed.json().venue.slug).toBe('teatro-municipal');
+    expect(renamed.json().venue.name).toBe('Teatro Municipal Novo');
+
+    const after = await app.inject({
+      method: 'GET',
+      url: '/organizer/venues',
+      headers: { 'x-test-user-id': 'user-a' },
+    });
+    expect(after.statusCode).toBe(200);
+    expect(
+      after.json().venues.map((venue: { slug: string }) => venue.slug),
+    ).toEqual(['arena-sp', 'teatro-municipal']);
+  });
+
+  it('setor com filas e cadeiras é criado', async () => {
+    await promoteOrganizers('user-a');
+    const { category, venue } = await seedCatalog();
+    const event = await insertEvent(
+      { slug: 'meu-show', organizerId: 'user-a', title: 'Meu Show' },
+      { category, venue },
+    );
+
+    const created = await createSector(event.id);
+    expect(created.statusCode).toBe(201);
+    expect(created.json().sector.slug).toBe('palco');
+    expect(created.json().sector.seatsTotal).toBe(4);
+    expect(
+      created.json().sector.rows.map((row: { label: string }) => row.label),
+    ).toEqual(['A', 'B']);
+    expect(created.json().sector.lots).toEqual([]);
+
+    const persistedPrice = await testDb
+      .select({ priceFromCents: events.priceFromCents })
+      .from(events)
+      .where(eq(events.id, event.id));
+    expect(persistedPrice[0]?.priceFromCents).toBe(5000);
+
+    const seatsInDb = await testDb
+      .select({
+        label: seats.label,
+        position: seats.position,
+        rowLabel: seatRows.label,
+        status: seats.status,
+      })
+      .from(seats)
+      .innerJoin(seatRows, eq(seats.rowId, seatRows.id))
+      .where(eq(seatRows.sectorId, created.json().sector.id))
+      .orderBy(asc(seatRows.position), asc(seats.position));
+    expect(seatsInDb.map((seat) => `${seat.rowLabel}${seat.label}`)).toEqual([
+      'A1',
+      'A2',
+      'A3',
+      'B1',
+    ]);
+    expect(seatsInDb[0]?.status).toBe('available');
+
+    const detail = await app.inject({
+      method: 'GET',
+      url: `/organizer/events/${event.id}`,
+      headers: { 'x-test-user-id': 'user-a' },
+    });
+    expect(detail.statusCode).toBe(200);
+    expect(detail.json().event.sectors).toHaveLength(1);
+    expect(detail.json().event.sectors[0].seatsTotal).toBe(4);
+    expect(detail.json().event.priceFromCents).toBe(5000);
+  });
+
+  it('fila nova entra e fila repetida não entra', async () => {
+    await promoteOrganizers('user-a');
+    const { category, venue } = await seedCatalog();
+    const event = await insertEvent(
+      { slug: 'meu-show', organizerId: 'user-a', title: 'Meu Show' },
+      { category, venue },
+    );
+    const created = await createSector(event.id, {
+      rows: [{ label: 'A', seatCount: 2 }],
+    });
+    const sectorId = created.json().sector.id as string;
+
+    const added = await app.inject({
+      method: 'POST',
+      url: `/organizer/sectors/${sectorId}/rows`,
+      headers: { 'x-test-user-id': 'user-a' },
+      payload: { label: 'B', seatCount: 3 },
+    });
+    expect(added.statusCode).toBe(201);
+    expect(
+      added.json().sector.rows.map((row: { label: string }) => row.label),
+    ).toEqual(['A', 'B']);
+    expect(added.json().sector.seatsTotal).toBe(5);
+
+    const duplicated = await app.inject({
+      method: 'POST',
+      url: `/organizer/sectors/${sectorId}/rows`,
+      headers: { 'x-test-user-id': 'user-a' },
+      payload: { label: 'A', seatCount: 3 },
+    });
+    expect(duplicated.statusCode).toBe(409);
+    expect(duplicated.json()).toEqual({ error: 'row_label_conflict' });
+
+    const renamedSector = await createSector(event.id, { name: 'Palco' });
+    expect(renamedSector.statusCode).toBe(409);
+  });
+
+  it('fila com cadeiras vendidas não é excluída', async () => {
+    await promoteOrganizers('user-a');
+    const { category, venue } = await seedCatalog();
+    const event = await insertEvent(
+      { slug: 'meu-show', organizerId: 'user-a', title: 'Meu Show' },
+      { category, venue },
+    );
+    const created = await createSector(event.id, {
+      rows: [
+        { label: 'A', seatCount: 2 },
+        { label: 'B', seatCount: 2 },
+      ],
+    });
+    const sectorId = created.json().sector.id as string;
+    const seatsById = await fetchSeats(sectorId);
+    const soldSeat = seatsById.find((seat) => seat.rowLabel === 'A');
+    const freeRowSeats = seatsById.filter((seat) => seat.rowLabel === 'B');
+    if (!soldSeat || freeRowSeats.length === 0) {
+      throw new Error('fixture sem cadeiras');
+    }
+    await seedPaidSeat({
+      eventId: event.id,
+      seatId: soldSeat.id,
+      rowId: soldSeat.rowId,
+      sectorSlug: 'palco',
+    });
+
+    const blocked = await app.inject({
+      method: 'DELETE',
+      url: `/organizer/rows/${soldSeat.rowId}`,
+      headers: { 'x-test-user-id': 'user-a' },
+    });
+    expect(blocked.statusCode).toBe(409);
+    expect(blocked.json()).toEqual({ error: 'row_has_orders' });
+    const stillSeats = await testDb
+      .select({ id: seats.id })
+      .from(seats)
+      .where(eq(seats.rowId, soldSeat.rowId));
+    expect(stillSeats).toHaveLength(2);
+
+    const freeRowId = freeRowSeats[0]?.rowId;
+    if (!freeRowId) throw new Error('fixture sem fila livre');
+    const freed = await app.inject({
+      method: 'DELETE',
+      url: `/organizer/rows/${freeRowId}`,
+      headers: { 'x-test-user-id': 'user-a' },
+    });
+    expect(freed.statusCode).toBe(200);
+    expect(freed.json()).toEqual({ ok: true });
+    const rowSeats = await testDb
+      .select({ id: seats.id })
+      .from(seats)
+      .where(eq(seats.rowId, freeRowId));
+    expect(rowSeats).toHaveLength(0);
+    const rowInDb = await testDb
+      .select({ id: seatRows.id })
+      .from(seatRows)
+      .where(eq(seatRows.id, freeRowId));
+    expect(rowInDb).toHaveLength(0);
+
+    const sectorBlocked = await app.inject({
+      method: 'DELETE',
+      url: `/organizer/sectors/${sectorId}`,
+      headers: { 'x-test-user-id': 'user-a' },
+    });
+    expect(sectorBlocked.statusCode).toBe(409);
+    expect(sectorBlocked.json()).toEqual({ error: 'sector_has_orders' });
+    const sectorStillThere = await testDb
+      .select({ id: sectors.id })
+      .from(sectors)
+      .where(eq(sectors.id, sectorId));
+    expect(sectorStillThere).toHaveLength(1);
+  });
+
+  it('setor de outro organizador é 403', async () => {
+    await promoteOrganizers('user-a', 'user-b');
+    const { category, venue } = await seedCatalog();
+    const foreign = await insertEvent(
+      { slug: 'show-alheio', organizerId: 'user-b', title: 'Show Alheio' },
+      { category, venue },
+    );
+    const platform = await insertEvent(
+      {
+        slug: 'show-plataforma',
+        organizerId: null,
+        title: 'Show da Plataforma',
+      },
+      { category, venue },
+    );
+
+    const foreignCreate = await createSector(foreign.id);
+    expect(foreignCreate.statusCode).toBe(403);
+    expect(foreignCreate.json()).toEqual({ error: 'event_forbidden' });
+
+    const platformCreate = await createSector(platform.id);
+    expect(platformCreate.statusCode).toBe(403);
+    expect(platformCreate.json()).toEqual({ error: 'event_forbidden' });
+
+    await testDb.insert(sectors).values({
+      eventId: foreign.id,
+      slug: 'pista-alheia',
+      name: 'Pista Alheia',
+      priceFromCents: 1000,
+    });
+    const [foreignSector] = await testDb
+      .select({ id: sectors.id })
+      .from(sectors)
+      .where(eq(sectors.eventId, foreign.id));
+
+    const foreignRow = await app.inject({
+      method: 'POST',
+      url: `/organizer/sectors/${foreignSector.id}/rows`,
+      headers: { 'x-test-user-id': 'user-a' },
+      payload: { label: 'A', seatCount: 2 },
+    });
+    expect(foreignRow.statusCode).toBe(403);
+    expect(foreignRow.json()).toEqual({ error: 'sector_forbidden' });
+
+    const foreignDelete = await app.inject({
+      method: 'DELETE',
+      url: `/organizer/sectors/${foreignSector.id}`,
+      headers: { 'x-test-user-id': 'user-a' },
+    });
+    expect(foreignDelete.statusCode).toBe(403);
+    expect(foreignDelete.json()).toEqual({ error: 'sector_forbidden' });
+  });
+
   it('guard primeiro', async () => {
     const foreignId = '11111111-1111-4111-8111-111111111111';
 
@@ -526,5 +880,34 @@ describe('organizer routes (postgres integration)', () => {
       url: `/organizer/events/${foreignId}`,
     });
     expect(anonymousDelete.statusCode).toBe(401);
+
+    const buyersVenues = await app.inject({
+      method: 'GET',
+      url: '/organizer/venues',
+      headers: { 'x-test-user-id': 'user-b' },
+    });
+    expect(buyersVenues.statusCode).toBe(403);
+    expect(buyersVenues.json()).toEqual({ error: 'not_organizer' });
+
+    const anonymousVenuePost = await app.inject({
+      method: 'POST',
+      url: '/organizer/venues',
+      payload: VENUE_PAYLOAD,
+    });
+    expect(anonymousVenuePost.statusCode).toBe(401);
+
+    const buyersSectorPost = await app.inject({
+      method: 'POST',
+      url: `/organizer/events/${foreignId}/sectors`,
+      headers: { 'x-test-user-id': 'user-b' },
+      payload: SECTOR_PAYLOAD,
+    });
+    expect(buyersSectorPost.statusCode).toBe(403);
+
+    const anonymousRowDelete = await app.inject({
+      method: 'DELETE',
+      url: '/organizer/rows/11111111-1111-4111-8111-111111111112',
+    });
+    expect(anonymousRowDelete.statusCode).toBe(401);
   });
 });
