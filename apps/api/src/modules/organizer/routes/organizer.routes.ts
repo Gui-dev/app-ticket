@@ -13,20 +13,19 @@ export function registerOrganizerRoutes(
 ): void {
   app.get('/organizer/session', async (request, reply) => {
     const session = await deps.getSession(request.headers);
-    const guard = guardOrganizer(session);
-    switch (guard.kind) {
-      case 'not_authenticated':
-        return reply.code(401).send({ error: 'not_authenticated' });
-      case 'not_organizer':
-        return reply.code(403).send({ error: 'not_organizer' });
-      case 'ok':
-        return reply.code(200).send({
-          user: {
-            id: session!.userId,
-            email: session!.email ?? null,
-            role: session!.role,
-          },
-        });
+    if (!session) {
+      return reply.code(401).send({ error: 'not_authenticated' });
     }
+    const guard = guardOrganizer(session);
+    if (guard.kind !== 'ok') {
+      return reply.code(403).send({ error: 'not_organizer' });
+    }
+    return reply.code(200).send({
+      user: {
+        id: session.userId,
+        email: session.email ?? null,
+        role: session.role,
+      },
+    });
   });
 }

@@ -645,7 +645,7 @@ describe('papel do usuário na sessão', () => {
       },
     });
     expect(signUp.statusCode).toBe(200);
-    const parsed = new URL(extractUrl(sentEmails.at(-1)!.text));
+    const parsed = new URL(extractUrl(sentEmails.at(-1)?.text ?? ''));
     const verify = await app.inject({
       method: 'GET',
       url: `${parsed.pathname}${parsed.search}`,
