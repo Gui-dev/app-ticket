@@ -29,6 +29,7 @@ import { DrizzleSeatCaptureGateway } from './modules/orders/infra/drizzle-seat-c
 import { DrizzleTicketRepository } from './modules/orders/infra/drizzle-ticket-repository.js';
 import { registerOrderRoutes } from './modules/orders/routes/order.routes.js';
 import { CreateOrderUseCase } from './modules/orders/use-cases/create-order.use-case.js';
+import { registerOrganizerRoutes } from './modules/organizer/routes/organizer.routes.js';
 import { createPaymentProvider } from './modules/payments/create-payment-provider.js';
 import type { PaymentEventQueue } from './modules/payments/domain/payment-event-queue.js';
 import type { PaymentProvider } from './modules/payments/domain/payment-provider.js';
@@ -342,6 +343,8 @@ export function buildApp(
         lazyCartRepository,
       ),
   });
+
+  registerOrganizerRoutes(app, { getSession });
 
   registerWebhookRoutes(app, {
     paymentProvider,
