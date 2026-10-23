@@ -38,6 +38,16 @@ export function createAuth(
     baseURL: webUrl(),
     trustedOrigins: ['http://localhost:3000', 'http://127.0.0.1:3000'],
     advanced: { disableOriginCheck: false },
+    user: {
+      additionalFields: {
+        role: {
+          type: 'string',
+          required: false,
+          defaultValue: 'buyer',
+          input: false,
+        },
+      },
+    },
     socialProviders: {
       google: {
         clientId: process.env.GOOGLE_CLIENT_ID ?? DEV_GOOGLE_CLIENT_ID,

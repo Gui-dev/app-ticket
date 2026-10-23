@@ -48,7 +48,7 @@ describe('cart routes (unit)', () => {
 
   it('returns 200 with the cart', async () => {
     vi.mocked(getCart.execute).mockResolvedValueOnce(emptyCart);
-    const app = buildTestApp(async () => ({ userId: 'user-a' }));
+    const app = buildTestApp(async () => ({ userId: 'user-a', role: 'buyer' }));
     const response = await app.inject({
       method: 'GET',
       url: '/events/o-fantasma-da-opera/cart',
@@ -66,7 +66,7 @@ describe('cart routes (unit)', () => {
     vi.mocked(getCart.execute).mockResolvedValueOnce({
       kind: 'event_not_found',
     });
-    const app = buildTestApp(async () => ({ userId: 'user-a' }));
+    const app = buildTestApp(async () => ({ userId: 'user-a', role: 'buyer' }));
     const response = await app.inject({
       method: 'GET',
       url: '/events/o-fantasma-da-opera/cart',
@@ -86,7 +86,7 @@ describe('cart routes (unit)', () => {
         ticketType: 'meia',
       },
     });
-    const app = buildTestApp(async () => ({ userId: 'user-a' }));
+    const app = buildTestApp(async () => ({ userId: 'user-a', role: 'buyer' }));
     const response = await app.inject({
       method: 'PUT',
       url: '/events/o-fantasma-da-opera/cart/items',
@@ -142,7 +142,10 @@ describe('cart routes (unit)', () => {
       'hold_not_found',
     ] as const) {
       vi.mocked(setCartItem.execute).mockResolvedValueOnce({ kind });
-      const app = buildTestApp(async () => ({ userId: 'user-a' }));
+      const app = buildTestApp(async () => ({
+        userId: 'user-a',
+        role: 'buyer',
+      }));
       const response = await app.inject({
         method: 'PUT',
         url: '/events/o-fantasma-da-opera/cart/items',
@@ -160,7 +163,7 @@ describe('cart routes (unit)', () => {
   });
 
   it('rejects an invalid body on PUT', async () => {
-    const app = buildTestApp(async () => ({ userId: 'user-a' }));
+    const app = buildTestApp(async () => ({ userId: 'user-a', role: 'buyer' }));
     const response = await app.inject({
       method: 'PUT',
       url: '/events/o-fantasma-da-opera/cart/items',
@@ -196,7 +199,7 @@ describe('cart routes (unit)', () => {
         totalCents: 6000,
       },
     });
-    const app = buildTestApp(async () => ({ userId: 'user-a' }));
+    const app = buildTestApp(async () => ({ userId: 'user-a', role: 'buyer' }));
     const response = await app.inject({
       method: 'GET',
       url: '/events/o-fantasma-da-opera/cart',

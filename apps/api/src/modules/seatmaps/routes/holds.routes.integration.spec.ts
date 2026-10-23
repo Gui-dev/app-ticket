@@ -30,7 +30,7 @@ describe('hold routes (postgres + redis integration)', () => {
   const getSession: GetSessionFn = async (headers) => {
     const userId = headers['x-test-user-id'];
     if (typeof userId !== 'string') return null;
-    return { userId };
+    return { userId, role: 'buyer' };
   };
 
   beforeAll(async () => {

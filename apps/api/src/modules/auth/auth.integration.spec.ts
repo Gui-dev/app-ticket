@@ -23,11 +23,14 @@ import {
   DEV_GOOGLE_CLIENT_ID,
   type SendEmailInput,
 } from './auth.js';
+import { createGetSession } from './get-session.js';
 
 let app: Awaited<ReturnType<typeof buildApp>>;
 let testDb: Db;
 let sentEmails: SendEmailInput[];
 let seedRowId: string;
+let authInstance: ReturnType<typeof createAuth>;
+let getSession: ReturnType<typeof createGetSession>;
 
 function collectEmail(input: SendEmailInput): Promise<void> {
   sentEmails.push(input);
@@ -85,8 +88,10 @@ beforeAll(async () => {
   testDb = createDb(TEST_DATABASE_URL);
   await migrateTestDatabase(testDb);
   sentEmails = [];
+  authInstance = createAuth(testDb, { sendEmail: collectEmail });
+  getSession = createGetSession(authInstance);
   app = await buildApp({
-    auth: createAuth(testDb, { sendEmail: collectEmail }),
+    auth: authInstance,
   });
   await app.ready();
 });
@@ -621,5 +626,94 @@ describe('sessão anônima', () => {
       .where(eq(seats.holdUserId, linkedUser.id));
     expect(heldRows).toHaveLength(1);
     expect(heldRows[0].label).toBe('H1');
+  });
+});
+
+describe('papel do usuário na sessão', () => {
+  async function signUpVerifyAndSignIn(
+    email: string,
+    extraPayload: Record<string, unknown> = {},
+  ) {
+    const signUp = await app.inject({
+      method: 'POST',
+      url: '/api/auth/sign-up/email',
+      payload: {
+        name: 'Maria Silva',
+        email,
+        password: 'senha-segura-1',
+        ...extraPayload,
+      },
+    });
+    expect(signUp.statusCode).toBe(200);
+    const parsed = new URL(extractUrl(sentEmails.at(-1)!.text));
+    const verify = await app.inject({
+      method: 'GET',
+      url: `${parsed.pathname}${parsed.search}`,
+    });
+    expect([300, 302]).toContain(verify.statusCode);
+
+    const login = await app.inject({
+      method: 'POST',
+      url: '/api/auth/sign-in/email',
+      payload: { email, password: 'senha-segura-1' },
+    });
+    expect(login.statusCode).toBe(200);
+    const cookieHeader = login.cookies
+      .map((cookie) => `${cookie.name}=${cookie.value}`)
+      .join('; ');
+    expect(cookieHeader).toContain('better-auth.session_token');
+    return cookieHeader;
+  }
+
+  it('sessão de novo usuário traz papel buyer', async () => {
+    const email = 'role-buyer@test.dev';
+    const cookieHeader = await signUpVerifyAndSignIn(email);
+
+    const session = await getSession({ cookie: cookieHeader });
+    expect(session?.role).toBe('buyer');
+  });
+
+  it('signup não aceita papel no payload', async () => {
+    const email = 'role-hijack@test.dev';
+    const cookieHeader = await signUpVerifyAndSignIn(email, {
+      role: 'organizer',
+    });
+
+    const created = await findUserByEmail(email);
+    expect(created?.role).toBe('buyer');
+    const session = await getSession({ cookie: cookieHeader });
+    expect(session?.role).toBe('buyer');
+  });
+
+  it('promoção no banco reflete na sessão', async () => {
+    const email = 'role-promoted@test.dev';
+    const cookieHeader = await signUpVerifyAndSignIn(email);
+    const before = await getSession({ cookie: cookieHeader });
+    expect(before?.role).toBe('buyer');
+
+    await testDb
+      .update(user)
+      .set({ role: 'organizer' })
+      .where(eq(user.email, email));
+
+    const session = await getSession({ cookie: cookieHeader });
+    expect(session?.role).toBe('organizer');
+  });
+
+  it('sessão anônima tem papel buyer', async () => {
+    const anonymousResponse = await app.inject({
+      method: 'POST',
+      url: '/api/auth/sign-in/anonymous',
+    });
+    expect(anonymousResponse.statusCode).toBe(200);
+    const anonymousCookie = anonymousResponse.cookies.find(
+      (cookie) => cookie.name === 'better-auth.session_token',
+    );
+    expect(anonymousCookie).toBeDefined();
+    const cookieHeader = `better-auth.session_token=${anonymousCookie?.value}`;
+
+    const session = await getSession({ cookie: cookieHeader });
+    expect(session?.role).toBe('buyer');
+    expect(session?.isAnonymous).toBe(true);
   });
 });

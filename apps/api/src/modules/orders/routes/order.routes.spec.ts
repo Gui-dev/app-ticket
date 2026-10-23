@@ -46,6 +46,7 @@ const getSession: GetSessionFn = async (headers) => {
     userId,
     email: typeof email === 'string' ? email : null,
     isAnonymous: headers['x-test-anonymous'] === 'true',
+    role: 'buyer',
   };
 };
 

@@ -264,6 +264,7 @@ export const user = pgTable('user', {
   emailVerified: boolean('email_verified').default(false).notNull(),
   image: text('image'),
   isAnonymous: boolean('is_anonymous').default(false),
+  role: text('role').notNull().default('buyer'),
   createdAt: timestamp('created_at', { withTimezone: true })
     .defaultNow()
     .notNull(),

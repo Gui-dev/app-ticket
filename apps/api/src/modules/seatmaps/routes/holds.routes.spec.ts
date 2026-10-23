@@ -54,7 +54,7 @@ describe('hold routes (unit)', () => {
   });
 
   it('returns 400 on invalid body', async () => {
-    const app = buildTestApp(async () => ({ userId: 'user-a' }));
+    const app = buildTestApp(async () => ({ userId: 'user-a', role: 'buyer' }));
     const response = await app.inject({
       method: 'POST',
       url: '/events/o-fantasma-da-opera/holds',
@@ -67,7 +67,7 @@ describe('hold routes (unit)', () => {
 
   it('returns 201 with the hold', async () => {
     vi.mocked(holdSeat.execute).mockResolvedValueOnce(heldResponse);
-    const app = buildTestApp(async () => ({ userId: 'user-a' }));
+    const app = buildTestApp(async () => ({ userId: 'user-a', role: 'buyer' }));
     const response = await app.inject({
       method: 'POST',
       url: '/events/o-fantasma-da-opera/holds',
@@ -86,7 +86,7 @@ describe('hold routes (unit)', () => {
 
   it('maps 409 seat_held and 404 kinds', async () => {
     vi.mocked(holdSeat.execute).mockResolvedValueOnce({ kind: 'seat_held' });
-    const app = buildTestApp(async () => ({ userId: 'user-b' }));
+    const app = buildTestApp(async () => ({ userId: 'user-b', role: 'buyer' }));
     const held = await app.inject({
       method: 'POST',
       url: '/events/o-fantasma-da-opera/holds',
@@ -99,7 +99,7 @@ describe('hold routes (unit)', () => {
 
   it('maps cart_limit to 409', async () => {
     vi.mocked(holdSeat.execute).mockResolvedValueOnce({ kind: 'cart_limit' });
-    const app = buildTestApp(async () => ({ userId: 'user-a' }));
+    const app = buildTestApp(async () => ({ userId: 'user-a', role: 'buyer' }));
     const response = await app.inject({
       method: 'POST',
       url: '/events/o-fantasma-da-opera/holds',
@@ -112,7 +112,7 @@ describe('hold routes (unit)', () => {
 
   it('releases with 200 and 404s hold_not_found', async () => {
     vi.mocked(releaseHold.execute).mockResolvedValueOnce({ kind: 'released' });
-    const app = buildTestApp(async () => ({ userId: 'user-a' }));
+    const app = buildTestApp(async () => ({ userId: 'user-a', role: 'buyer' }));
     const released = await app.inject({
       method: 'POST',
       url: '/events/o-fantasma-da-opera/holds/release',
