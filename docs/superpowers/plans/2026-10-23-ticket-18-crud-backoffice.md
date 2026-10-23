@@ -77,7 +77,6 @@ organizerVenueResponseSchema: { venue: organizerVenueDtoSchema }
 ```
 
 Tipos TS exportados (`z.infer`/`z.input` dos schemas acima, nomes fixos que a web consome): `OrganizerEventDto`, `OrganizerEventDetailDto` (de `organizerEventDetailSchema`), `OrganizerSeatRowDto`, `OrganizerLotDto`, `OrganizerSectorDto`, `OrganizerVenueDto`, `OrganizerEventCreate`, `OrganizerVenueCreate`, `OrganizerSectorCreate`, `OrganizerRowCreate`, `OrganizerLotCreate`.
-```
 
 - [ ] **Step 1: Testes que falham (inglês, arquivo existente em EN)** — `packages/shared/src/index.spec.ts`: cada schema novo recebe pelo menos um caso de parse válido e um caso de rejeição (ex.: `organizerSectorCreateSchema` rejeita `rows: []`, `seatCount: 0`; `organizerLotCreateSchema` rejeita datas não-ISO; `organizerVenueCreateSchema` transforma `state` para maiúscula).
 - [ ] **Step 2:** `pnpm --filter @ticketvibe/shared test` → novos casos RED por falta dos schemas → adicionar os schemas → PASS.
