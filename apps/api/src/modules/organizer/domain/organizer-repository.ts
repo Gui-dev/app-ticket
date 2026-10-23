@@ -32,6 +32,28 @@ export interface OrganizerSectorRecord {
   }[];
 }
 
+export interface OrganizerLotRecord {
+  id: string;
+  name: string;
+  priceCents: number;
+  startsAt: Date;
+  endsAt: Date;
+}
+
+export type FindLotForOrganizerResult =
+  | { kind: 'ok'; lot: OrganizerLotRecord & { sectorId: string } }
+  | { kind: 'not_found' }
+  | { kind: 'forbidden' };
+
+export type WriteLotResult =
+  | { kind: 'ok'; lot: OrganizerLotRecord }
+  | { kind: 'not_found' }
+  | { kind: 'forbidden' }
+  | { kind: 'overlapping' }
+  | { kind: 'invalid_period' };
+
+export type DeleteLotResult = 'ok' | 'not_found' | 'forbidden';
+
 export type FindEventForOrganizerResult =
   | { kind: 'ok'; event: OrganizerEventRecord }
   | { kind: 'not_found' }
@@ -132,4 +154,26 @@ export interface OrganizerRepository {
     userId: string;
   }): Promise<WriteSectorResult>;
   recalculateEventPriceFrom(eventId: string): Promise<void>;
+  listLotsBySector(sectorId: string): Promise<OrganizerLotRecord[]>;
+  findLotForOrganizer(input: {
+    lotId: string;
+    userId: string;
+  }): Promise<FindLotForOrganizerResult>;
+  createLot(input: {
+    sectorId: string;
+    userId: string;
+    name: string;
+    priceCents: number;
+    startsAt: Date;
+    endsAt: Date;
+  }): Promise<WriteLotResult>;
+  updateLot(input: {
+    lotId: string;
+    userId: string;
+    name: string;
+    priceCents: number;
+    startsAt: Date;
+    endsAt: Date;
+  }): Promise<WriteLotResult>;
+  deleteLot(input: { lotId: string; userId: string }): Promise<DeleteLotResult>;
 }

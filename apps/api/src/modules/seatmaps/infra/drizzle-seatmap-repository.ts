@@ -1,4 +1,4 @@
-import { and, asc, eq, gt, inArray } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray, sql } from 'drizzle-orm';
 
 import type { Db } from '../../../db/client.js';
 import {
@@ -20,6 +20,8 @@ import type {
   SeatHoldRecord,
   SeatmapRepository,
 } from '../domain/seatmap-repository.js';
+
+const effectiveSectorPriceSql = sql<number>`coalesce((select pl.price_cents from price_lots pl where pl.sector_id = "sectors"."id" and pl.starts_at <= now() and pl.ends_at > now() order by pl.starts_at desc limit 1), "sectors"."price_from_cents")`;
 
 const expiredHoldSeatToAvailableDelta = (
   seat: ExpiredHoldSeat,
@@ -59,11 +61,11 @@ export class DrizzleSeatmapRepository implements SeatmapRepository {
         id: sectors.id,
         slug: sectors.slug,
         name: sectors.name,
-        priceFromCents: sectors.priceFromCents,
+        priceFromCents: effectiveSectorPriceSql,
       })
       .from(sectors)
       .where(eq(sectors.eventId, event.id))
-      .orderBy(asc(sectors.priceFromCents), asc(sectors.slug));
+      .orderBy(asc(effectiveSectorPriceSql), asc(sectors.slug));
 
     const sectorIds = sectorRows.map((sector) => sector.id);
     const rowRecords = sectorIds.length
@@ -123,7 +125,7 @@ export class DrizzleSeatmapRepository implements SeatmapRepository {
         seatStatus: seats.status,
         sectorName: sectors.name,
         sectorSlug: sectors.slug,
-        priceFromCents: sectors.priceFromCents,
+        priceFromCents: effectiveSectorPriceSql,
         rowLabel: seatRows.label,
         seatLabel: seats.label,
       })
@@ -177,7 +179,7 @@ export class DrizzleSeatmapRepository implements SeatmapRepository {
         sectorSlug: sectors.slug,
         rowLabel: seatRows.label,
         seatLabel: seats.label,
-        priceFromCents: sectors.priceFromCents,
+        priceFromCents: effectiveSectorPriceSql,
         expiresAt: seats.holdExpiresAt,
       })
       .from(seats)

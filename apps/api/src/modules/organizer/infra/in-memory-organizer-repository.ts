@@ -5,12 +5,16 @@ import type {
   CreateSectorInput,
   CreateSectorResult,
   DeleteEventResult,
+  DeleteLotResult,
   FindEventForOrganizerResult,
+  FindLotForOrganizerResult,
   OrganizerEventRecord,
+  OrganizerLotRecord,
   OrganizerRepository,
   OrganizerSectorRecord,
   OrganizerVenueRecord,
   UpdateEventResult,
+  WriteLotResult,
   WriteSectorResult,
 } from '../domain/organizer-repository.js';
 import { slugify } from '../domain/slugify.js';
@@ -40,6 +44,14 @@ export interface InMemoryOrganizerEventSeed {
   priceFromCents?: number;
 }
 
+export interface InMemoryOrganizerLotSeed {
+  id?: string;
+  name: string;
+  priceCents: number;
+  startsAt: Date;
+  endsAt: Date;
+}
+
 export interface InMemoryOrganizerSectorSeed {
   id?: string;
   eventId: string;
@@ -47,6 +59,7 @@ export interface InMemoryOrganizerSectorSeed {
   name: string;
   priceFromCents?: number;
   rows?: { label: string; seatCount: number; seatIds?: string[] }[];
+  lots?: InMemoryOrganizerLotSeed[];
 }
 
 export interface InMemoryOrganizerOrderSeed {
@@ -88,8 +101,22 @@ interface InMemorySectorRecord {
   rows: InMemoryRowRecord[];
 }
 
+interface InMemoryLotRecord extends OrganizerLotRecord {
+  sectorId: string;
+}
+
 function cloneRecord(record: OrganizerEventRecord): OrganizerEventRecord {
   return { ...record, startsAt: new Date(record.startsAt) };
+}
+
+function cloneLot(lot: InMemoryLotRecord): OrganizerLotRecord {
+  return {
+    id: lot.id,
+    name: lot.name,
+    priceCents: lot.priceCents,
+    startsAt: new Date(lot.startsAt),
+    endsAt: new Date(lot.endsAt),
+  };
 }
 
 export class InMemoryOrganizerRepository implements OrganizerRepository {
@@ -97,10 +124,12 @@ export class InMemoryOrganizerRepository implements OrganizerRepository {
   private readonly venues: Map<string, InMemoryVenueRecord>;
   private readonly events: Map<string, OrganizerEventRecord>;
   private readonly sectors: Map<string, InMemorySectorRecord>;
+  private readonly lots: Map<string, InMemoryLotRecord>;
   private readonly soldSeatIds: Set<string>;
   private readonly orderCounts: Map<string, number>;
   private nextId = 0;
   private nextSectorId = 0;
+  private nextLotId = 0;
 
   constructor(seed: InMemoryOrganizerSeed = {}) {
     this.categories = new Map(
@@ -136,6 +165,7 @@ export class InMemoryOrganizerRepository implements OrganizerRepository {
       );
     }
     this.sectors = new Map();
+    this.lots = new Map();
     this.soldSeatIds = new Set();
     this.orderCounts = new Map();
     this.nextSectorId = seed.sectors?.length ?? 0;
@@ -149,6 +179,7 @@ export class InMemoryOrganizerRepository implements OrganizerRepository {
           name: sector.name,
           priceFromCents: sector.priceFromCents ?? 0,
           rows: sector.rows ?? [],
+          lots: sector.lots ?? [],
         }),
       );
     }
@@ -168,6 +199,11 @@ export class InMemoryOrganizerRepository implements OrganizerRepository {
     return `sector-${this.nextSectorId}`;
   }
 
+  private nextLotKey(): string {
+    this.nextLotId += 1;
+    return `lot-${this.nextLotId}`;
+  }
+
   private buildSectorRecord(input: {
     id?: string;
     eventId: string;
@@ -175,6 +211,7 @@ export class InMemoryOrganizerRepository implements OrganizerRepository {
     name: string;
     priceFromCents: number;
     rows: { label: string; seatCount: number; seatIds?: string[] }[];
+    lots: InMemoryOrganizerLotSeed[];
   }): InMemorySectorRecord {
     const id = input.id ?? this.nextSectorKey();
     const rows: InMemoryRowRecord[] = [];
@@ -194,6 +231,18 @@ export class InMemoryOrganizerRepository implements OrganizerRepository {
         seats,
       });
     });
+    for (const lot of input.lots) {
+      this.nextLotId += 1;
+      const lotId = lot.id ?? this.nextLotKey();
+      this.lots.set(lotId, {
+        id: lotId,
+        sectorId: id,
+        name: lot.name,
+        priceCents: lot.priceCents,
+        startsAt: new Date(lot.startsAt),
+        endsAt: new Date(lot.endsAt),
+      });
+    }
     return {
       id,
       eventId: input.eventId,
@@ -221,7 +270,10 @@ export class InMemoryOrganizerRepository implements OrganizerRepository {
           label: row.label,
           seatCount: row.seats.length,
         })),
-      lots: [],
+      lots: [...this.lots.values()]
+        .filter((lot) => lot.sectorId === sector.id)
+        .sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime())
+        .map(cloneLot),
     };
   }
 
@@ -333,6 +385,11 @@ export class InMemoryOrganizerRepository implements OrganizerRepository {
     }
     for (const [sectorId, sector] of this.sectors) {
       if (sector.eventId === input.eventId) {
+        for (const [lotId, lot] of this.lots) {
+          if (lot.sectorId === sectorId) {
+            this.lots.delete(lotId);
+          }
+        }
         this.sectors.delete(sectorId);
       }
     }
@@ -431,6 +488,7 @@ export class InMemoryOrganizerRepository implements OrganizerRepository {
       name: input.name,
       priceFromCents: input.priceFromCents,
       rows: input.rows,
+      lots: [],
     });
     this.sectors.set(sector.id, sector);
     this.recalculateEventPrice(input.eventId);
@@ -449,6 +507,11 @@ export class InMemoryOrganizerRepository implements OrganizerRepository {
     if (write !== 'ok') return write;
     if (this.sectorHasSale(sector)) {
       return 'has_orders';
+    }
+    for (const [lotId, lot] of this.lots) {
+      if (lot.sectorId === input.sectorId) {
+        this.lots.delete(lotId);
+      }
     }
     this.sectors.delete(input.sectorId);
     this.recalculateEventPrice(sector.eventId);
@@ -509,17 +572,164 @@ export class InMemoryOrganizerRepository implements OrganizerRepository {
     this.recalculateEventPrice(eventId);
   }
 
+  async listLotsBySector(sectorId: string): Promise<OrganizerLotRecord[]> {
+    return [...this.lots.values()]
+      .filter((lot) => lot.sectorId === sectorId)
+      .sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime())
+      .map(cloneLot);
+  }
+
+  async findLotForOrganizer(input: {
+    lotId: string;
+    userId: string;
+  }): Promise<FindLotForOrganizerResult> {
+    const lot = this.lots.get(input.lotId);
+    if (!lot) {
+      return { kind: 'not_found' };
+    }
+    const sector = this.sectors.get(lot.sectorId);
+    if (!sector) {
+      return { kind: 'not_found' };
+    }
+    const writer = this.resolveWriter(sector.eventId, input.userId);
+    if (writer !== 'ok') return { kind: writer };
+    return { kind: 'ok', lot: { ...cloneLot(lot), sectorId: lot.sectorId } };
+  }
+
+  async createLot(input: {
+    sectorId: string;
+    userId: string;
+    name: string;
+    priceCents: number;
+    startsAt: Date;
+    endsAt: Date;
+  }): Promise<WriteLotResult> {
+    const sector = this.sectors.get(input.sectorId);
+    if (!sector) {
+      return { kind: 'not_found' };
+    }
+    const writer = this.resolveWriter(sector.eventId, input.userId);
+    if (writer !== 'ok') return { kind: writer };
+    const startsAt = new Date(input.startsAt);
+    const endsAt = new Date(input.endsAt);
+    if (endsAt.getTime() <= startsAt.getTime()) {
+      return { kind: 'invalid_period' };
+    }
+    if (this.findOverlappingLot(sector.id, startsAt, endsAt, null)) {
+      return { kind: 'overlapping' };
+    }
+    const lot: InMemoryLotRecord = {
+      id: this.nextLotKey(),
+      sectorId: sector.id,
+      name: input.name,
+      priceCents: input.priceCents,
+      startsAt,
+      endsAt,
+    };
+    this.lots.set(lot.id, lot);
+    this.recalculateEventPrice(sector.eventId);
+    return { kind: 'ok', lot: cloneLot(lot) };
+  }
+
+  async updateLot(input: {
+    lotId: string;
+    userId: string;
+    name: string;
+    priceCents: number;
+    startsAt: Date;
+    endsAt: Date;
+  }): Promise<WriteLotResult> {
+    const lot = this.lots.get(input.lotId);
+    if (!lot) {
+      return { kind: 'not_found' };
+    }
+    const sector = this.sectors.get(lot.sectorId);
+    if (!sector) {
+      return { kind: 'not_found' };
+    }
+    const writer = this.resolveWriter(sector.eventId, input.userId);
+    if (writer !== 'ok') return { kind: writer };
+    const startsAt = new Date(input.startsAt);
+    const endsAt = new Date(input.endsAt);
+    if (endsAt.getTime() <= startsAt.getTime()) {
+      return { kind: 'invalid_period' };
+    }
+    if (this.findOverlappingLot(sector.id, startsAt, endsAt, lot.id)) {
+      return { kind: 'overlapping' };
+    }
+    const updated: InMemoryLotRecord = {
+      ...lot,
+      name: input.name,
+      priceCents: input.priceCents,
+      startsAt,
+      endsAt,
+    };
+    this.lots.set(lot.id, updated);
+    this.recalculateEventPrice(sector.eventId);
+    return { kind: 'ok', lot: cloneLot(updated) };
+  }
+
+  async deleteLot(input: {
+    lotId: string;
+    userId: string;
+  }): Promise<DeleteLotResult> {
+    const lot = this.lots.get(input.lotId);
+    if (!lot) {
+      return 'not_found';
+    }
+    const sector = this.sectors.get(lot.sectorId);
+    if (!sector) {
+      return 'not_found';
+    }
+    const writer = this.resolveWriter(sector.eventId, input.userId);
+    if (writer !== 'ok') return writer;
+    this.lots.delete(lot.id);
+    this.recalculateEventPrice(sector.eventId);
+    return 'ok';
+  }
+
+  private findOverlappingLot(
+    sectorId: string,
+    startsAt: Date,
+    endsAt: Date,
+    excludedLotId: string | null,
+  ): InMemoryLotRecord | null {
+    for (const lot of this.lots.values()) {
+      if (lot.sectorId !== sectorId || lot.id === excludedLotId) continue;
+      if (
+        lot.startsAt.getTime() < endsAt.getTime() &&
+        lot.endsAt.getTime() > startsAt.getTime()
+      ) {
+        return lot;
+      }
+    }
+    return null;
+  }
+
   private recalculateEventPrice(eventId: string): void {
     const event = this.events.get(eventId);
     if (!event) return;
     const prices = [...this.sectors.values()]
       .filter((sector) => sector.eventId === eventId)
-      .map((sector) => sector.priceFromCents);
+      .map((sector) => this.effectiveSectorPrice(sector));
     if (prices.length === 0) return;
     this.events.set(eventId, {
       ...event,
       priceFromCents: Math.min(...prices),
     });
+  }
+
+  private effectiveSectorPrice(sector: InMemorySectorRecord): number {
+    const nowMs = Date.now();
+    const active = [...this.lots.values()]
+      .filter(
+        (lot) =>
+          lot.sectorId === sector.id &&
+          lot.startsAt.getTime() <= nowMs &&
+          lot.endsAt.getTime() > nowMs,
+      )
+      .sort((a, b) => b.startsAt.getTime() - a.startsAt.getTime());
+    return active[0]?.priceCents ?? sector.priceFromCents;
   }
 
   private findRow(

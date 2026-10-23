@@ -3,12 +3,13 @@ import {
   listCategoriesResponseSchema,
   listEventsResponseSchema,
 } from '@ticketvibe/shared';
-import { sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { buildApp } from '../../../app.js';
 import { createDb, type Db, TEST_DATABASE_URL } from '../../../db/client.js';
+import { events, priceLots, sectors } from '../../../db/schema.js';
 import { seedFixtures } from '../../../db/seed-fixtures.js';
 import {
   ensureTestDatabase,
@@ -355,6 +356,107 @@ describe('GET /events/:slug (postgres integration)', () => {
       body.event.sectors.map((sector) => [sector.slug, sector.seatsAvailable]),
     );
     expect(availability).toEqual({ plateia: 91, balcao: 39 });
+  });
+
+  it('detalhe traz preço vigente por setor a partir dos lotes', async () => {
+    const now = Date.now();
+    const HOUR = 3_600_000;
+    const [plateia] = await testDb
+      .select({ id: sectors.id })
+      .from(sectors)
+      .innerJoin(events, eq(sectors.eventId, events.id))
+      .where(
+        and(
+          eq(events.slug, 'o-fantasma-da-opera'),
+          eq(sectors.slug, 'plateia'),
+        ),
+      );
+    const [balcao] = await testDb
+      .select({ id: sectors.id })
+      .from(sectors)
+      .innerJoin(events, eq(sectors.eventId, events.id))
+      .where(
+        and(eq(events.slug, 'o-fantasma-da-opera'), eq(sectors.slug, 'balcao')),
+      );
+    if (!plateia || !balcao) throw new Error('fixture sem setores');
+
+    await testDb.insert(priceLots).values([
+      {
+        sectorId: plateia.id,
+        name: 'Lote Passado',
+        priceCents: 7000,
+        startsAt: new Date(now - 48 * HOUR),
+        endsAt: new Date(now - 24 * HOUR),
+      },
+      {
+        sectorId: plateia.id,
+        name: 'Lote Ativo',
+        priceCents: 5000,
+        startsAt: new Date(now - HOUR),
+        endsAt: new Date(now + 24 * HOUR),
+      },
+      {
+        sectorId: plateia.id,
+        name: 'Lote Futuro',
+        priceCents: 15000,
+        startsAt: new Date(now + 48 * HOUR),
+        endsAt: new Date(now + 72 * HOUR),
+      },
+      {
+        sectorId: balcao.id,
+        name: 'Lote Ativo do Balcão',
+        priceCents: 22000,
+        startsAt: new Date(now - HOUR),
+        endsAt: new Date(now + 24 * HOUR),
+      },
+    ]);
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/events/o-fantasma-da-opera',
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = eventDetailResponseSchema.parse(response.json());
+    expect(body.event.sectors).toEqual([
+      {
+        slug: 'plateia',
+        name: 'Plateia',
+        priceFromCents: 5000,
+        seatsAvailable: 91,
+      },
+      {
+        slug: 'balcao',
+        name: 'Balcão',
+        priceFromCents: 22000,
+        seatsAvailable: 39,
+      },
+    ]);
+
+    await testDb
+      .delete(priceLots)
+      .where(
+        and(
+          eq(priceLots.sectorId, plateia.id),
+          eq(priceLots.name, 'Lote Ativo'),
+        ),
+      );
+
+    const fallback = await app.inject({
+      method: 'GET',
+      url: '/events/o-fantasma-da-opera',
+    });
+    expect(fallback.statusCode).toBe(200);
+    const fallbackBody = eventDetailResponseSchema.parse(fallback.json());
+    const plateiaAfter = fallbackBody.event.sectors.find(
+      (sector) => sector.slug === 'plateia',
+    );
+    expect(plateiaAfter).toEqual({
+      slug: 'plateia',
+      name: 'Plateia',
+      priceFromCents: 12000,
+      seatsAvailable: 91,
+    });
   });
 
   it('returns zero seats available when every seat is taken', async () => {

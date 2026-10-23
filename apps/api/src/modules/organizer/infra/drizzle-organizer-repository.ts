@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 
 import type { Db } from '../../../db/client.js';
 import {
@@ -17,12 +17,16 @@ import type {
   CreateSectorInput,
   CreateSectorResult,
   DeleteEventResult,
+  DeleteLotResult,
   FindEventForOrganizerResult,
+  FindLotForOrganizerResult,
   OrganizerEventRecord,
+  OrganizerLotRecord,
   OrganizerRepository,
   OrganizerSectorRecord,
   OrganizerVenueRecord,
   UpdateEventResult,
+  WriteLotResult,
   WriteSectorResult,
 } from '../domain/organizer-repository.js';
 import { slugify } from '../domain/slugify.js';
@@ -50,6 +54,8 @@ interface OrganizerEventRow {
     state: string;
   };
 }
+
+const effectiveSectorPriceSql = sql<number>`coalesce((select pl.price_cents from price_lots pl where pl.sector_id = "sectors"."id" and pl.starts_at <= now() and pl.ends_at > now() order by pl.starts_at desc limit 1), "sectors"."price_from_cents")`;
 
 const organizerEventSelect = {
   events: {
@@ -430,6 +436,24 @@ export class DrizzleOrganizerRepository implements OrganizerRepository {
       )
       .orderBy(asc(seatRows.position), asc(seatRows.id));
 
+    const lotRows = await this.db
+      .select({
+        id: priceLots.id,
+        sectorId: priceLots.sectorId,
+        name: priceLots.name,
+        priceCents: priceLots.priceCents,
+        startsAt: priceLots.startsAt,
+        endsAt: priceLots.endsAt,
+      })
+      .from(priceLots)
+      .where(
+        inArray(
+          priceLots.sectorId,
+          sectorRows.map((s) => s.id),
+        ),
+      )
+      .orderBy(asc(priceLots.startsAt), asc(priceLots.id));
+
     return sectorRows.map((sector) => {
       const rows = rowRows.filter((row) => row.sectorId === sector.id);
       return {
@@ -443,7 +467,17 @@ export class DrizzleOrganizerRepository implements OrganizerRepository {
           label: row.label,
           seatCount: row.seatCount,
         })),
-        lots: [] as OrganizerSectorRecord['lots'],
+        lots: lotRows
+          .filter((lot) => lot.sectorId === sector.id)
+          .map(
+            (lot): OrganizerLotRecord => ({
+              id: lot.id,
+              name: lot.name,
+              priceCents: lot.priceCents,
+              startsAt: lot.startsAt,
+              endsAt: lot.endsAt,
+            }),
+          ),
       };
     });
   }
@@ -631,6 +665,17 @@ export class DrizzleOrganizerRepository implements OrganizerRepository {
     });
 
     const rows = await this.seatCountBySector(input.sectorId);
+    const lots = await this.db
+      .select({
+        id: priceLots.id,
+        name: priceLots.name,
+        priceCents: priceLots.priceCents,
+        startsAt: priceLots.startsAt,
+        endsAt: priceLots.endsAt,
+      })
+      .from(priceLots)
+      .where(eq(priceLots.sectorId, input.sectorId))
+      .orderBy(asc(priceLots.startsAt), asc(priceLots.id));
     return {
       kind: 'ok',
       sector: {
@@ -640,7 +685,7 @@ export class DrizzleOrganizerRepository implements OrganizerRepository {
         priceFromCents: sector.priceFromCents,
         seatsTotal: rows.reduce((total, row) => total + row.seatCount, 0),
         rows,
-        lots: [],
+        lots: lots,
       },
     };
   }
@@ -684,7 +729,9 @@ export class DrizzleOrganizerRepository implements OrganizerRepository {
 
   async recalculateEventPriceFrom(eventId: string): Promise<void> {
     const [row] = await this.db
-      .select({ min: sql<number | null>`min(${sectors.priceFromCents})` })
+      .select({
+        min: sql<number | null>`min(${effectiveSectorPriceSql})`,
+      })
       .from(sectors)
       .where(eq(sectors.eventId, eventId));
     if (row?.min === null || row?.min === undefined) {
@@ -694,6 +741,220 @@ export class DrizzleOrganizerRepository implements OrganizerRepository {
       .update(events)
       .set({ priceFromCents: row.min })
       .where(eq(events.id, eventId));
+  }
+
+  async listLotsBySector(sectorId: string): Promise<OrganizerLotRecord[]> {
+    return this.db
+      .select({
+        id: priceLots.id,
+        name: priceLots.name,
+        priceCents: priceLots.priceCents,
+        startsAt: priceLots.startsAt,
+        endsAt: priceLots.endsAt,
+      })
+      .from(priceLots)
+      .where(eq(priceLots.sectorId, sectorId))
+      .orderBy(asc(priceLots.startsAt), asc(priceLots.id));
+  }
+
+  async findLotForOrganizer(input: {
+    lotId: string;
+    userId: string;
+  }): Promise<FindLotForOrganizerResult> {
+    const [lot] = await this.db
+      .select({
+        id: priceLots.id,
+        sectorId: priceLots.sectorId,
+        name: priceLots.name,
+        priceCents: priceLots.priceCents,
+        startsAt: priceLots.startsAt,
+        endsAt: priceLots.endsAt,
+        organizerId: events.organizerId,
+      })
+      .from(priceLots)
+      .innerJoin(sectors, eq(priceLots.sectorId, sectors.id))
+      .innerJoin(events, eq(sectors.eventId, events.id))
+      .where(eq(priceLots.id, input.lotId))
+      .limit(1);
+    if (!lot) {
+      return { kind: 'not_found' };
+    }
+    if (lot.organizerId === null || lot.organizerId !== input.userId) {
+      return { kind: 'forbidden' };
+    }
+    return {
+      kind: 'ok',
+      lot: {
+        id: lot.id,
+        sectorId: lot.sectorId,
+        name: lot.name,
+        priceCents: lot.priceCents,
+        startsAt: lot.startsAt,
+        endsAt: lot.endsAt,
+      },
+    };
+  }
+
+  async createLot(input: {
+    sectorId: string;
+    userId: string;
+    name: string;
+    priceCents: number;
+    startsAt: Date;
+    endsAt: Date;
+  }): Promise<WriteLotResult> {
+    const [sector] = await this.db
+      .select({
+        eventId: sectors.eventId,
+        organizerId: events.organizerId,
+      })
+      .from(sectors)
+      .innerJoin(events, eq(sectors.eventId, events.id))
+      .where(eq(sectors.id, input.sectorId))
+      .limit(1);
+    if (!sector) {
+      return { kind: 'not_found' };
+    }
+    if (sector.organizerId === null || sector.organizerId !== input.userId) {
+      return { kind: 'forbidden' };
+    }
+    if (input.endsAt.getTime() <= input.startsAt.getTime()) {
+      return { kind: 'invalid_period' };
+    }
+
+    const inserted = await this.db.transaction(async (tx) => {
+      const [overlap] = await tx
+        .select({ id: priceLots.id })
+        .from(priceLots)
+        .where(
+          and(
+            eq(priceLots.sectorId, input.sectorId),
+            sql`(${priceLots.startsAt}, ${priceLots.endsAt}) overlaps (${input.startsAt}, ${input.endsAt})`,
+          ),
+        )
+        .limit(1);
+      if (overlap) {
+        return null;
+      }
+      const [lot] = await tx
+        .insert(priceLots)
+        .values({
+          sectorId: input.sectorId,
+          name: input.name,
+          priceCents: input.priceCents,
+          startsAt: input.startsAt,
+          endsAt: input.endsAt,
+        })
+        .returning({
+          id: priceLots.id,
+          name: priceLots.name,
+          priceCents: priceLots.priceCents,
+          startsAt: priceLots.startsAt,
+          endsAt: priceLots.endsAt,
+        });
+      return lot;
+    });
+    if (!inserted) {
+      return { kind: 'overlapping' };
+    }
+    await this.recalculateEventPriceFrom(sector.eventId);
+    return { kind: 'ok', lot: inserted };
+  }
+
+  async updateLot(input: {
+    lotId: string;
+    userId: string;
+    name: string;
+    priceCents: number;
+    startsAt: Date;
+    endsAt: Date;
+  }): Promise<WriteLotResult> {
+    const [lot] = await this.db
+      .select({
+        id: priceLots.id,
+        sectorId: priceLots.sectorId,
+        eventId: sectors.eventId,
+        organizerId: events.organizerId,
+      })
+      .from(priceLots)
+      .innerJoin(sectors, eq(priceLots.sectorId, sectors.id))
+      .innerJoin(events, eq(sectors.eventId, events.id))
+      .where(eq(priceLots.id, input.lotId))
+      .limit(1);
+    if (!lot) {
+      return { kind: 'not_found' };
+    }
+    if (lot.organizerId === null || lot.organizerId !== input.userId) {
+      return { kind: 'forbidden' };
+    }
+    if (input.endsAt.getTime() <= input.startsAt.getTime()) {
+      return { kind: 'invalid_period' };
+    }
+
+    const updated = await this.db.transaction(async (tx) => {
+      const [overlap] = await tx
+        .select({ id: priceLots.id })
+        .from(priceLots)
+        .where(
+          and(
+            eq(priceLots.sectorId, lot.sectorId),
+            ne(priceLots.id, input.lotId),
+            sql`(${priceLots.startsAt}, ${priceLots.endsAt}) overlaps (${input.startsAt}, ${input.endsAt})`,
+          ),
+        )
+        .limit(1);
+      if (overlap) {
+        return null;
+      }
+      const [row] = await tx
+        .update(priceLots)
+        .set({
+          name: input.name,
+          priceCents: input.priceCents,
+          startsAt: input.startsAt,
+          endsAt: input.endsAt,
+        })
+        .where(eq(priceLots.id, input.lotId))
+        .returning({
+          id: priceLots.id,
+          name: priceLots.name,
+          priceCents: priceLots.priceCents,
+          startsAt: priceLots.startsAt,
+          endsAt: priceLots.endsAt,
+        });
+      return row;
+    });
+    if (!updated) {
+      return { kind: 'overlapping' };
+    }
+    await this.recalculateEventPriceFrom(lot.eventId);
+    return { kind: 'ok', lot: updated };
+  }
+
+  async deleteLot(input: {
+    lotId: string;
+    userId: string;
+  }): Promise<DeleteLotResult> {
+    const [lot] = await this.db
+      .select({
+        id: priceLots.id,
+        eventId: sectors.eventId,
+        organizerId: events.organizerId,
+      })
+      .from(priceLots)
+      .innerJoin(sectors, eq(priceLots.sectorId, sectors.id))
+      .innerJoin(events, eq(sectors.eventId, events.id))
+      .where(eq(priceLots.id, input.lotId))
+      .limit(1);
+    if (!lot) {
+      return 'not_found';
+    }
+    if (lot.organizerId === null || lot.organizerId !== input.userId) {
+      return 'forbidden';
+    }
+    await this.db.delete(priceLots).where(eq(priceLots.id, input.lotId));
+    await this.recalculateEventPriceFrom(lot.eventId);
+    return 'ok';
   }
 
   private async seatCountBySector(

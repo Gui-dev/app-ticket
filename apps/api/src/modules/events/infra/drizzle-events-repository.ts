@@ -179,7 +179,7 @@ export class DrizzleEventsRepository implements EventsRepository {
       .select({
         slug: sectors.slug,
         name: sectors.name,
-        priceFromCents: sectors.priceFromCents,
+        priceFromCents: sql<number>`coalesce((select pl.price_cents from price_lots pl where pl.sector_id = "sectors"."id" and pl.starts_at <= now() and pl.ends_at > now() order by pl.starts_at desc limit 1), "sectors"."price_from_cents")`,
         availableCount: sql<number>`(count(${seats.id}) filter (where ${seats.status} = 'available'))::int`,
         totalCount: sql<number>`count(${seats.id})::int`,
       })
@@ -188,7 +188,10 @@ export class DrizzleEventsRepository implements EventsRepository {
       .leftJoin(seats, eq(seats.rowId, seatRows.id))
       .where(eq(sectors.eventId, row.events.id))
       .groupBy(sectors.id, sectors.slug, sectors.name, sectors.priceFromCents)
-      .orderBy(asc(sectors.priceFromCents), asc(sectors.slug));
+      .orderBy(
+        sql`coalesce((select pl.price_cents from price_lots pl where pl.sector_id = "sectors"."id" and pl.starts_at <= now() and pl.ends_at > now() order by pl.starts_at desc limit 1), "sectors"."price_from_cents")`,
+        asc(sectors.slug),
+      );
 
     const artistRows = await this.db
       .select({ slug: artists.slug, name: artists.name })

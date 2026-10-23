@@ -1,5 +1,6 @@
 import {
   type OrganizerEventDto,
+  type OrganizerLotDto,
   type OrganizerSectorDto,
   type OrganizerVenueDto,
   organizerEventCreateSchema,
@@ -7,6 +8,8 @@ import {
   organizerEventDtoSchema,
   organizerEventListResponseSchema,
   organizerEventResponseSchema,
+  organizerLotCreateSchema,
+  organizerLotDtoSchema,
   organizerRowCreateSchema,
   organizerSectorCreateSchema,
   organizerSectorDtoSchema,
@@ -20,21 +23,25 @@ import type { GetSessionFn } from '../../auth/get-session.js';
 import { guardOrganizer } from '../../auth/role-guard.js';
 import type {
   OrganizerEventRecord,
+  OrganizerLotRecord,
   OrganizerRepository,
   OrganizerSectorRecord,
   OrganizerVenueRecord,
 } from '../domain/organizer-repository.js';
 import { CreateEventUseCase } from '../use-cases/create-event.use-case.js';
+import { CreateLotUseCase } from '../use-cases/create-lot.use-case.js';
 import { CreateRowUseCase } from '../use-cases/create-row.use-case.js';
 import { CreateSectorUseCase } from '../use-cases/create-sector.use-case.js';
 import { CreateVenueUseCase } from '../use-cases/create-venue.use-case.js';
 import { DeleteEventUseCase } from '../use-cases/delete-event.use-case.js';
+import { DeleteLotUseCase } from '../use-cases/delete-lot.use-case.js';
 import { DeleteRowUseCase } from '../use-cases/delete-row.use-case.js';
 import { DeleteSectorUseCase } from '../use-cases/delete-sector.use-case.js';
 import { GetOrganizerEventDetailUseCase } from '../use-cases/get-organizer-event-detail.use-case.js';
 import { ListOrganizerEventsUseCase } from '../use-cases/list-organizer-events.use-case.js';
 import { ListVenuesUseCase } from '../use-cases/list-venues.use-case.js';
 import { UpdateEventUseCase } from '../use-cases/update-event.use-case.js';
+import { UpdateLotUseCase } from '../use-cases/update-lot.use-case.js';
 import { UpdateVenueUseCase } from '../use-cases/update-venue.use-case.js';
 
 interface OrganizerRoutesDeps {
@@ -85,6 +92,16 @@ function toSectorDto(sector: OrganizerSectorRecord): OrganizerSectorDto {
   };
 }
 
+function toLotDto(lot: OrganizerLotRecord): OrganizerLotDto {
+  return {
+    id: lot.id,
+    name: lot.name,
+    priceCents: lot.priceCents,
+    startsAt: lot.startsAt.toISOString(),
+    endsAt: lot.endsAt.toISOString(),
+  };
+}
+
 function toVenueDto(venue: OrganizerVenueRecord): OrganizerVenueDto {
   return {
     id: venue.id,
@@ -113,6 +130,9 @@ export function registerOrganizerRoutes(
   const deleteSector = new DeleteSectorUseCase(deps.organizerRepository);
   const createRow = new CreateRowUseCase(deps.organizerRepository);
   const deleteRow = new DeleteRowUseCase(deps.organizerRepository);
+  const createLot = new CreateLotUseCase(deps.organizerRepository);
+  const updateLot = new UpdateLotUseCase(deps.organizerRepository);
+  const deleteLot = new DeleteLotUseCase(deps.organizerRepository);
 
   app.get('/organizer/session', async (request, reply) => {
     const session = await deps.getSession(request.headers);
@@ -429,6 +449,120 @@ export function registerOrganizerRoutes(
     }
     if (result === 'has_orders') {
       return reply.code(409).send({ error: 'sector_has_orders' });
+    }
+    return reply.code(200).send({ ok: true });
+  });
+
+  app.post('/organizer/sectors/:sectorId/lots', async (request, reply) => {
+    const session = await deps.getSession(request.headers);
+    if (!session) {
+      return reply.code(401).send({ error: 'not_authenticated' });
+    }
+    const guard = guardOrganizer(session);
+    if (guard.kind !== 'ok') {
+      return reply.code(403).send({ error: 'not_organizer' });
+    }
+    const { sectorId } = request.params as { sectorId: string };
+    if (!organizerSectorDtoSchema.shape.id.safeParse(sectorId).success) {
+      return reply.code(404).send({ error: 'sector_not_found' });
+    }
+    const parsed = organizerLotCreateSchema.safeParse(request.body ?? {});
+    if (!parsed.success) {
+      return reply
+        .code(400)
+        .send({ error: 'invalid_body', issues: parsed.error.issues });
+    }
+    const result = await createLot.execute({
+      sectorId,
+      userId: session.userId,
+      name: parsed.data.name,
+      priceCents: parsed.data.priceCents,
+      startsAt: new Date(parsed.data.startsAt),
+      endsAt: new Date(parsed.data.endsAt),
+    });
+    if (result.kind === 'not_found') {
+      return reply.code(404).send({ error: 'sector_not_found' });
+    }
+    if (result.kind === 'forbidden') {
+      return reply.code(403).send({ error: 'sector_forbidden' });
+    }
+    if (result.kind === 'invalid_period') {
+      return reply.code(400).send({ error: 'invalid_period' });
+    }
+    if (result.kind === 'overlapping') {
+      return reply.code(409).send({ error: 'lot_overlaps' });
+    }
+    return reply.code(201).send({
+      lot: organizerLotDtoSchema.parse(toLotDto(result.lot)),
+    });
+  });
+
+  app.patch('/organizer/lots/:lotId', async (request, reply) => {
+    const session = await deps.getSession(request.headers);
+    if (!session) {
+      return reply.code(401).send({ error: 'not_authenticated' });
+    }
+    const guard = guardOrganizer(session);
+    if (guard.kind !== 'ok') {
+      return reply.code(403).send({ error: 'not_organizer' });
+    }
+    const { lotId } = request.params as { lotId: string };
+    if (!organizerLotDtoSchema.shape.id.safeParse(lotId).success) {
+      return reply.code(404).send({ error: 'lot_not_found' });
+    }
+    const parsed = organizerLotCreateSchema.safeParse(request.body ?? {});
+    if (!parsed.success) {
+      return reply
+        .code(400)
+        .send({ error: 'invalid_body', issues: parsed.error.issues });
+    }
+    const result = await updateLot.execute({
+      lotId,
+      userId: session.userId,
+      name: parsed.data.name,
+      priceCents: parsed.data.priceCents,
+      startsAt: new Date(parsed.data.startsAt),
+      endsAt: new Date(parsed.data.endsAt),
+    });
+    if (result.kind === 'not_found') {
+      return reply.code(404).send({ error: 'lot_not_found' });
+    }
+    if (result.kind === 'forbidden') {
+      return reply.code(403).send({ error: 'lot_forbidden' });
+    }
+    if (result.kind === 'invalid_period') {
+      return reply.code(400).send({ error: 'invalid_period' });
+    }
+    if (result.kind === 'overlapping') {
+      return reply.code(409).send({ error: 'lot_overlaps' });
+    }
+    return reply.code(200).send({
+      lot: organizerLotDtoSchema.parse(toLotDto(result.lot)),
+    });
+  });
+
+  app.delete('/organizer/lots/:lotId', async (request, reply) => {
+    const session = await deps.getSession(request.headers);
+    if (!session) {
+      return reply.code(401).send({ error: 'not_authenticated' });
+    }
+    const guard = guardOrganizer(session);
+    if (guard.kind !== 'ok') {
+      return reply.code(403).send({ error: 'not_organizer' });
+    }
+    const { lotId } = request.params as { lotId: string };
+    if (!organizerLotDtoSchema.shape.id.safeParse(lotId).success) {
+      return reply.code(404).send({ error: 'lot_not_found' });
+    }
+    const result = await deleteLot.execute({
+      lotId,
+      userId: session.userId,
+    });
+    if (result === 'not_found') {
+      return reply.code(404).send({ error: 'lot_not_found' });
+    }
+    if (result === 'forbidden') {
+      return reply.code(403).send({ error: 'lot_forbidden' });
     }
     return reply.code(200).send({ ok: true });
   });

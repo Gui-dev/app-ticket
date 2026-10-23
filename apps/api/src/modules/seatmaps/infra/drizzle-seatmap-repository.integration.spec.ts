@@ -3,7 +3,15 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { createDb, type Db, TEST_DATABASE_URL } from '../../../db/client.js';
 import { expireExpiredHolds } from '../../../db/hold-expiry.js';
-import { events, seatRows, seats, sectors } from '../../../db/schema.js';
+import {
+  categories,
+  events,
+  priceLots,
+  seatRows,
+  seats,
+  sectors,
+  venues,
+} from '../../../db/schema.js';
 import { seedFixtures } from '../../../db/seed-fixtures.js';
 import {
   ensureTestDatabase,
@@ -249,5 +257,204 @@ describe('DrizzleSeatmapRepository (postgres integration)', () => {
       userId: 'user-expired',
     });
     expect(expiredHolds).toEqual([]);
+  });
+});
+
+describe('DrizzleSeatmapRepository preço efetivo (postgres integration)', () => {
+  const EVENT_SLUG_LOTS = 'show-lote-vigente';
+  const HOUR = 3_600_000;
+
+  let testDb: Db;
+  let repository: DrizzleSeatmapRepository;
+  let pistaSectorId: string;
+  let pistaRowId: string;
+
+  async function seedEventWithLots() {
+    const [category] = await testDb
+      .insert(categories)
+      .values({ slug: 'shows', name: 'Shows' })
+      .returning();
+    const [venue] = await testDb
+      .insert(venues)
+      .values({ slug: 'arena-sp', name: 'Arena SP', city: 'SP', state: 'SP' })
+      .returning();
+    const [event] = await testDb
+      .insert(events)
+      .values({
+        slug: EVENT_SLUG_LOTS,
+        title: 'Show Lote Vigente',
+        description: 'Descrição longa o suficiente para o evento fixture.',
+        categoryId: category.id,
+        venueId: venue.id,
+        organizerId: null,
+        startsAt: new Date(Date.now() + 7 * 24 * HOUR),
+        priceFromCents: 0,
+      })
+      .returning();
+
+    const [pista] = await testDb
+      .insert(sectors)
+      .values({
+        eventId: event.id,
+        slug: 'pista',
+        name: 'Pista',
+        priceFromCents: 10000,
+      })
+      .returning();
+    pistaSectorId = pista.id;
+    await testDb.insert(sectors).values({
+      eventId: event.id,
+      slug: 'camarote',
+      name: 'Camarote',
+      priceFromCents: 11000,
+    });
+
+    const [row] = await testDb
+      .insert(seatRows)
+      .values({ sectorId: pista.id, label: 'A', position: 1 })
+      .returning();
+    pistaRowId = row.id;
+    await testDb
+      .insert(seats)
+      .values({ rowId: row.id, label: '1', position: 1 });
+
+    await testDb.insert(priceLots).values([
+      {
+        sectorId: pista.id,
+        name: 'Lote Passado',
+        priceCents: 8000,
+        startsAt: new Date(Date.now() - 48 * HOUR),
+        endsAt: new Date(Date.now() - 24 * HOUR),
+      },
+      {
+        sectorId: pista.id,
+        name: 'Lote Ativo',
+        priceCents: 12000,
+        startsAt: new Date(Date.now() - HOUR),
+        endsAt: new Date(Date.now() + 24 * HOUR),
+      },
+      {
+        sectorId: pista.id,
+        name: 'Lote Futuro',
+        priceCents: 15000,
+        startsAt: new Date(Date.now() + 48 * HOUR),
+        endsAt: new Date(Date.now() + 72 * HOUR),
+      },
+    ]);
+  }
+
+  beforeAll(async () => {
+    await ensureTestDatabase();
+    testDb = createDb(TEST_DATABASE_URL);
+    await migrateTestDatabase(testDb);
+    repository = new DrizzleSeatmapRepository(
+      testDb,
+      new InMemorySeatAvailabilityBroker(),
+    );
+  });
+
+  beforeEach(async () => {
+    await resetDatabase(testDb);
+    await seedEventWithLots();
+  });
+
+  afterAll(async () => {
+    await testDb.$client.end();
+  });
+
+  it('getSeatmap traz o preço do lote em vigência e ordena pelo preço efetivo', async () => {
+    const seatmap = await repository.findSeatmap(EVENT_SLUG_LOTS);
+    expect(seatmap).not.toBeNull();
+    if (!seatmap) return;
+    expect(
+      seatmap.sectors.map((sector) => ({
+        slug: sector.slug,
+        priceFromCents: sector.priceFromCents,
+      })),
+    ).toEqual([
+      { slug: 'camarote', priceFromCents: 11000 },
+      { slug: 'pista', priceFromCents: 12000 },
+    ]);
+  });
+
+  it('lote passado e lote futuro não contam como vigência', async () => {
+    await testDb
+      .delete(priceLots)
+      .where(
+        and(
+          eq(priceLots.sectorId, pistaSectorId),
+          eq(priceLots.name, 'Lote Ativo'),
+        ),
+      );
+
+    const seatmap = await repository.findSeatmap(EVENT_SLUG_LOTS);
+    const pista = seatmap?.sectors.find((sector) => sector.slug === 'pista');
+    expect(pista?.priceFromCents).toBe(10000);
+  });
+
+  it('hold por coordenadas traz o preço vigente', async () => {
+    const lookup = await repository.findSeatByCoords({
+      eventSlug: EVENT_SLUG_LOTS,
+      sectorSlug: 'pista',
+      rowLabel: 'A',
+      seatLabel: '1',
+    });
+    expect(lookup.found).toBe(true);
+    if (!lookup.found) return;
+    expect(lookup.seat.priceFromCents).toBe(12000);
+  });
+
+  it('carrinho traz o preço vigente do assento reservado', async () => {
+    await testDb
+      .update(seats)
+      .set({
+        status: 'reserved',
+        holdUserId: 'user-carrinho',
+        holdExpiresAt: new Date(Date.now() + 10 * 60_000),
+      })
+      .where(eq(seats.rowId, pistaRowId));
+
+    const holds = await repository.findHoldsByUser({
+      eventSlug: EVENT_SLUG_LOTS,
+      userId: 'user-carrinho',
+    });
+    expect(holds).toHaveLength(1);
+    expect(holds[0]).toMatchObject({
+      sectorSlug: 'pista',
+      rowLabel: 'A',
+      seatLabel: '1',
+      priceFromCents: 12000,
+    });
+  });
+
+  it('removido o lote ativo, o setor volta ao preço base', async () => {
+    const [activeLot] = await testDb
+      .select({ id: priceLots.id })
+      .from(priceLots)
+      .where(
+        and(
+          eq(priceLots.sectorId, pistaSectorId),
+          eq(priceLots.name, 'Lote Ativo'),
+        ),
+      );
+    await testDb.delete(priceLots).where(eq(priceLots.id, activeLot.id));
+
+    const seatmap = await repository.findSeatmap(EVENT_SLUG_LOTS);
+    const pista = seatmap?.sectors.find((sector) => sector.slug === 'pista');
+    expect(pista?.priceFromCents).toBe(10000);
+    expect(seatmap?.sectors.map((sector) => sector.slug)).toEqual([
+      'pista',
+      'camarote',
+    ]);
+
+    const lookup = await repository.findSeatByCoords({
+      eventSlug: EVENT_SLUG_LOTS,
+      sectorSlug: 'pista',
+      rowLabel: 'A',
+      seatLabel: '1',
+    });
+    expect(lookup.found).toBe(true);
+    if (!lookup.found) return;
+    expect(lookup.seat.priceFromCents).toBe(10000);
   });
 });
