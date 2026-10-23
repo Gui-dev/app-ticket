@@ -2,6 +2,9 @@ import {
   type OrganizerEventCreate,
   type OrganizerEventDetailDto,
   type OrganizerEventDto,
+  type OrganizerLotCreate,
+  type OrganizerRowCreate,
+  type OrganizerSectorCreate,
   type OrganizerVenueCreate,
   type OrganizerVenueDto,
   organizerEventDetailResponseSchema,
@@ -27,15 +30,13 @@ const ERROR_MESSAGES: Record<string, string> = {
     'Não é possível alterar este evento porque ele já tem pedidos.',
   sector_not_found: 'Setor não encontrado.',
   sector_forbidden: 'Você não tem permissão para gerenciar este setor.',
-  sector_has_orders:
-    'Não é possível alterar este setor porque ele já tem pedidos.',
-  row_not_found: 'Fileira não encontrada.',
-  row_forbidden: 'Você não tem permissão para gerenciar esta fileira.',
-  row_label_conflict: 'Já existe uma fileira com essa letra neste setor.',
-  row_has_orders:
-    'Não é possível alterar esta fileira porque ela já tem pedidos.',
+  sector_has_orders: 'Há ingressos vendidos neste setor.',
+  row_not_found: 'Fila não encontrada.',
+  row_forbidden: 'Você não tem permissão para gerenciar esta fila.',
+  row_label_conflict: 'Já existe uma fila com esse nome neste setor.',
+  row_has_orders: 'Há ingressos vendidos nessa fila.',
   invalid_period: 'O período do lote é inválido.',
-  lot_overlaps: 'Os lotes não podem ter períodos sobrepostos.',
+  lot_overlaps: 'Setor já tem um lote nesse período.',
   lot_not_found: 'Lote não encontrado.',
   lot_forbidden: 'Você não tem permissão para gerenciar este lote.',
 };
@@ -99,6 +100,10 @@ async function patchJson(path: string, input: unknown): Promise<unknown> {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(input),
   });
+}
+
+async function deleteJson(path: string): Promise<unknown> {
+  return requestJson(path, { method: 'DELETE' });
 }
 
 export async function fetchOrganizerEvents(): Promise<OrganizerEventDto[]> {
@@ -167,6 +172,46 @@ export async function updateOrganizerVenue(
   );
   if (!result.success) throw payloadError(result.error);
   return result.data.venue;
+}
+
+export async function createOrganizerSector(
+  eventId: string,
+  input: OrganizerSectorCreate,
+): Promise<void> {
+  await postJson(`events/${encodeURIComponent(eventId)}/sectors`, input);
+}
+
+export async function deleteOrganizerSector(sectorId: string): Promise<void> {
+  await deleteJson(`sectors/${encodeURIComponent(sectorId)}`);
+}
+
+export async function createOrganizerRow(
+  sectorId: string,
+  input: OrganizerRowCreate,
+): Promise<void> {
+  await postJson(`sectors/${encodeURIComponent(sectorId)}/rows`, input);
+}
+
+export async function deleteOrganizerRow(rowId: string): Promise<void> {
+  await deleteJson(`rows/${encodeURIComponent(rowId)}`);
+}
+
+export async function createOrganizerLot(
+  sectorId: string,
+  input: OrganizerLotCreate,
+): Promise<void> {
+  await postJson(`sectors/${encodeURIComponent(sectorId)}/lots`, input);
+}
+
+export async function updateOrganizerLot(
+  lotId: string,
+  input: OrganizerLotCreate,
+): Promise<void> {
+  await patchJson(`lots/${encodeURIComponent(lotId)}`, input);
+}
+
+export async function deleteOrganizerLot(lotId: string): Promise<void> {
+  await deleteJson(`lots/${encodeURIComponent(lotId)}`);
 }
 
 function payloadError(error: unknown): Error {
