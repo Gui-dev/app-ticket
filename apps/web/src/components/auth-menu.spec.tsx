@@ -75,4 +75,55 @@ describe('AuthMenu', () => {
     );
     expect(screen.getByRole('button', { name: 'Sair' })).toBeInTheDocument();
   });
+
+  it('mostra o link Painel do organizador antes de Minha conta quando o usuário é organizer', async () => {
+    server.use(
+      http.get(/\/api\/auth\/get-session$/, () =>
+        HttpResponse.json({
+          session: { token: 'abc' },
+          user: {
+            id: 'u1',
+            name: 'Maria Silva',
+            email: 'maria@test.dev',
+            role: 'organizer',
+          },
+        }),
+      ),
+    );
+
+    render(<AuthMenu />);
+
+    await screen.findByText('Maria Silva');
+    const link = screen.getByRole('link', { name: 'Painel do organizador' });
+    expect(link).toHaveAttribute('href', '/organizador');
+    const contaLink = screen.getByRole('link', { name: 'Minha conta' });
+    expect(contaLink).toBe(link.nextElementSibling);
+  });
+
+  it('não mostra o link Painel do organizador quando o usuário é buyer', async () => {
+    server.use(
+      http.get(/\/api\/auth\/get-session$/, () =>
+        HttpResponse.json({
+          session: { token: 'abc' },
+          user: {
+            id: 'u1',
+            name: 'Maria Silva',
+            email: 'maria@test.dev',
+            role: 'buyer',
+          },
+        }),
+      ),
+    );
+
+    render(<AuthMenu />);
+
+    await screen.findByText('Maria Silva');
+    expect(
+      screen.queryByRole('link', { name: 'Painel do organizador' }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Minha conta' })).toHaveAttribute(
+      'href',
+      '/conta',
+    );
+  });
 });

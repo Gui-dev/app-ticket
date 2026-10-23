@@ -36,6 +36,11 @@ function AuthMenu() {
       <span className="hidden max-w-40 truncate text-sm font-medium text-foreground sm:inline">
         {data.user.name}
       </span>
+      {data.user.role === 'organizer' ? (
+        <Button variant="default" asChild>
+          <Link href="/organizador">Painel do organizador</Link>
+        </Button>
+      ) : null}
       <Button variant="default" asChild>
         <Link href="/conta">Minha conta</Link>
       </Button>

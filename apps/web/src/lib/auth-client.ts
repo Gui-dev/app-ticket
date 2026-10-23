@@ -1,8 +1,16 @@
-import { anonymousClient } from 'better-auth/client/plugins';
+import {
+  anonymousClient,
+  inferAdditionalFields,
+} from 'better-auth/client/plugins';
 import { createAuthClient } from 'better-auth/react';
 
 export const authClient = createAuthClient({
-  plugins: [anonymousClient()],
+  plugins: [
+    inferAdditionalFields({
+      user: { role: { type: 'string', required: false, input: false } },
+    }),
+    anonymousClient(),
+  ],
 });
 
 let pendingAnonymousSignIn: Promise<unknown> | null = null;
