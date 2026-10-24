@@ -12,8 +12,8 @@ test('organizador cria local e evento com setor, que aparece na home e na págin
   const suffix = Date.now();
   const organizerEmail = `e2e-backoffice-${suffix}@ticketvibe.test`;
   const password = 'senha-forte-123';
-  const venueName = `Teatro E2E Backoffice ${suffix}`;
-  const eventTitle = `Show do Organizador E2E ${suffix}`;
+  const venueName = 'Teatro E2E Backoffice';
+  const eventTitle = 'Show do Organizador E2E';
   const startsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
     .toISOString()
     .slice(0, 16);
