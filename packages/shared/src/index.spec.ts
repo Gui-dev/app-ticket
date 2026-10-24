@@ -40,7 +40,6 @@ import {
   organizerSectorCreateSchema,
   organizerSectorDtoSchema,
   organizerVenueCreateSchema,
-  organizerVenueDtoSchema,
   organizerVenueListResponseSchema,
   organizerVenueResponseSchema,
   releaseResponseSchema,
