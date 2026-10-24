@@ -34,6 +34,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   row_not_found: 'Fila não encontrada.',
   row_forbidden: 'Você não tem permissão para gerenciar esta fila.',
   row_label_conflict: 'Já existe uma fila com esse nome neste setor.',
+  sector_conflict: 'Já existe um setor com esse nome neste evento.',
   row_has_orders: 'Há ingressos vendidos nessa fila.',
   invalid_period: 'O período do lote é inválido.',
   lot_overlaps: 'Setor já tem um lote nesse período.',

@@ -66,10 +66,13 @@ describe('página Meus eventos', () => {
 
     const cardDoOrganizador = cards[1];
     expect(
-      within(cardDoOrganizador).getByText('Festa do Livro'),
-    ).toBeInTheDocument();
+      within(cardDoOrganizador).getByRole('link', { name: 'Festa do Livro' }),
+    ).toHaveAttribute('href', `/organizador/eventos/${eventoDoOrganizador.id}`);
     expect(
       within(cardDoOrganizador).queryByText('Da plataforma'),
+    ).not.toBeInTheDocument();
+    expect(
+      within(cardDaPlataforma).queryByRole('link', { name: 'Rock Night' }),
     ).not.toBeInTheDocument();
   });
 

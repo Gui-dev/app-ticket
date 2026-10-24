@@ -63,9 +63,18 @@ function EventosPage() {
               className="flex flex-col gap-1 rounded-lg border border-border bg-card p-4"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-sm font-semibold text-foreground">
-                  {event.title}
-                </span>
+                {event.platform ? (
+                  <span className="text-sm font-semibold text-foreground">
+                    {event.title}
+                  </span>
+                ) : (
+                  <Link
+                    href={`/organizador/eventos/${event.id}`}
+                    className="text-sm font-semibold text-foreground hover:underline"
+                  >
+                    {event.title}
+                  </Link>
+                )}
                 {event.platform ? (
                   <span className="rounded-full border border-border bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground">
                     Da plataforma

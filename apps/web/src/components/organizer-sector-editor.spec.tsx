@@ -175,12 +175,12 @@ describe('OrganizerSectorEditor', () => {
     ]);
   });
 
-  it('mostra o conflito de nome de fila ao criar setor', async () => {
+  it('mostra o conflito de nome de setor ao criar setor', async () => {
     const { onChanged } = renderEditor();
 
     server.use(
       http.post(new RegExp(`/api/organizer/events/${eventId}/sectors$`), () =>
-        HttpResponse.json({ error: 'row_label_conflict' }, { status: 409 }),
+        HttpResponse.json({ error: 'sector_conflict' }, { status: 409 }),
       ),
     );
 
@@ -201,7 +201,7 @@ describe('OrganizerSectorEditor', () => {
     );
 
     expect(
-      await screen.findByText('Já existe uma fila com esse nome neste setor.'),
+      await screen.findByText('Já existe um setor com esse nome neste evento.'),
     ).toBeInTheDocument();
     expect(onChanged).not.toHaveBeenCalled();
   });
