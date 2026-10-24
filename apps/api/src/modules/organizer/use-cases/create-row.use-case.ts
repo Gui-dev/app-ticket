@@ -1,5 +1,5 @@
 import type {
-  CreateSectorResult,
+  CreateRowResult,
   OrganizerRepository,
 } from '../domain/organizer-repository';
 
@@ -13,7 +13,7 @@ export interface CreateRowInput {
 export class CreateRowUseCase {
   constructor(private readonly organizerRepository: OrganizerRepository) {}
 
-  async execute(input: CreateRowInput): Promise<CreateSectorResult> {
+  async execute(input: CreateRowInput): Promise<CreateRowResult> {
     return this.organizerRepository.createRow(input);
   }
 }

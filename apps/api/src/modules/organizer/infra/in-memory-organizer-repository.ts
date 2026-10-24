@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import type {
   CreateEventResult,
+  CreateRowResult,
   CreateSectorInput,
   CreateSectorResult,
   DeleteEventResult,
@@ -523,7 +524,7 @@ export class InMemoryOrganizerRepository implements OrganizerRepository {
     userId: string;
     label: string;
     seatCount: number;
-  }): Promise<CreateSectorResult> {
+  }): Promise<CreateRowResult> {
     const sector = this.sectors.get(input.sectorId);
     if (!sector) {
       return { kind: 'not_found' };

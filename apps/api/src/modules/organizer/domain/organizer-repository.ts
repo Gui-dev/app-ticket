@@ -96,6 +96,12 @@ export type CreateSectorResult =
   | { kind: 'sector_conflict' }
   | { kind: 'label_conflict' };
 
+export type CreateRowResult =
+  | { kind: 'ok'; sector: OrganizerSectorRecord }
+  | { kind: 'not_found' }
+  | { kind: 'forbidden' }
+  | { kind: 'label_conflict' };
+
 export type WriteSectorResult = 'ok' | 'not_found' | 'forbidden' | 'has_orders';
 
 export interface OrganizerRepository {
@@ -149,7 +155,7 @@ export interface OrganizerRepository {
     userId: string;
     label: string;
     seatCount: number;
-  }): Promise<CreateSectorResult>;
+  }): Promise<CreateRowResult>;
   deleteRow(input: {
     rowId: string;
     userId: string;

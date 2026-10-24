@@ -14,6 +14,7 @@ import {
 } from '../../../db/schema.js';
 import type {
   CreateEventResult,
+  CreateRowResult,
   CreateSectorInput,
   CreateSectorResult,
   DeleteEventResult,
@@ -629,7 +630,7 @@ export class DrizzleOrganizerRepository implements OrganizerRepository {
     userId: string;
     label: string;
     seatCount: number;
-  }): Promise<CreateSectorResult> {
+  }): Promise<CreateRowResult> {
     const [sector] = await this.db
       .select({
         id: sectors.id,
