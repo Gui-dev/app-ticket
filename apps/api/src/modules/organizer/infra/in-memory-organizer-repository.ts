@@ -480,7 +480,7 @@ export class InMemoryOrganizerRepository implements OrganizerRepository {
     }
     const slug = this.uniqueSectorSlug(input.eventId, slugify(input.name));
     if (slug === null) {
-      return { kind: 'label_conflict' };
+      return { kind: 'sector_conflict' };
     }
     const sector = this.buildSectorRecord({
       eventId: input.eventId,

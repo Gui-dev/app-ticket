@@ -416,6 +416,9 @@ export function registerOrganizerRoutes(
     if (result.kind === 'forbidden') {
       return reply.code(403).send({ error: 'event_forbidden' });
     }
+    if (result.kind === 'sector_conflict') {
+      return reply.code(409).send({ error: 'sector_conflict' });
+    }
     if (result.kind === 'label_conflict') {
       return reply.code(409).send({ error: 'row_label_conflict' });
     }

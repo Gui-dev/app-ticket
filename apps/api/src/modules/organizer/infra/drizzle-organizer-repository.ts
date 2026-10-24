@@ -31,6 +31,17 @@ import type {
 } from '../domain/organizer-repository.js';
 import { slugify } from '../domain/slugify.js';
 
+function searchVectorFor(input: {
+  title: string;
+  description: string;
+  venueName: string;
+  venueCity: string;
+}) {
+  return sql`setweight(to_tsvector('portuguese', unaccent(${input.title})), 'A')
+    || setweight(to_tsvector('portuguese', unaccent(${input.description})), 'B')
+    || setweight(to_tsvector('portuguese', unaccent(${input.venueName} || ' ' || ${input.venueCity})), 'C')`;
+}
+
 interface OrganizerEventRow {
   events: {
     id: string;
@@ -184,6 +195,12 @@ export class DrizzleOrganizerRepository implements OrganizerRepository {
         organizerId: input.organizerId,
         startsAt: input.startsAt,
         priceFromCents: 0,
+        searchVector: searchVectorFor({
+          title: input.title,
+          description: input.description,
+          venueName: venue.name,
+          venueCity: venue.city,
+        }),
       })
       .returning({
         id: events.id,
@@ -242,7 +259,7 @@ export class DrizzleOrganizerRepository implements OrganizerRepository {
     }
 
     const [venue] = await this.db
-      .select({ id: venues.id })
+      .select({ id: venues.id, name: venues.name, city: venues.city })
       .from(venues)
       .where(eq(venues.slug, input.venueSlug))
       .limit(1);
@@ -258,6 +275,12 @@ export class DrizzleOrganizerRepository implements OrganizerRepository {
         categoryId: category.id,
         venueId: venue.id,
         startsAt: input.startsAt,
+        searchVector: searchVectorFor({
+          title: input.title,
+          description: input.description,
+          venueName: venue.name,
+          venueCity: venue.city,
+        }),
       })
       .where(eq(events.id, input.eventId));
 
@@ -500,7 +523,7 @@ export class DrizzleOrganizerRepository implements OrganizerRepository {
       slugify(input.name),
     );
     if (!slug) {
-      return { kind: 'label_conflict' };
+      return { kind: 'sector_conflict' };
     }
 
     const sector = await this.db.transaction(async (tx) => {

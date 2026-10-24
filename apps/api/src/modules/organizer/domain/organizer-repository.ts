@@ -93,6 +93,7 @@ export type CreateSectorResult =
   | { kind: 'ok'; sector: OrganizerSectorRecord }
   | { kind: 'not_found' }
   | { kind: 'forbidden' }
+  | { kind: 'sector_conflict' }
   | { kind: 'label_conflict' };
 
 export type WriteSectorResult = 'ok' | 'not_found' | 'forbidden' | 'has_orders';

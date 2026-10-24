@@ -134,7 +134,7 @@ describe('CreateSectorUseCase', () => {
       CREATE_INPUT,
     );
 
-    expect(result.kind).toBe('label_conflict');
+    expect(result.kind).toBe('sector_conflict');
   });
 });
 

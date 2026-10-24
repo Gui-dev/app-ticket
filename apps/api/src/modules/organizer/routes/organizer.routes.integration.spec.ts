@@ -1,4 +1,4 @@
-import { asc, eq } from 'drizzle-orm';
+import { asc, eq, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
@@ -278,6 +278,11 @@ describe('organizer routes (postgres integration)', () => {
       'show-do-organizador',
       'show-do-organizador-2',
     ]);
+
+    const searchable = await testDb.execute(
+      sql`select count(*)::int as total from events where organizer_id = 'user-a' and search_vector @@ websearch_to_tsquery('portuguese', unaccent(${CREATE_PAYLOAD.title}))`,
+    );
+    expect(searchable.rows[0]?.total).toBe(2);
   });
 
   it('organizador edita evento próprio', async () => {
@@ -308,6 +313,11 @@ describe('organizer routes (postgres integration)', () => {
     expect(detail.statusCode).toBe(200);
     expect(detail.json().event.title).toBe('Show Remarcado');
     expect(detail.json().event.sectors).toEqual([]);
+
+    const searchable = await testDb.execute(
+      sql`select count(*)::int as total from events where id = ${event.id} and search_vector @@ websearch_to_tsquery('portuguese', unaccent(${EDIT_PAYLOAD.title}))`,
+    );
+    expect(searchable.rows[0]?.total).toBe(1);
   });
 
   it('dados da plataforma são de leitura', async () => {
@@ -706,6 +716,7 @@ describe('organizer routes (postgres integration)', () => {
 
     const renamedSector = await createSector(event.id, { name: 'Palco' });
     expect(renamedSector.statusCode).toBe(409);
+    expect(renamedSector.json()).toEqual({ error: 'sector_conflict' });
   });
 
   it('fila com cadeiras vendidas não é excluída', async () => {
