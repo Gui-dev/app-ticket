@@ -81,6 +81,17 @@ test('organizador cria local e evento com setor, que aparece na home e na págin
   await expect(page.getByText('Fila A · 10 lugares')).toBeVisible();
   await expect(page.getByText('R$ 50,00').first()).toBeVisible();
 
+  await page.getByRole('link', { name: 'Painel', exact: true }).click();
+  await page.waitForURL(`${WEB}/organizador`);
+  await page.getByRole('link', { name: 'Meus eventos' }).click();
+  await page.waitForURL(`${WEB}/organizador/eventos`);
+  await page.getByRole('link', { name: eventTitle }).click();
+  await page.waitForURL(/\/organizador\/eventos\/[0-9a-f-]{36}$/);
+  await expect(
+    page.getByRole('heading', { name: 'Editar evento' }),
+  ).toBeVisible();
+  await expect(page.getByText('Fila A · 10 lugares')).toBeVisible();
+
   await page.goto(`${WEB}/`);
   await page.getByRole('button', { name: 'Shows' }).click();
   await page.waitForURL(/\?category=shows$/);
