@@ -25,6 +25,16 @@ describe('OrganizerNav', () => {
     expect(link).toHaveAttribute('aria-current', 'page');
   });
 
+  it('renderiza o link Relatórios apontando para /organizador/relatorios e o destaca na rota', () => {
+    pathname.current = '/organizador/relatorios';
+
+    render(<OrganizerNav />);
+
+    const link = screen.getByRole('link', { name: 'Relatórios' });
+    expect(link).toHaveAttribute('href', '/organizador/relatorios');
+    expect(link).toHaveAttribute('aria-current', 'page');
+  });
+
   it('não destaca o link Painel em outra rota', () => {
     pathname.current = '/organizador/ingressos';
 

@@ -4,7 +4,10 @@ import { cn } from 'cn';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-const NAV_ITEMS = [{ href: '/organizador', label: 'Painel' }] as const;
+const NAV_ITEMS = [
+  { href: '/organizador', label: 'Painel' },
+  { href: '/organizador/relatorios', label: 'Relatórios' },
+] as const;
 
 function OrganizerNav() {
   const pathname = usePathname();

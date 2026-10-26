@@ -20,5 +20,9 @@ describe('página Painel do organizador', () => {
       'href',
       '/organizador/locais',
     );
+    expect(screen.getByRole('link', { name: 'Relatórios' })).toHaveAttribute(
+      'href',
+      '/organizador/relatorios',
+    );
   });
 });

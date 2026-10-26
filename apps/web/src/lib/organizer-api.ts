@@ -4,12 +4,14 @@ import {
   type OrganizerEventDto,
   type OrganizerLotCreate,
   type OrganizerRowCreate,
+  type OrganizerSalesReportDto,
   type OrganizerSectorCreate,
   type OrganizerVenueCreate,
   type OrganizerVenueDto,
   organizerEventDetailResponseSchema,
   organizerEventListResponseSchema,
   organizerEventResponseSchema,
+  organizerSalesReportResponseSchema,
   organizerVenueListResponseSchema,
   organizerVenueResponseSchema,
 } from '@ticketvibe/shared';
@@ -40,6 +42,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   lot_overlaps: 'Setor já tem um lote nesse período.',
   lot_not_found: 'Lote não encontrado.',
   lot_forbidden: 'Você não tem permissão para gerenciar este lote.',
+  invalid_query: 'Período inválido.',
 };
 
 export type { OrganizerEventDto, OrganizerVenueDto };
@@ -113,6 +116,21 @@ export async function fetchOrganizerEvents(): Promise<OrganizerEventDto[]> {
   );
   if (!result.success) throw payloadError(result.error);
   return result.data.events;
+}
+
+export async function fetchOrganizerSalesReport(
+  eventId: string,
+  period?: { from?: string; to?: string },
+): Promise<OrganizerSalesReportDto> {
+  const params: string[] = [];
+  if (period?.from) params.push(`from=${encodeURIComponent(period.from)}`);
+  if (period?.to) params.push(`to=${encodeURIComponent(period.to)}`);
+  const search = params.length > 0 ? `?${params.join('&')}` : '';
+  const result = organizerSalesReportResponseSchema.safeParse(
+    await requestJson(`events/${encodeURIComponent(eventId)}/report${search}`),
+  );
+  if (!result.success) throw payloadError(result.error);
+  return result.data.report;
 }
 
 export async function fetchOrganizerEvent(
