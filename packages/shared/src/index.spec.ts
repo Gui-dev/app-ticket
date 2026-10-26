@@ -36,6 +36,9 @@ import {
   organizerLotCreateSchema,
   organizerLotDtoSchema,
   organizerRowCreateSchema,
+  organizerSalesReportQuerySchema,
+  organizerSalesReportResponseSchema,
+  organizerSalesReportSchema,
   organizerSeatRowDtoSchema,
   organizerSectorCreateSchema,
   organizerSectorDtoSchema,
@@ -1317,6 +1320,138 @@ describe('organizer response schemas', () => {
     ).toEqual({ venue: validOrganizerVenueDto });
     expect(
       organizerVenueResponseSchema.safeParse({ venue: { slug: 'x' } }).success,
+    ).toBe(false);
+  });
+});
+
+describe('organizerSalesReportSchema', () => {
+  const validReport = {
+    eventId: '2f1a3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d',
+    from: '2026-10-01T00:00:00.000Z',
+    to: '2026-10-31T23:59:59.999Z',
+    ticketsSold: 120,
+    ordersCount: 45,
+    grossCents: 90000,
+    platformFeeCents: 4500,
+    netCents: 85500,
+  };
+
+  it('parses a valid report with from/to present', () => {
+    expect(organizerSalesReportSchema.parse(validReport)).toEqual(validReport);
+  });
+
+  it('allows from and to to be null', () => {
+    const report = {
+      ...validReport,
+      from: null,
+      to: null,
+    };
+    expect(organizerSalesReportSchema.parse(report)).toEqual(report);
+  });
+
+  it('rejects a netCents inconsistent with gross minus fee', () => {
+    expect(
+      organizerSalesReportSchema.safeParse({
+        ...validReport,
+        netCents: 85000,
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects from >= to when both are present', () => {
+    expect(
+      organizerSalesReportSchema.safeParse({
+        ...validReport,
+        to: '2026-10-01T00:00:00.000Z',
+      }).success,
+    ).toBe(false);
+    expect(
+      organizerSalesReportSchema.safeParse({
+        ...validReport,
+        to: '2026-10-01T00:00:00.000Z',
+        from: '2026-10-31T23:59:59.999Z',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects negative counts and cents', () => {
+    expect(
+      organizerSalesReportSchema.safeParse({
+        ...validReport,
+        ticketsSold: -1,
+      }).success,
+    ).toBe(false);
+    expect(
+      organizerSalesReportSchema.safeParse({
+        ...validReport,
+        ordersCount: -1,
+      }).success,
+    ).toBe(false);
+    expect(
+      organizerSalesReportSchema.safeParse({
+        ...validReport,
+        grossCents: -1,
+      }).success,
+    ).toBe(false);
+    expect(
+      organizerSalesReportSchema.safeParse({
+        ...validReport,
+        platformFeeCents: -1,
+      }).success,
+    ).toBe(false);
+    expect(
+      organizerSalesReportSchema.safeParse({
+        ...validReport,
+        netCents: -1,
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe('organizerSalesReportResponseSchema', () => {
+  const validReport = {
+    eventId: '2f1a3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d',
+    from: null,
+    to: null,
+    ticketsSold: 0,
+    ordersCount: 0,
+    grossCents: 0,
+    platformFeeCents: 0,
+    netCents: 0,
+  };
+
+  it('parses the report response', () => {
+    const payload = { report: validReport };
+    expect(organizerSalesReportResponseSchema.parse(payload)).toEqual(payload);
+    expect(
+      organizerSalesReportResponseSchema.safeParse({ report: {} }).success,
+    ).toBe(false);
+  });
+});
+
+describe('organizerSalesReportQuerySchema', () => {
+  it('accepts absent from and to', () => {
+    expect(organizerSalesReportQuerySchema.parse({})).toEqual({});
+  });
+
+  it('accepts valid datetimes', () => {
+    expect(
+      organizerSalesReportQuerySchema.parse({
+        from: '2026-10-01T00:00:00.000Z',
+        to: '2026-10-31T23:59:59.999Z',
+      }),
+    ).toEqual({
+      from: '2026-10-01T00:00:00.000Z',
+      to: '2026-10-31T23:59:59.999Z',
+    });
+  });
+
+  it('rejects an invalid datetime string', () => {
+    expect(
+      organizerSalesReportQuerySchema.safeParse({ from: 'not-a-date' }).success,
+    ).toBe(false);
+    expect(
+      organizerSalesReportQuerySchema.safeParse({ to: '2026-13-01' }).success,
     ).toBe(false);
   });
 });

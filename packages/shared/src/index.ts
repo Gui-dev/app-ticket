@@ -619,3 +619,43 @@ export const organizerVenueResponseSchema = z.object({
 export type OrganizerVenueResponse = z.infer<
   typeof organizerVenueResponseSchema
 >;
+
+export const organizerSalesReportSchema = z
+  .object({
+    eventId: z.uuid(),
+    from: z.iso.datetime().nullable(),
+    to: z.iso.datetime().nullable(),
+    ticketsSold: z.number().int().min(0),
+    ordersCount: z.number().int().min(0),
+    grossCents: z.number().int().min(0),
+    platformFeeCents: z.number().int().min(0),
+    netCents: z.number().int().min(0),
+  })
+  .refine(
+    (report) => report.netCents === report.grossCents - report.platformFeeCents,
+  )
+  .refine(
+    (report) =>
+      report.from === null || report.to === null || report.from < report.to,
+  );
+
+export type OrganizerSalesReportDto = z.infer<
+  typeof organizerSalesReportSchema
+>;
+
+export const organizerSalesReportResponseSchema = z.object({
+  report: organizerSalesReportSchema,
+});
+
+export type OrganizerSalesReportResponse = z.infer<
+  typeof organizerSalesReportResponseSchema
+>;
+
+export const organizerSalesReportQuerySchema = z.object({
+  from: z.iso.datetime().optional(),
+  to: z.iso.datetime().optional(),
+});
+
+export type OrganizerSalesReportQuery = z.input<
+  typeof organizerSalesReportQuerySchema
+>;
