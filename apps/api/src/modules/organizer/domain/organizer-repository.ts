@@ -73,6 +73,20 @@ export type UpdateEventResult =
 
 export type DeleteEventResult = 'ok' | 'not_found' | 'forbidden' | 'has_orders';
 
+export interface OrganizerSalesReportRecord {
+  eventId: string;
+  ticketsSold: number;
+  ordersCount: number;
+  grossCents: number;
+  platformFeeCents: number;
+  netCents: number;
+}
+
+export type SalesReportForOrganizerResult =
+  | { kind: 'ok'; report: OrganizerSalesReportRecord }
+  | { kind: 'not_found' }
+  | { kind: 'forbidden' };
+
 export interface OrganizerVenueRecord {
   id: string;
   slug: string;
@@ -183,4 +197,10 @@ export interface OrganizerRepository {
     endsAt: Date;
   }): Promise<WriteLotResult>;
   deleteLot(input: { lotId: string; userId: string }): Promise<DeleteLotResult>;
+  salesReportForOrganizer(input: {
+    eventId: string;
+    userId: string;
+    from: Date | null;
+    to: Date | null;
+  }): Promise<SalesReportForOrganizerResult>;
 }

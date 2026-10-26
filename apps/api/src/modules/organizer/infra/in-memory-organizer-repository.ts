@@ -14,6 +14,7 @@ import type {
   OrganizerRepository,
   OrganizerSectorRecord,
   OrganizerVenueRecord,
+  SalesReportForOrganizerResult,
   UpdateEventResult,
   WriteLotResult,
   WriteSectorResult,
@@ -66,6 +67,18 @@ export interface InMemoryOrganizerSectorSeed {
 export interface InMemoryOrganizerOrderSeed {
   eventId: string;
   seatIds?: string[];
+  status?: 'pending' | 'paid' | 'failed' | 'expired';
+  paidAt?: Date;
+  serviceFeeCents?: number;
+  items?: { priceCents: number }[];
+}
+
+interface InMemoryOrganizerOrderRecord {
+  eventId: string;
+  status: 'pending' | 'paid' | 'failed' | 'expired';
+  paidAt: Date;
+  serviceFeeCents: number;
+  items: { priceCents: number }[];
 }
 
 export interface InMemoryOrganizerSeed {
@@ -128,6 +141,7 @@ export class InMemoryOrganizerRepository implements OrganizerRepository {
   private readonly lots: Map<string, InMemoryLotRecord>;
   private readonly soldSeatIds: Set<string>;
   private readonly orderCounts: Map<string, number>;
+  private readonly orders: InMemoryOrganizerOrderRecord[];
   private nextId = 0;
   private nextSectorId = 0;
   private nextLotId = 0;
@@ -169,6 +183,7 @@ export class InMemoryOrganizerRepository implements OrganizerRepository {
     this.lots = new Map();
     this.soldSeatIds = new Set();
     this.orderCounts = new Map();
+    this.orders = [];
     this.nextSectorId = seed.sectors?.length ?? 0;
     for (const sector of seed.sectors ?? []) {
       this.sectors.set(
@@ -185,6 +200,18 @@ export class InMemoryOrganizerRepository implements OrganizerRepository {
       );
     }
     for (const order of seed.orders ?? []) {
+      const items = order.items ?? [{ priceCents: 0 }];
+      this.orders.push({
+        eventId: order.eventId,
+        status: order.status ?? 'paid',
+        paidAt: order.paidAt ? new Date(order.paidAt) : new Date(),
+        serviceFeeCents:
+          order.serviceFeeCents ??
+          Math.round(
+            items.reduce((total, item) => total + item.priceCents, 0) * 0.1,
+          ),
+        items,
+      });
       for (const seatId of order.seatIds ?? []) {
         this.soldSeatIds.add(seatId);
       }
@@ -687,6 +714,53 @@ export class InMemoryOrganizerRepository implements OrganizerRepository {
     this.lots.delete(lot.id);
     this.recalculateEventPrice(sector.eventId);
     return 'ok';
+  }
+
+  async salesReportForOrganizer(input: {
+    eventId: string;
+    userId: string;
+    from: Date | null;
+    to: Date | null;
+  }): Promise<SalesReportForOrganizerResult> {
+    const event = this.events.get(input.eventId);
+    if (!event) {
+      return { kind: 'not_found' };
+    }
+    if (event.organizerId === null || event.organizerId !== input.userId) {
+      return { kind: 'forbidden' };
+    }
+    const paid = this.orders.filter(
+      (order) =>
+        order.eventId === input.eventId &&
+        order.status === 'paid' &&
+        (input.from === null ||
+          order.paidAt.getTime() >= input.from.getTime()) &&
+        (input.to === null || order.paidAt.getTime() < input.to.getTime()),
+    );
+    const ticketsSold = paid.reduce(
+      (total, order) => total + order.items.length,
+      0,
+    );
+    const grossCents = paid.reduce(
+      (total, order) =>
+        total + order.items.reduce((sum, item) => sum + item.priceCents, 0),
+      0,
+    );
+    const platformFeeCents = paid.reduce(
+      (total, order) => total + order.serviceFeeCents,
+      0,
+    );
+    return {
+      kind: 'ok',
+      report: {
+        eventId: input.eventId,
+        ticketsSold,
+        ordersCount: paid.length,
+        grossCents,
+        platformFeeCents,
+        netCents: grossCents - platformFeeCents,
+      },
+    };
   }
 
   private findOverlappingLot(

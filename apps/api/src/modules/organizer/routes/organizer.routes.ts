@@ -11,6 +11,8 @@ import {
   organizerLotCreateSchema,
   organizerLotDtoSchema,
   organizerRowCreateSchema,
+  organizerSalesReportQuerySchema,
+  organizerSalesReportResponseSchema,
   organizerSectorCreateSchema,
   organizerSectorDtoSchema,
   organizerVenueCreateSchema,
@@ -38,6 +40,7 @@ import { DeleteLotUseCase } from '../use-cases/delete-lot.use-case.js';
 import { DeleteRowUseCase } from '../use-cases/delete-row.use-case.js';
 import { DeleteSectorUseCase } from '../use-cases/delete-sector.use-case.js';
 import { GetOrganizerEventDetailUseCase } from '../use-cases/get-organizer-event-detail.use-case.js';
+import { GetSalesReportUseCase } from '../use-cases/get-organizer-sales-report.use-case.js';
 import { ListOrganizerEventsUseCase } from '../use-cases/list-organizer-events.use-case.js';
 import { ListVenuesUseCase } from '../use-cases/list-venues.use-case.js';
 import { UpdateEventUseCase } from '../use-cases/update-event.use-case.js';
@@ -133,6 +136,7 @@ export function registerOrganizerRoutes(
   const createLot = new CreateLotUseCase(deps.organizerRepository);
   const updateLot = new UpdateLotUseCase(deps.organizerRepository);
   const deleteLot = new DeleteLotUseCase(deps.organizerRepository);
+  const salesReport = new GetSalesReportUseCase(deps.organizerRepository);
 
   app.get('/organizer/session', async (request, reply) => {
     const session = await deps.getSession(request.headers);
@@ -636,5 +640,59 @@ export function registerOrganizerRoutes(
       return reply.code(409).send({ error: 'row_has_orders' });
     }
     return reply.code(200).send({ ok: true });
+  });
+
+  app.get('/organizer/events/:id/report', async (request, reply) => {
+    const session = await deps.getSession(request.headers);
+    if (!session) {
+      return reply.code(401).send({ error: 'not_authenticated' });
+    }
+    const guard = guardOrganizer(session);
+    if (guard.kind !== 'ok') {
+      return reply.code(403).send({ error: 'not_organizer' });
+    }
+    const { id } = request.params as { id: string };
+    if (!eventIdSchema.safeParse(id).success) {
+      return reply.code(404).send({ error: 'event_not_found' });
+    }
+    const parsed = organizerSalesReportQuerySchema.safeParse(
+      request.query ?? {},
+    );
+    if (!parsed.success) {
+      return reply.code(400).send({ error: 'invalid_query' });
+    }
+    if (
+      parsed.data.from !== undefined &&
+      parsed.data.to !== undefined &&
+      parsed.data.from >= parsed.data.to
+    ) {
+      return reply.code(400).send({ error: 'invalid_query' });
+    }
+    const result = await salesReport.execute({
+      eventId: id,
+      userId: session.userId,
+      from: parsed.data.from ? new Date(parsed.data.from) : null,
+      to: parsed.data.to ? new Date(parsed.data.to) : null,
+    });
+    if (result.kind === 'not_found') {
+      return reply.code(404).send({ error: 'event_not_found' });
+    }
+    if (result.kind === 'forbidden') {
+      return reply.code(403).send({ error: 'event_forbidden' });
+    }
+    return reply.code(200).send(
+      organizerSalesReportResponseSchema.parse({
+        report: {
+          eventId: id,
+          from: parsed.data.from ?? null,
+          to: parsed.data.to ?? null,
+          ticketsSold: result.report.ticketsSold,
+          ordersCount: result.report.ordersCount,
+          grossCents: result.report.grossCents,
+          platformFeeCents: result.report.platformFeeCents,
+          netCents: result.report.netCents,
+        },
+      }),
+    );
   });
 }

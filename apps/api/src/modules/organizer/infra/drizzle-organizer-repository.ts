@@ -1,4 +1,15 @@
-import { and, asc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  eq,
+  gte,
+  inArray,
+  isNull,
+  lt,
+  ne,
+  or,
+  sql,
+} from 'drizzle-orm';
 
 import type { Db } from '../../../db/client.js';
 import {
@@ -26,6 +37,7 @@ import type {
   OrganizerRepository,
   OrganizerSectorRecord,
   OrganizerVenueRecord,
+  SalesReportForOrganizerResult,
   UpdateEventResult,
   WriteLotResult,
   WriteSectorResult,
@@ -347,6 +359,69 @@ export class DrizzleOrganizerRepository implements OrganizerRepository {
     });
 
     return 'ok';
+  }
+
+  async salesReportForOrganizer(input: {
+    eventId: string;
+    userId: string;
+    from: Date | null;
+    to: Date | null;
+  }): Promise<SalesReportForOrganizerResult> {
+    const [event] = await this.db
+      .select({ organizerId: events.organizerId })
+      .from(events)
+      .where(eq(events.id, input.eventId))
+      .limit(1);
+    if (!event) {
+      return { kind: 'not_found' };
+    }
+    if (event.organizerId === null || event.organizerId !== input.userId) {
+      return { kind: 'forbidden' };
+    }
+
+    const window = this.paidOrdersWindow(input);
+    const [items] = await this.db
+      .select({
+        ticketsSold: sql<number>`count("order_items"."id")::int`,
+        grossCents: sql<number>`coalesce(sum("order_items"."price_cents"), 0)::int`,
+        ordersCount: sql<number>`count(distinct "orders"."id")::int`,
+      })
+      .from(orders)
+      .leftJoin(orderItems, eq(orderItems.orderId, orders.id))
+      .where(window);
+    const [fees] = await this.db
+      .select({
+        platformFeeCents: sql<number>`coalesce(sum("orders"."service_fee_cents"), 0)::int`,
+      })
+      .from(orders)
+      .where(window);
+
+    const grossCents = items?.grossCents ?? 0;
+    const platformFeeCents = fees?.platformFeeCents ?? 0;
+    return {
+      kind: 'ok',
+      report: {
+        eventId: input.eventId,
+        ticketsSold: items?.ticketsSold ?? 0,
+        ordersCount: items?.ordersCount ?? 0,
+        grossCents,
+        platformFeeCents,
+        netCents: grossCents - platformFeeCents,
+      },
+    };
+  }
+
+  private paidOrdersWindow(input: {
+    eventId: string;
+    from: Date | null;
+    to: Date | null;
+  }) {
+    return and(
+      eq(orders.eventId, input.eventId),
+      eq(orders.status, 'paid'),
+      input.from === null ? undefined : gte(orders.paidAt, input.from),
+      input.to === null ? undefined : lt(orders.paidAt, input.to),
+    );
   }
 
   async listVenues(): Promise<OrganizerVenueRecord[]> {

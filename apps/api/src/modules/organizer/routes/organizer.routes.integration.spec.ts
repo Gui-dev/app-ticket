@@ -1227,4 +1227,315 @@ describe('organizer routes (postgres integration)', () => {
     });
     expect(anonymousRowDelete.statusCode).toBe(401);
   });
+
+  describe('GET /organizer/events/:id/report', () => {
+    const REPORT_BASE = new Date('2026-05-01T12:00:00.000Z');
+
+    async function seedSalesFixture(seatCount = 8) {
+      const { category, venue } = await seedCatalog();
+      const event = await insertEvent(
+        { slug: 'meu-show', organizerId: 'user-a', title: 'Meu Show' },
+        { category, venue },
+      );
+      const [sector] = await testDb
+        .insert(sectors)
+        .values({
+          eventId: event.id,
+          slug: 'pista',
+          name: 'Pista',
+          priceFromCents: 1000,
+        })
+        .returning();
+      const [row] = await testDb
+        .insert(seatRows)
+        .values({ sectorId: sector.id, label: 'A', position: 1 })
+        .returning();
+      const seatsInDb = await testDb
+        .insert(seats)
+        .values(
+          Array.from({ length: seatCount }, (_, index) => ({
+            rowId: row.id,
+            label: String(index + 1),
+            position: index + 1,
+          })),
+        )
+        .returning();
+      return { event, row, seats: seatsInDb };
+    }
+
+    async function insertReportOrder(input: {
+      eventId: string;
+      userId: string;
+      status: 'pending' | 'paid' | 'failed' | 'expired';
+      paidAt: Date | null;
+      serviceFeeCents: number;
+      items: { seatId: string; rowId: string; priceCents: number }[];
+    }) {
+      const subtotal = input.items.reduce(
+        (total, item) => total + item.priceCents,
+        0,
+      );
+      const [order] = await testDb
+        .insert(orders)
+        .values({
+          userId: input.userId,
+          eventId: input.eventId,
+          status: input.status,
+          paymentMethod: 'card',
+          provider: 'stripe',
+          subtotalCents: subtotal,
+          serviceFeeCents: input.serviceFeeCents,
+          totalCents: subtotal + input.serviceFeeCents,
+          paidAt: input.paidAt,
+        })
+        .returning();
+      for (const [index, item] of input.items.entries()) {
+        await testDb.insert(orderItems).values({
+          orderId: order.id,
+          seatId: item.seatId,
+          rowId: item.rowId,
+          sectorSlug: 'pista',
+          rowLabel: 'A',
+          seatLabel: String(index + 1),
+          ticketType: 'inteira',
+          priceCents: item.priceCents,
+        });
+      }
+      return order;
+    }
+
+    function paidAt(offsetMs: number) {
+      return new Date(REPORT_BASE.getTime() + offsetMs);
+    }
+
+    it('exige sessão ativa e papel de organizador', async () => {
+      const noSession = await app.inject({
+        method: 'GET',
+        url: '/organizer/events/11111111-1111-4111-8111-111111111111/report',
+      });
+      expect(noSession.statusCode).toBe(401);
+      expect(noSession.json()).toEqual({ error: 'not_authenticated' });
+
+      const buyer = await app.inject({
+        method: 'GET',
+        url: '/organizer/events/11111111-1111-4111-8111-111111111111/report',
+        headers: { 'x-test-user-id': 'user-b' },
+      });
+      expect(buyer.statusCode).toBe(403);
+      expect(buyer.json()).toEqual({ error: 'not_organizer' });
+    });
+
+    it('recusa query inválida com 400 invalid_query', async () => {
+      await promoteOrganizers('user-a');
+
+      const inverted = await app.inject({
+        method: 'GET',
+        url: `/organizer/events/11111111-1111-4111-8111-111111111111/report?from=2026-06-02T00:00:00.000Z&to=2026-06-01T00:00:00.000Z`,
+        headers: { 'x-test-user-id': 'user-a' },
+      });
+      expect(inverted.statusCode).toBe(400);
+      expect(inverted.json()).toEqual({ error: 'invalid_query' });
+
+      const badString = await app.inject({
+        method: 'GET',
+        url: `/organizer/events/11111111-1111-4111-8111-111111111111/report?from=not-a-date`,
+        headers: { 'x-test-user-id': 'user-a' },
+      });
+      expect(badString.statusCode).toBe(400);
+      expect(badString.json()).toEqual({ error: 'invalid_query' });
+    });
+
+    it('evento inexistente é 404 e evento da plataforma ou alheio é 403', async () => {
+      await promoteOrganizers('user-a', 'user-b');
+      const { category, venue } = await seedCatalog();
+      const platform = await insertEvent(
+        {
+          slug: 'show-plataforma',
+          organizerId: null,
+          title: 'Show da Plataforma',
+        },
+        { category, venue },
+      );
+      const foreign = await insertEvent(
+        { slug: 'show-alheio', organizerId: 'user-b', title: 'Show Alheio' },
+        { category, venue },
+      );
+
+      const missing = await app.inject({
+        method: 'GET',
+        url: '/organizer/events/11111111-1111-4111-8111-111111111111/report',
+        headers: { 'x-test-user-id': 'user-a' },
+      });
+      expect(missing.statusCode).toBe(404);
+      expect(missing.json()).toEqual({ error: 'event_not_found' });
+
+      const platformReport = await app.inject({
+        method: 'GET',
+        url: `/organizer/events/${platform.id}/report`,
+        headers: { 'x-test-user-id': 'user-a' },
+      });
+      expect(platformReport.statusCode).toBe(403);
+      expect(platformReport.json()).toEqual({ error: 'event_forbidden' });
+
+      const foreignReport = await app.inject({
+        method: 'GET',
+        url: `/organizer/events/${foreign.id}/report`,
+        headers: { 'x-test-user-id': 'user-a' },
+      });
+      expect(foreignReport.statusCode).toBe(403);
+      expect(foreignReport.json()).toEqual({ error: 'event_forbidden' });
+    });
+
+    it('soma ingressos, bruto, taxa e líquido dos pedidos pagos com pedido multi-item', async () => {
+      await promoteOrganizers('user-a');
+      const { event, row, seats } = await seedSalesFixture();
+      await insertReportOrder({
+        eventId: event.id,
+        userId: 'user-b',
+        status: 'paid',
+        paidAt: paidAt(0),
+        serviceFeeCents: 500,
+        items: [
+          { seatId: seats[0].id, rowId: row.id, priceCents: 5000 },
+          { seatId: seats[1].id, rowId: row.id, priceCents: 3000 },
+        ],
+      });
+      await insertReportOrder({
+        eventId: event.id,
+        userId: 'user-b',
+        status: 'paid',
+        paidAt: paidAt(24 * 3_600_000),
+        serviceFeeCents: 100,
+        items: [{ seatId: seats[2].id, rowId: row.id, priceCents: 1000 }],
+      });
+      await insertReportOrder({
+        eventId: event.id,
+        userId: 'user-b',
+        status: 'pending',
+        paidAt: null,
+        serviceFeeCents: 900,
+        items: [{ seatId: seats[3].id, rowId: row.id, priceCents: 9000 }],
+      });
+      await insertReportOrder({
+        eventId: event.id,
+        userId: 'user-anon',
+        status: 'failed',
+        paidAt: paidAt(0),
+        serviceFeeCents: 700,
+        items: [{ seatId: seats[4].id, rowId: row.id, priceCents: 7000 }],
+      });
+      await insertReportOrder({
+        eventId: event.id,
+        userId: 'user-anon',
+        status: 'expired',
+        paidAt: paidAt(0),
+        serviceFeeCents: 300,
+        items: [{ seatId: seats[5].id, rowId: row.id, priceCents: 3000 }],
+      });
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/organizer/events/${event.id}/report`,
+        headers: { 'x-test-user-id': 'user-a' },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        report: {
+          eventId: event.id,
+          from: null,
+          to: null,
+          ticketsSold: 3,
+          ordersCount: 2,
+          grossCents: 9000,
+          platformFeeCents: 600,
+          netCents: 8400,
+        },
+      });
+    });
+
+    it('fronteira do período é inclusiva no início e exclusiva no fim', async () => {
+      await promoteOrganizers('user-a');
+      const { event, row, seats } = await seedSalesFixture();
+      await insertReportOrder({
+        eventId: event.id,
+        userId: 'user-b',
+        status: 'paid',
+        paidAt: paidAt(-1000),
+        serviceFeeCents: 10,
+        items: [{ seatId: seats[0].id, rowId: row.id, priceCents: 100 }],
+      });
+      await insertReportOrder({
+        eventId: event.id,
+        userId: 'user-b',
+        status: 'paid',
+        paidAt: paidAt(0),
+        serviceFeeCents: 20,
+        items: [{ seatId: seats[1].id, rowId: row.id, priceCents: 200 }],
+      });
+      await insertReportOrder({
+        eventId: event.id,
+        userId: 'user-b',
+        status: 'paid',
+        paidAt: paidAt(3_600_000),
+        serviceFeeCents: 40,
+        items: [{ seatId: seats[2].id, rowId: row.id, priceCents: 400 }],
+      });
+      await insertReportOrder({
+        eventId: event.id,
+        userId: 'user-b',
+        status: 'paid',
+        paidAt: paidAt(3_600_000 + 1000),
+        serviceFeeCents: 80,
+        items: [{ seatId: seats[3].id, rowId: row.id, priceCents: 800 }],
+      });
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/organizer/events/${event.id}/report?from=${encodeURIComponent(
+          paidAt(0).toISOString(),
+        )}&to=${encodeURIComponent(paidAt(3_600_000).toISOString())}`,
+        headers: { 'x-test-user-id': 'user-a' },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        report: {
+          eventId: event.id,
+          from: paidAt(0).toISOString(),
+          to: paidAt(3_600_000).toISOString(),
+          ticketsSold: 1,
+          ordersCount: 1,
+          grossCents: 200,
+          platformFeeCents: 20,
+          netCents: 180,
+        },
+      });
+    });
+
+    it('evento sem vendas devolve zeros', async () => {
+      await promoteOrganizers('user-a');
+      const { event } = await seedSalesFixture();
+
+      const response = await app.inject({
+        method: 'GET',
+        url: `/organizer/events/${event.id}/report`,
+        headers: { 'x-test-user-id': 'user-a' },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        report: {
+          eventId: event.id,
+          from: null,
+          to: null,
+          ticketsSold: 0,
+          ordersCount: 0,
+          grossCents: 0,
+          platformFeeCents: 0,
+          netCents: 0,
+        },
+      });
+    });
+  });
 });

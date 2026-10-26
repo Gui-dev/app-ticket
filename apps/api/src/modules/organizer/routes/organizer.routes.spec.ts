@@ -192,4 +192,175 @@ describe('organizer event routes', () => {
     expect(response.statusCode).toBe(403);
     expect(response.json()).toEqual({ error: 'event_forbidden' });
   });
+
+  describe('GET /organizer/events/:id/report', () => {
+    const MY_EVENT_ID = '11111111-1111-4111-8111-111111111111';
+
+    function seedMyEventWithOrders() {
+      const repositorySeed = {
+        categories: [{ slug: 'shows', name: 'Shows' }],
+        venues: [
+          {
+            slug: 'arena-sp',
+            name: 'Arena SP',
+            city: 'São Paulo',
+            state: 'SP',
+          },
+        ],
+        events: [
+          seedEvent({
+            id: MY_EVENT_ID,
+            title: 'Meu Show',
+            organizerId: 'user-a',
+          }),
+        ],
+        orders: [
+          {
+            eventId: MY_EVENT_ID,
+            status: 'paid' as const,
+            paidAt: new Date('2026-06-01T10:00:00.000Z'),
+            serviceFeeCents: 500,
+            items: [{ priceCents: 5000 }, { priceCents: 3000 }],
+          },
+        ],
+      };
+      repository = new InMemoryOrganizerRepository(repositorySeed);
+      const next = Fastify({ logger: false });
+      registerOrganizerRoutes(next, {
+        getSession,
+        organizerRepository: repository,
+      });
+      return next;
+    }
+
+    it('relatório exige sessão ativa', async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: `/organizer/events/${MY_EVENT_ID}/report`,
+      });
+
+      expect(response.statusCode).toBe(401);
+      expect(response.json()).toEqual({ error: 'not_authenticated' });
+    });
+
+    it('relatório exige papel de organizador', async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: `/organizer/events/${MY_EVENT_ID}/report`,
+        headers: { 'x-test-user-id': 'user-b' },
+      });
+
+      expect(response.statusCode).toBe(403);
+      expect(response.json()).toEqual({ error: 'not_organizer' });
+    });
+
+    it('id inválido retorna 404 event_not_found', async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/organizer/events/nao-existe/report',
+        headers: { 'x-test-user-id': 'user-a' },
+      });
+
+      expect(response.statusCode).toBe(404);
+      expect(response.json()).toEqual({ error: 'event_not_found' });
+    });
+
+    it('evento inexistente retorna 404 e evento alheio retorna 403', async () => {
+      const notFound = await app.inject({
+        method: 'GET',
+        url: '/organizer/events/11111111-1111-4111-8111-111111111111/report',
+        headers: { 'x-test-user-id': 'user-a' },
+      });
+      expect(notFound.statusCode).toBe(404);
+      expect(notFound.json()).toEqual({ error: 'event_not_found' });
+
+      const forbidden = await app.inject({
+        method: 'GET',
+        url: `/organizer/events/${FOREIGN_EVENT_ID}/report`,
+        headers: { 'x-test-user-id': 'user-a' },
+      });
+      expect(forbidden.statusCode).toBe(403);
+      expect(forbidden.json()).toEqual({ error: 'event_forbidden' });
+    });
+
+    it('query inválida retorna 400 invalid_query', async () => {
+      const badString = await app.inject({
+        method: 'GET',
+        url: `/organizer/events/${MY_EVENT_ID}/report?from=not-a-date`,
+        headers: { 'x-test-user-id': 'user-a' },
+      });
+      expect(badString.statusCode).toBe(400);
+      expect(badString.json()).toEqual({ error: 'invalid_query' });
+
+      const inverted = await app.inject({
+        method: 'GET',
+        url: `/organizer/events/${MY_EVENT_ID}/report?from=2026-06-02T00:00:00.000Z&to=2026-06-01T00:00:00.000Z`,
+        headers: { 'x-test-user-id': 'user-a' },
+      });
+      expect(inverted.statusCode).toBe(400);
+      expect(inverted.json()).toEqual({ error: 'invalid_query' });
+    });
+
+    it('devolve o relatório com números e ecoa from/to nulos', async () => {
+      const scoped = seedMyEventWithOrders();
+      const response = await scoped.inject({
+        method: 'GET',
+        url: `/organizer/events/${MY_EVENT_ID}/report`,
+        headers: { 'x-test-user-id': 'user-a' },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        report: {
+          eventId: MY_EVENT_ID,
+          from: null,
+          to: null,
+          ticketsSold: 2,
+          ordersCount: 1,
+          grossCents: 8000,
+          platformFeeCents: 500,
+          netCents: 7500,
+        },
+      });
+      await scoped.close();
+    });
+
+    it('devolve o relatório com janela e ecoa from/to aplicados', async () => {
+      const scoped = seedMyEventWithOrders();
+      const inside = await scoped.inject({
+        method: 'GET',
+        url: `/organizer/events/${MY_EVENT_ID}/report?from=2026-06-01T00:00:00.000Z&to=2026-06-02T00:00:00.000Z`,
+        headers: { 'x-test-user-id': 'user-a' },
+      });
+      expect(inside.statusCode).toBe(200);
+      expect(inside.json().report).toEqual({
+        eventId: MY_EVENT_ID,
+        from: '2026-06-01T00:00:00.000Z',
+        to: '2026-06-02T00:00:00.000Z',
+        ticketsSold: 2,
+        ordersCount: 1,
+        grossCents: 8000,
+        platformFeeCents: 500,
+        netCents: 7500,
+      });
+
+      const outside = await scoped.inject({
+        method: 'GET',
+        url: `/organizer/events/${MY_EVENT_ID}/report?from=2026-07-01T00:00:00.000Z&to=2026-07-02T00:00:00.000Z`,
+        headers: { 'x-test-user-id': 'user-a' },
+      });
+      expect(outside.statusCode).toBe(200);
+      expect(outside.json().report).toEqual({
+        eventId: MY_EVENT_ID,
+        from: '2026-07-01T00:00:00.000Z',
+        to: '2026-07-02T00:00:00.000Z',
+        ticketsSold: 0,
+        ordersCount: 0,
+        grossCents: 0,
+        platformFeeCents: 0,
+        netCents: 0,
+      });
+      await scoped.close();
+    });
+  });
 });
