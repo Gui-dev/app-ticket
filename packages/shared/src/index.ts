@@ -659,3 +659,50 @@ export const organizerSalesReportQuerySchema = z.object({
 export type OrganizerSalesReportQuery = z.input<
   typeof organizerSalesReportQuerySchema
 >;
+
+export const organizerTicketValidationRecordSchema = z
+  .object({
+    result: z.enum(['valid', 'already_used', 'invalid']),
+    usedAt: z.iso.datetime().nullable(),
+    usedBy: z.string().nullable(),
+    sectorName: z.string().nullable(),
+    rowLabel: z.string().nullable(),
+    seatLabel: z.string().nullable(),
+  })
+  .refine(
+    (record) =>
+      record.result !== 'already_used' ||
+      (record.usedAt !== null && record.usedBy !== null),
+  )
+  .refine(
+    (record) =>
+      record.result === 'already_used' ||
+      (record.usedAt === null && record.usedBy === null),
+  )
+  .refine(
+    (record) =>
+      record.result !== 'invalid' ||
+      (record.sectorName === null &&
+        record.rowLabel === null &&
+        record.seatLabel === null),
+  );
+
+export type OrganizerTicketValidationDto = z.infer<
+  typeof organizerTicketValidationRecordSchema
+>;
+
+export const organizerTicketValidationResponseSchema = z.object({
+  validation: organizerTicketValidationRecordSchema,
+});
+
+export type OrganizerTicketValidationResponse = z.infer<
+  typeof organizerTicketValidationResponseSchema
+>;
+
+export const organizerTicketValidateSchema = z.object({
+  code: z.string().min(1),
+});
+
+export type OrganizerTicketValidate = z.input<
+  typeof organizerTicketValidateSchema
+>;

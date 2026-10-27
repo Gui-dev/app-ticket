@@ -42,6 +42,9 @@ import {
   organizerSeatRowDtoSchema,
   organizerSectorCreateSchema,
   organizerSectorDtoSchema,
+  organizerTicketValidateSchema,
+  organizerTicketValidationRecordSchema,
+  organizerTicketValidationResponseSchema,
   organizerVenueCreateSchema,
   organizerVenueListResponseSchema,
   organizerVenueResponseSchema,
@@ -1453,5 +1456,158 @@ describe('organizerSalesReportQuerySchema', () => {
     expect(
       organizerSalesReportQuerySchema.safeParse({ to: '2026-13-01' }).success,
     ).toBe(false);
+  });
+});
+
+describe('organizerTicketValidationRecordSchema', () => {
+  const usedAt = '2026-10-26T20:00:00.000Z';
+
+  it('parses a valid result with seat fields filled', () => {
+    const payload = {
+      result: 'valid',
+      usedAt: null,
+      usedBy: null,
+      sectorName: 'Pista Premium',
+      rowLabel: 'A',
+      seatLabel: '12',
+    };
+    expect(organizerTicketValidationRecordSchema.parse(payload)).toEqual(
+      payload,
+    );
+  });
+
+  it('parses an already_used result with usage metadata', () => {
+    const payload = {
+      result: 'already_used',
+      usedAt,
+      usedBy: 'operator-1',
+      sectorName: null,
+      rowLabel: null,
+      seatLabel: null,
+    };
+    expect(organizerTicketValidationRecordSchema.parse(payload)).toEqual(
+      payload,
+    );
+  });
+
+  it('parses an invalid result with all fields null', () => {
+    const payload = {
+      result: 'invalid',
+      usedAt: null,
+      usedBy: null,
+      sectorName: null,
+      rowLabel: null,
+      seatLabel: null,
+    };
+    expect(organizerTicketValidationRecordSchema.parse(payload)).toEqual(
+      payload,
+    );
+  });
+
+  it('rejects already_used without usedAt or usedBy', () => {
+    const base = {
+      result: 'already_used',
+      usedAt,
+      usedBy: 'operator-1',
+      sectorName: null,
+      rowLabel: null,
+      seatLabel: null,
+    };
+    expect(
+      organizerTicketValidationRecordSchema.safeParse({
+        ...base,
+        usedAt: null,
+      }).success,
+    ).toBe(false);
+    expect(
+      organizerTicketValidationRecordSchema.safeParse({
+        ...base,
+        usedBy: null,
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects a valid result with usage metadata', () => {
+    expect(
+      organizerTicketValidationRecordSchema.safeParse({
+        result: 'valid',
+        usedAt,
+        usedBy: null,
+        sectorName: 'Pista Premium',
+        rowLabel: 'A',
+        seatLabel: '12',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects an invalid result carrying usage or seat data', () => {
+    expect(
+      organizerTicketValidationRecordSchema.safeParse({
+        result: 'invalid',
+        usedAt,
+        usedBy: null,
+        sectorName: null,
+        rowLabel: null,
+        seatLabel: null,
+      }).success,
+    ).toBe(false);
+    expect(
+      organizerTicketValidationRecordSchema.safeParse({
+        result: 'invalid',
+        usedAt: null,
+        usedBy: null,
+        sectorName: 'Pista Premium',
+        rowLabel: 'A',
+        seatLabel: '12',
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe('organizerTicketValidationResponseSchema', () => {
+  const validRecord = {
+    result: 'valid',
+    usedAt: null,
+    usedBy: null,
+    sectorName: 'Pista Premium',
+    rowLabel: 'A',
+    seatLabel: '12',
+  };
+
+  it('parses the wrapped validation record', () => {
+    const payload = { validation: validRecord };
+    expect(organizerTicketValidationResponseSchema.parse(payload)).toEqual(
+      payload,
+    );
+  });
+
+  it('rejects a payload wrapping an invalid record', () => {
+    expect(
+      organizerTicketValidationResponseSchema.safeParse({
+        validation: { ...validRecord, result: 'unknown' },
+      }).success,
+    ).toBe(false);
+    expect(
+      organizerTicketValidationResponseSchema.safeParse({ validation: {} })
+        .success,
+    ).toBe(false);
+  });
+});
+
+describe('organizerTicketValidateSchema', () => {
+  it('accepts a non-empty code', () => {
+    expect(organizerTicketValidateSchema.parse({ code: 'TKV-123' })).toEqual({
+      code: 'TKV-123',
+    });
+  });
+
+  it('rejects an empty code', () => {
+    expect(organizerTicketValidateSchema.safeParse({ code: '' }).success).toBe(
+      false,
+    );
+  });
+
+  it('rejects a missing code', () => {
+    expect(organizerTicketValidateSchema.safeParse({}).success).toBe(false);
   });
 });
