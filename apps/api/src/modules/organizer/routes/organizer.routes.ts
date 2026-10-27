@@ -15,6 +15,8 @@ import {
   organizerSalesReportResponseSchema,
   organizerSectorCreateSchema,
   organizerSectorDtoSchema,
+  organizerTicketValidateSchema,
+  organizerTicketValidationResponseSchema,
   organizerVenueCreateSchema,
   organizerVenueListResponseSchema,
   organizerVenueResponseSchema,
@@ -46,6 +48,7 @@ import { ListVenuesUseCase } from '../use-cases/list-venues.use-case.js';
 import { UpdateEventUseCase } from '../use-cases/update-event.use-case.js';
 import { UpdateLotUseCase } from '../use-cases/update-lot.use-case.js';
 import { UpdateVenueUseCase } from '../use-cases/update-venue.use-case.js';
+import { ValidateTicketUseCase } from '../use-cases/validate-ticket.use-case.js';
 
 interface OrganizerRoutesDeps {
   getSession: GetSessionFn;
@@ -137,6 +140,7 @@ export function registerOrganizerRoutes(
   const updateLot = new UpdateLotUseCase(deps.organizerRepository);
   const deleteLot = new DeleteLotUseCase(deps.organizerRepository);
   const salesReport = new GetSalesReportUseCase(deps.organizerRepository);
+  const validateTicket = new ValidateTicketUseCase(deps.organizerRepository);
 
   app.get('/organizer/session', async (request, reply) => {
     const session = await deps.getSession(request.headers);
@@ -694,5 +698,58 @@ export function registerOrganizerRoutes(
         },
       }),
     );
+  });
+
+  app.post('/organizer/events/:id/tickets/validate', async (request, reply) => {
+    const session = await deps.getSession(request.headers);
+    if (!session) {
+      return reply.code(401).send({ error: 'not_authenticated' });
+    }
+    const guard = guardOrganizer(session);
+    if (guard.kind !== 'ok') {
+      return reply.code(403).send({ error: 'not_organizer' });
+    }
+    const { id } = request.params as { id: string };
+    if (!eventIdSchema.safeParse(id).success) {
+      return reply.code(404).send({ error: 'event_not_found' });
+    }
+    const parsed = organizerTicketValidateSchema.safeParse(request.body ?? {});
+    if (!parsed.success) {
+      return reply
+        .code(400)
+        .send({ error: 'invalid_body', issues: parsed.error.issues });
+    }
+    const result = await validateTicket.execute({
+      eventId: id,
+      userId: session.userId,
+      code: parsed.data.code,
+    });
+    if (result.kind === 'not_found') {
+      return reply.code(404).send({ error: 'event_not_found' });
+    }
+    if (result.kind === 'forbidden') {
+      return reply.code(403).send({ error: 'event_forbidden' });
+    }
+    const validation =
+      result.kind === 'invalid'
+        ? {
+            result: 'invalid',
+            usedAt: null,
+            usedBy: null,
+            sectorName: null,
+            rowLabel: null,
+            seatLabel: null,
+          }
+        : {
+            result: result.record.result,
+            usedAt: result.record.usedAt?.toISOString() ?? null,
+            usedBy: result.record.usedBy,
+            sectorName: result.record.sectorName,
+            rowLabel: result.record.rowLabel,
+            seatLabel: result.record.seatLabel,
+          };
+    return reply
+      .code(200)
+      .send(organizerTicketValidationResponseSchema.parse({ validation }));
   });
 }

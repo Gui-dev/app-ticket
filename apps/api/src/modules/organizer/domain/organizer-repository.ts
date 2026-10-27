@@ -87,6 +87,27 @@ export type SalesReportForOrganizerResult =
   | { kind: 'not_found' }
   | { kind: 'forbidden' };
 
+export interface OrganizerTicketValidationRecord {
+  result: 'valid' | 'already_used';
+  usedAt: Date | null;
+  usedBy: string | null;
+  sectorName: string | null;
+  rowLabel: string | null;
+  seatLabel: string | null;
+}
+
+export type TicketValidationForOrganizerResult =
+  | { kind: 'ok'; record: OrganizerTicketValidationRecord }
+  | { kind: 'invalid' }
+  | { kind: 'not_found' }
+  | { kind: 'forbidden' };
+
+export interface TicketValidationForOrganizerInput {
+  eventId: string;
+  userId: string;
+  code: string;
+}
+
 export interface OrganizerVenueRecord {
   id: string;
   slug: string;
@@ -203,4 +224,7 @@ export interface OrganizerRepository {
     from: Date | null;
     to: Date | null;
   }): Promise<SalesReportForOrganizerResult>;
+  validateTicketForOrganizer(
+    input: TicketValidationForOrganizerInput,
+  ): Promise<TicketValidationForOrganizerResult>;
 }

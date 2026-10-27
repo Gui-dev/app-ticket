@@ -249,6 +249,8 @@ export const tickets = pgTable(
       .notNull()
       .references(() => seats.id),
     code: text('code').notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true, mode: 'date' }),
+    validatedBy: text('validated_by'),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
       .notNull()
       .defaultNow(),

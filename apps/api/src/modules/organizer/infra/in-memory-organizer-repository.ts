@@ -15,6 +15,8 @@ import type {
   OrganizerSectorRecord,
   OrganizerVenueRecord,
   SalesReportForOrganizerResult,
+  TicketValidationForOrganizerInput,
+  TicketValidationForOrganizerResult,
   UpdateEventResult,
   WriteLotResult,
   WriteSectorResult,
@@ -73,6 +75,26 @@ export interface InMemoryOrganizerOrderSeed {
   items?: { priceCents: number }[];
 }
 
+export interface InMemoryOrganizerTicketSeed {
+  eventId: string;
+  code: string;
+  sectorName?: string | null;
+  rowLabel?: string | null;
+  seatLabel?: string | null;
+  usedAt?: Date | null;
+  usedBy?: string | null;
+}
+
+interface InMemoryOrganizerTicketRecord {
+  eventId: string;
+  code: string;
+  sectorName: string | null;
+  rowLabel: string | null;
+  seatLabel: string | null;
+  usedAt: Date | null;
+  usedBy: string | null;
+}
+
 interface InMemoryOrganizerOrderRecord {
   eventId: string;
   status: 'pending' | 'paid' | 'failed' | 'expired';
@@ -87,6 +109,7 @@ export interface InMemoryOrganizerSeed {
   events?: InMemoryOrganizerEventSeed[];
   sectors?: InMemoryOrganizerSectorSeed[];
   orders?: InMemoryOrganizerOrderSeed[];
+  tickets?: InMemoryOrganizerTicketSeed[];
 }
 
 interface InMemoryVenueRecord extends OrganizerVenueRecord {}
@@ -142,6 +165,7 @@ export class InMemoryOrganizerRepository implements OrganizerRepository {
   private readonly soldSeatIds: Set<string>;
   private readonly orderCounts: Map<string, number>;
   private readonly orders: InMemoryOrganizerOrderRecord[];
+  private readonly tickets: Map<string, InMemoryOrganizerTicketRecord>;
   private nextId = 0;
   private nextSectorId = 0;
   private nextLotId = 0;
@@ -184,6 +208,20 @@ export class InMemoryOrganizerRepository implements OrganizerRepository {
     this.soldSeatIds = new Set();
     this.orderCounts = new Map();
     this.orders = [];
+    this.tickets = new Map(
+      (seed.tickets ?? []).map((ticket) => [
+        ticket.code,
+        {
+          eventId: ticket.eventId,
+          code: ticket.code,
+          sectorName: ticket.sectorName ?? null,
+          rowLabel: ticket.rowLabel ?? null,
+          seatLabel: ticket.seatLabel ?? null,
+          usedAt: ticket.usedAt ? new Date(ticket.usedAt) : null,
+          usedBy: ticket.usedBy ?? null,
+        },
+      ]),
+    );
     this.nextSectorId = seed.sectors?.length ?? 0;
     for (const sector of seed.sectors ?? []) {
       this.sectors.set(
@@ -759,6 +797,48 @@ export class InMemoryOrganizerRepository implements OrganizerRepository {
         grossCents,
         platformFeeCents,
         netCents: grossCents - platformFeeCents,
+      },
+    };
+  }
+
+  async validateTicketForOrganizer(
+    input: TicketValidationForOrganizerInput,
+  ): Promise<TicketValidationForOrganizerResult> {
+    const event = this.events.get(input.eventId);
+    if (!event) {
+      return { kind: 'not_found' };
+    }
+    if (event.organizerId === null || event.organizerId !== input.userId) {
+      return { kind: 'forbidden' };
+    }
+    const ticket = this.tickets.get(input.code);
+    if (!ticket || ticket.eventId !== input.eventId) {
+      return { kind: 'invalid' };
+    }
+    if (ticket.usedAt !== null) {
+      return {
+        kind: 'ok',
+        record: {
+          result: 'already_used',
+          usedAt: new Date(ticket.usedAt),
+          usedBy: ticket.usedBy,
+          sectorName: ticket.sectorName,
+          rowLabel: ticket.rowLabel,
+          seatLabel: ticket.seatLabel,
+        },
+      };
+    }
+    ticket.usedAt = new Date();
+    ticket.usedBy = input.userId;
+    return {
+      kind: 'ok',
+      record: {
+        result: 'valid',
+        usedAt: null,
+        usedBy: null,
+        sectorName: ticket.sectorName,
+        rowLabel: ticket.rowLabel,
+        seatLabel: ticket.seatLabel,
       },
     };
   }

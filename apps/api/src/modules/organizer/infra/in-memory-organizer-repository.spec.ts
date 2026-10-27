@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type {
   InMemoryOrganizerEventSeed,
   InMemoryOrganizerOrderSeed,
+  InMemoryOrganizerTicketSeed,
 } from './in-memory-organizer-repository';
 import { InMemoryOrganizerRepository } from './in-memory-organizer-repository';
 
@@ -252,5 +253,199 @@ describe('InMemoryOrganizerRepository — salesReportForOrganizer', () => {
       to: null,
     });
     expect(foreign).toEqual({ kind: 'forbidden' });
+  });
+});
+
+describe('InMemoryOrganizerRepository — validateTicketForOrganizer', () => {
+  const MY_EVENT_ID = 'evt-meu';
+  const OTHER_EVENT_ID = 'evt-outro';
+
+  function seedEvent(
+    values: Partial<InMemoryOrganizerEventSeed> & { title: string },
+  ): InMemoryOrganizerEventSeed {
+    return {
+      description: 'Descrição suficientemente longa do evento testado.',
+      categorySlug: 'shows',
+      venueSlug: 'arena-sp',
+      startsAt: new Date('2026-12-01T20:00:00.000Z'),
+      organizerId: 'user-a',
+      ...values,
+    };
+  }
+
+  function seedTicket(
+    values: Partial<InMemoryOrganizerTicketSeed> & {
+      eventId: string;
+      code: string;
+    },
+  ): InMemoryOrganizerTicketSeed {
+    return {
+      sectorName: 'Pista',
+      rowLabel: 'A',
+      seatLabel: '1',
+      ...values,
+    };
+  }
+
+  function createRepository(tickets: InMemoryOrganizerTicketSeed[] = []) {
+    return new InMemoryOrganizerRepository({
+      categories: [{ slug: 'shows', name: 'Shows' }],
+      venues: [
+        { slug: 'arena-sp', name: 'Arena SP', city: 'São Paulo', state: 'SP' },
+      ],
+      events: [
+        seedEvent({ id: MY_EVENT_ID, title: 'Meu Show' }),
+        seedEvent({ id: OTHER_EVENT_ID, title: 'Outro Show' }),
+      ],
+      tickets,
+    });
+  }
+
+  it('ingresso próprio novo é valid com assento e sem metadados de uso', async () => {
+    const repository = createRepository([
+      seedTicket({ eventId: MY_EVENT_ID, code: 'TKV-1' }),
+    ]);
+
+    const result = await repository.validateTicketForOrganizer({
+      eventId: MY_EVENT_ID,
+      userId: 'user-a',
+      code: 'TKV-1',
+    });
+
+    expect(result).toEqual({
+      kind: 'ok',
+      record: {
+        result: 'valid',
+        usedAt: null,
+        usedBy: null,
+        sectorName: 'Pista',
+        rowLabel: 'A',
+        seatLabel: '1',
+      },
+    });
+  });
+
+  it('revalidação devolve already_used com horário e quem validou', async () => {
+    const repository = createRepository([
+      seedTicket({ eventId: MY_EVENT_ID, code: 'TKV-1' }),
+    ]);
+    await repository.validateTicketForOrganizer({
+      eventId: MY_EVENT_ID,
+      userId: 'user-a',
+      code: 'TKV-1',
+    });
+
+    const result = await repository.validateTicketForOrganizer({
+      eventId: MY_EVENT_ID,
+      userId: 'user-a',
+      code: 'TKV-1',
+    });
+
+    expect(result.kind).toBe('ok');
+    if (result.kind === 'ok') {
+      expect(result.record.result).toBe('already_used');
+      expect(result.record.usedAt).toBeInstanceOf(Date);
+      expect(result.record.usedBy).toBe('user-a');
+      expect(result.record).toMatchObject({
+        sectorName: 'Pista',
+        rowLabel: 'A',
+        seatLabel: '1',
+      });
+    }
+  });
+
+  it('ingresso com uso prévio no seed é already_used com os dados do seed', async () => {
+    const usedAt = new Date('2026-06-01T12:00:00.000Z');
+    const repository = createRepository([
+      seedTicket({
+        eventId: MY_EVENT_ID,
+        code: 'TKV-2',
+        usedAt,
+        usedBy: 'Operador',
+      }),
+    ]);
+
+    const result = await repository.validateTicketForOrganizer({
+      eventId: MY_EVENT_ID,
+      userId: 'user-a',
+      code: 'TKV-2',
+    });
+
+    expect(result).toEqual({
+      kind: 'ok',
+      record: {
+        result: 'already_used',
+        usedAt,
+        usedBy: 'Operador',
+        sectorName: 'Pista',
+        rowLabel: 'A',
+        seatLabel: '1',
+      },
+    });
+  });
+
+  it('código desconhecido e ingresso de outro evento são invalid sem marcar', async () => {
+    const repository = createRepository([
+      seedTicket({ eventId: MY_EVENT_ID, code: 'TKV-1' }),
+      seedTicket({ eventId: OTHER_EVENT_ID, code: 'TKV-2' }),
+    ]);
+
+    const unknown = await repository.validateTicketForOrganizer({
+      eventId: MY_EVENT_ID,
+      userId: 'user-a',
+      code: 'TKV-inexistente',
+    });
+    expect(unknown).toEqual({ kind: 'invalid' });
+
+    const foreign = await repository.validateTicketForOrganizer({
+      eventId: MY_EVENT_ID,
+      userId: 'user-a',
+      code: 'TKV-2',
+    });
+    expect(foreign).toEqual({ kind: 'invalid' });
+
+    const stillValid = await repository.validateTicketForOrganizer({
+      eventId: OTHER_EVENT_ID,
+      userId: 'user-a',
+      code: 'TKV-2',
+    });
+    expect(stillValid).toEqual({
+      kind: 'ok',
+      record: {
+        result: 'valid',
+        usedAt: null,
+        usedBy: null,
+        sectorName: 'Pista',
+        rowLabel: 'A',
+        seatLabel: '1',
+      },
+    });
+  });
+
+  it('evento inexistente é not_found e evento alheio ou da plataforma é forbidden', async () => {
+    const repository = createRepository([
+      seedTicket({ eventId: MY_EVENT_ID, code: 'TKV-1' }),
+    ]);
+
+    const missing = await repository.validateTicketForOrganizer({
+      eventId: 'evt-nenhum',
+      userId: 'user-a',
+      code: 'TKV-1',
+    });
+    expect(missing).toEqual({ kind: 'not_found' });
+
+    const foreign = await repository.validateTicketForOrganizer({
+      eventId: MY_EVENT_ID,
+      userId: 'user-b',
+      code: 'TKV-1',
+    });
+    expect(foreign).toEqual({ kind: 'forbidden' });
+
+    const unaffected = await repository.validateTicketForOrganizer({
+      eventId: MY_EVENT_ID,
+      userId: 'user-a',
+      code: 'TKV-1',
+    });
+    expect(unaffected.kind === 'ok' && unaffected.record.result).toBe('valid');
   });
 });

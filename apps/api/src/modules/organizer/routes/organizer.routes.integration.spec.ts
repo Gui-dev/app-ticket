@@ -13,6 +13,7 @@ import {
   seatRows,
   seats,
   sectors,
+  tickets,
   user,
   venues,
 } from '../../../db/schema.js';
@@ -1536,6 +1537,400 @@ describe('organizer routes (postgres integration)', () => {
           netCents: 0,
         },
       });
+    });
+  });
+
+  describe('POST /organizer/events/:id/tickets/validate', () => {
+    async function getCatalog() {
+      const [existingCategory] = await testDb
+        .select({ id: categories.id })
+        .from(categories)
+        .where(eq(categories.slug, 'shows'));
+      const [existingVenue] = await testDb
+        .select({ id: venues.id })
+        .from(venues)
+        .where(eq(venues.slug, 'arena-sp'));
+      if (existingCategory && existingVenue) {
+        return { category: existingCategory, venue: existingVenue };
+      }
+      return seedCatalog();
+    }
+
+    async function seedValidationFixture(input: {
+      organizerId: string;
+      sectorName?: string | null;
+      withTicket?: boolean;
+      ticketCode: string;
+    }) {
+      const { category, venue } = await getCatalog();
+      const event = await insertEvent(
+        {
+          slug: `show-${input.ticketCode.toLowerCase()}`,
+          organizerId: input.organizerId,
+          title: 'Show Validação',
+        },
+        { category, venue },
+      );
+      const [sector] = await testDb
+        .insert(sectors)
+        .values({
+          eventId: event.id,
+          slug: 'pista',
+          name: 'Pista',
+          priceFromCents: 1000,
+        })
+        .returning();
+      const [row] = await testDb
+        .insert(seatRows)
+        .values({ sectorId: sector.id, label: 'A', position: 1 })
+        .returning();
+      const [seat] = await testDb
+        .insert(seats)
+        .values({ rowId: row.id, label: '1', position: 1 })
+        .returning();
+      const [order] = await testDb
+        .insert(orders)
+        .values({
+          userId: 'user-b',
+          eventId: event.id,
+          status: 'paid',
+          paymentMethod: 'card',
+          provider: 'stripe',
+          subtotalCents: 5000,
+          serviceFeeCents: 500,
+          totalCents: 5500,
+          paidAt: new Date('2026-06-01T10:00:00.000Z'),
+        })
+        .returning();
+      const [item] = await testDb
+        .insert(orderItems)
+        .values({
+          orderId: order.id,
+          seatId: seat.id,
+          rowId: row.id,
+          sectorSlug: 'pista',
+          sectorName: input.sectorName ?? null,
+          rowLabel: 'A',
+          seatLabel: '1',
+          ticketType: 'inteira',
+          priceCents: 5000,
+        })
+        .returning();
+      if (input.withTicket ?? true) {
+        await testDb.insert(tickets).values({
+          orderId: order.id,
+          orderItemId: item.id,
+          seatId: seat.id,
+          code: input.ticketCode,
+        });
+      }
+      return { event };
+    }
+
+    async function usedAtOf(code: string) {
+      const [row] = await testDb
+        .select({
+          usedAt: tickets.usedAt,
+          validatedBy: tickets.validatedBy,
+        })
+        .from(tickets)
+        .where(eq(tickets.code, code));
+      return row ?? null;
+    }
+
+    function validatePath(eventId: string) {
+      return `/organizer/events/${eventId}/tickets/validate`;
+    }
+
+    it('ingresso próprio novo devolve valid com assento e marca o uso no banco', async () => {
+      await promoteOrganizers('user-a');
+      const { event } = await seedValidationFixture({
+        organizerId: 'user-a',
+        sectorName: 'Pista Premium',
+        ticketCode: 'TKV-FELIZ',
+      });
+
+      const response = await app.inject({
+        method: 'POST',
+        url: validatePath(event.id),
+        headers: { 'x-test-user-id': 'user-a' },
+        payload: { code: 'TKV-FELIZ' },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        validation: {
+          result: 'valid',
+          usedAt: null,
+          usedBy: null,
+          sectorName: 'Pista Premium',
+          rowLabel: 'A',
+          seatLabel: '1',
+        },
+      });
+      const marked = await usedAtOf('TKV-FELIZ');
+      expect(marked?.usedAt).toBeInstanceOf(Date);
+      expect(marked?.validatedBy).toBe('user-a');
+    });
+
+    it('revalidação devolve already_used com horário e quem validou', async () => {
+      await promoteOrganizers('user-a');
+      const { event } = await seedValidationFixture({
+        organizerId: 'user-a',
+        sectorName: 'Pista Premium',
+        ticketCode: 'TKV-2X',
+      });
+      const first = await app.inject({
+        method: 'POST',
+        url: validatePath(event.id),
+        headers: { 'x-test-user-id': 'user-a' },
+        payload: { code: 'TKV-2X' },
+      });
+      expect(first.json().validation.result).toBe('valid');
+
+      const second = await app.inject({
+        method: 'POST',
+        url: validatePath(event.id),
+        headers: { 'x-test-user-id': 'user-a' },
+        payload: { code: 'TKV-2X' },
+      });
+
+      expect(second.statusCode).toBe(200);
+      expect(second.json().validation.result).toBe('already_used');
+      expect(second.json().validation.usedAt).toBeTypeOf('string');
+      expect(new Date(second.json().validation.usedAt).toISOString()).toBe(
+        second.json().validation.usedAt,
+      );
+      expect(second.json().validation.usedBy).toBe('User A');
+      expect(second.json().validation.sectorName).toBe('Pista Premium');
+    });
+
+    it('corrida de dupla validação devolve exatamente um valid e um already_used', async () => {
+      await promoteOrganizers('user-a');
+      const { event } = await seedValidationFixture({
+        organizerId: 'user-a',
+        sectorName: 'Pista',
+        ticketCode: 'TKV-RACE',
+      });
+
+      const [a, b] = await Promise.all([
+        app.inject({
+          method: 'POST',
+          url: validatePath(event.id),
+          headers: { 'x-test-user-id': 'user-a' },
+          payload: { code: 'TKV-RACE' },
+        }),
+        app.inject({
+          method: 'POST',
+          url: validatePath(event.id),
+          headers: { 'x-test-user-id': 'user-a' },
+          payload: { code: 'TKV-RACE' },
+        }),
+      ]);
+
+      expect(a.statusCode).toBe(200);
+      expect(b.statusCode).toBe(200);
+      const results = [a.json().validation.result, b.json().validation.result];
+      expect(results.sort()).toEqual(['already_used', 'valid']);
+
+      const firstBody =
+        a.json().validation.result === 'valid'
+          ? a.json().validation
+          : b.json().validation;
+      expect(firstBody.sectorName).toBe('Pista');
+      expect(firstBody.usedAt).toBeNull();
+    });
+
+    it('código desconhecido e ingresso de outro evento são 200 invalid sem marcar', async () => {
+      await promoteOrganizers('user-a');
+      const { event } = await seedValidationFixture({
+        organizerId: 'user-a',
+        withTicket: false,
+        ticketCode: 'TKV-SEM',
+      });
+      const second = await seedValidationFixture({
+        organizerId: 'user-a',
+        sectorName: 'Pista',
+        withTicket: false,
+        ticketCode: 'TKV-BASE-OUTRO',
+      });
+      const [otherOrder] = await testDb
+        .insert(orders)
+        .values({
+          userId: 'user-b',
+          eventId: second.event.id,
+          status: 'paid',
+          paymentMethod: 'card',
+          provider: 'stripe',
+          subtotalCents: 5000,
+          serviceFeeCents: 500,
+          totalCents: 5500,
+          paidAt: new Date('2026-06-01T10:00:00.000Z'),
+        })
+        .returning();
+      const [otherSeat] = await testDb
+        .insert(seats)
+        .values({
+          rowId: (
+            await testDb
+              .select({ id: seatRows.id })
+              .from(seatRows)
+              .innerJoin(sectors, eq(sectors.id, seatRows.sectorId))
+              .where(eq(sectors.eventId, second.event.id))
+          )[0].id,
+          label: '9',
+          position: 9,
+        })
+        .returning();
+      const [otherItem] = await testDb
+        .insert(orderItems)
+        .values({
+          orderId: otherOrder.id,
+          seatId: otherSeat.id,
+          rowId: otherSeat.rowId,
+          sectorSlug: 'pista',
+          sectorName: 'Pista',
+          rowLabel: 'A',
+          seatLabel: '9',
+          ticketType: 'inteira',
+          priceCents: 5000,
+        })
+        .returning();
+      await testDb.insert(tickets).values({
+        orderId: otherOrder.id,
+        orderItemId: otherItem.id,
+        seatId: otherSeat.id,
+        code: 'TKV-FORASTEIRO',
+      });
+
+      const unknown = await app.inject({
+        method: 'POST',
+        url: validatePath(event.id),
+        headers: { 'x-test-user-id': 'user-a' },
+        payload: { code: 'TKV-DESCONHECIDO' },
+      });
+      expect(unknown.statusCode).toBe(200);
+      expect(unknown.json()).toEqual({
+        validation: {
+          result: 'invalid',
+          usedAt: null,
+          usedBy: null,
+          sectorName: null,
+          rowLabel: null,
+          seatLabel: null,
+        },
+      });
+
+      const foreign = await app.inject({
+        method: 'POST',
+        url: validatePath(event.id),
+        headers: { 'x-test-user-id': 'user-a' },
+        payload: { code: 'TKV-FORASTEIRO' },
+      });
+      expect(foreign.statusCode).toBe(200);
+      expect(foreign.json().validation.result).toBe('invalid');
+
+      const foreignState = await usedAtOf('TKV-FORASTEIRO');
+      expect(foreignState?.usedAt).toBeNull();
+    });
+
+    it('guardas 401, 403 e 400 não marcam o ingresso', async () => {
+      await promoteOrganizers('user-a');
+      const { event } = await seedValidationFixture({
+        organizerId: 'user-a',
+        sectorName: 'Pista',
+        ticketCode: 'TKV-GUARDA',
+      });
+
+      const noSession = await app.inject({
+        method: 'POST',
+        url: validatePath(event.id),
+        payload: { code: 'TKV-GUARDA' },
+      });
+      expect(noSession.statusCode).toBe(401);
+      expect(noSession.json()).toEqual({ error: 'not_authenticated' });
+
+      const buyer = await app.inject({
+        method: 'POST',
+        url: validatePath(event.id),
+        headers: { 'x-test-user-id': 'user-b' },
+        payload: { code: 'TKV-GUARDA' },
+      });
+      expect(buyer.statusCode).toBe(403);
+      expect(buyer.json()).toEqual({ error: 'not_organizer' });
+
+      const badId = await app.inject({
+        method: 'POST',
+        url: '/organizer/events/nao-existe/tickets/validate',
+        headers: { 'x-test-user-id': 'user-a' },
+        payload: { code: 'TKV-GUARDA' },
+      });
+      expect(badId.statusCode).toBe(404);
+      expect(badId.json()).toEqual({ error: 'event_not_found' });
+
+      const emptyCode = await app.inject({
+        method: 'POST',
+        url: validatePath(event.id),
+        headers: { 'x-test-user-id': 'user-a' },
+        payload: { code: '' },
+      });
+      expect(emptyCode.statusCode).toBe(400);
+      expect(emptyCode.json().error).toBe('invalid_body');
+
+      const missingCode = await app.inject({
+        method: 'POST',
+        url: validatePath(event.id),
+        headers: { 'x-test-user-id': 'user-a' },
+      });
+      expect(missingCode.statusCode).toBe(400);
+      expect(missingCode.json().error).toBe('invalid_body');
+
+      const state = await usedAtOf('TKV-GUARDA');
+      expect(state?.usedAt).toBeNull();
+      expect(state?.validatedBy).toBeNull();
+    });
+
+    it('evento próprio guardado: inexistente é 404 e o alheio é 403 sem marcar', async () => {
+      await promoteOrganizers('user-a', 'user-b');
+      await seedValidationFixture({
+        organizerId: 'user-a',
+        ticketCode: 'TKV-OWNER',
+      });
+      const foreignCategory = (
+        await testDb.select({ id: categories.id }).from(categories).limit(1)
+      )[0];
+      const foreignVenue = (
+        await testDb.select({ id: venues.id }).from(venues).limit(1)
+      )[0];
+      const foreignEvent = await insertEvent(
+        {
+          slug: 'show-alheio-validacao',
+          organizerId: 'user-b',
+          title: 'Show Alheio',
+        },
+        { category: foreignCategory, venue: foreignVenue },
+      );
+
+      const missing = await app.inject({
+        method: 'POST',
+        url: validatePath('99999999-9999-4999-8999-999999999999'),
+        headers: { 'x-test-user-id': 'user-a' },
+        payload: { code: 'TKV-OWNER' },
+      });
+      expect(missing.statusCode).toBe(404);
+      expect(missing.json()).toEqual({ error: 'event_not_found' });
+
+      const forbidden = await app.inject({
+        method: 'POST',
+        url: validatePath(foreignEvent.id),
+        headers: { 'x-test-user-id': 'user-a' },
+        payload: { code: 'TKV-OWNER' },
+      });
+      expect(forbidden.statusCode).toBe(403);
+      expect(forbidden.json()).toEqual({ error: 'event_forbidden' });
+
+      const state = await usedAtOf('TKV-OWNER');
+      expect(state?.usedAt).toBeNull();
     });
   });
 });

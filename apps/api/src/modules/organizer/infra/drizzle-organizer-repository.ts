@@ -21,6 +21,8 @@ import {
   seatRows,
   seats,
   sectors,
+  tickets,
+  user,
   venues,
 } from '../../../db/schema.js';
 import type {
@@ -38,6 +40,8 @@ import type {
   OrganizerSectorRecord,
   OrganizerVenueRecord,
   SalesReportForOrganizerResult,
+  TicketValidationForOrganizerInput,
+  TicketValidationForOrganizerResult,
   UpdateEventResult,
   WriteLotResult,
   WriteSectorResult,
@@ -407,6 +411,79 @@ export class DrizzleOrganizerRepository implements OrganizerRepository {
         grossCents,
         platformFeeCents,
         netCents: grossCents - platformFeeCents,
+      },
+    };
+  }
+
+  async validateTicketForOrganizer(
+    input: TicketValidationForOrganizerInput,
+  ): Promise<TicketValidationForOrganizerResult> {
+    const [event] = await this.db
+      .select({ organizerId: events.organizerId })
+      .from(events)
+      .where(eq(events.id, input.eventId))
+      .limit(1);
+    if (!event) {
+      return { kind: 'not_found' };
+    }
+    if (event.organizerId === null || event.organizerId !== input.userId) {
+      return { kind: 'forbidden' };
+    }
+
+    const [ticket] = await this.db
+      .select({
+        orderEventId: orders.eventId,
+        sectorName: orderItems.sectorName,
+        rowLabel: orderItems.rowLabel,
+        seatLabel: orderItems.seatLabel,
+      })
+      .from(tickets)
+      .innerJoin(orders, eq(tickets.orderId, orders.id))
+      .innerJoin(orderItems, eq(tickets.orderItemId, orderItems.id))
+      .where(eq(tickets.code, input.code))
+      .limit(1);
+    if (!ticket || ticket.orderEventId !== input.eventId) {
+      return { kind: 'invalid' };
+    }
+
+    const [marked] = await this.db
+      .update(tickets)
+      .set({ usedAt: sql`now()`, validatedBy: input.userId })
+      .where(and(eq(tickets.code, input.code), isNull(tickets.usedAt)))
+      .returning({ id: tickets.id });
+
+    if (marked) {
+      return {
+        kind: 'ok',
+        record: {
+          result: 'valid',
+          usedAt: null,
+          usedBy: null,
+          sectorName: ticket.sectorName,
+          rowLabel: ticket.rowLabel,
+          seatLabel: ticket.seatLabel,
+        },
+      };
+    }
+
+    const [current] = await this.db
+      .select({ usedAt: tickets.usedAt, usedByName: user.name })
+      .from(tickets)
+      .leftJoin(user, eq(tickets.validatedBy, user.id))
+      .where(eq(tickets.code, input.code))
+      .limit(1);
+    if (!current || current.usedAt === null) {
+      return { kind: 'invalid' };
+    }
+    return {
+      kind: 'ok',
+      record: {
+        result: 'already_used',
+        usedAt: current.usedAt,
+        usedBy: current.usedByName ?? null,
+        sectorName: ticket.sectorName,
+        rowLabel: ticket.rowLabel,
+        seatLabel: ticket.seatLabel,
       },
     };
   }

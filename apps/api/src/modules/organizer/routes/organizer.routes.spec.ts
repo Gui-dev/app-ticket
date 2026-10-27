@@ -6,7 +6,10 @@ import type {
   SessionUser,
   UserRole,
 } from '../../auth/get-session.js';
-import type { InMemoryOrganizerEventSeed } from '../infra/in-memory-organizer-repository.js';
+import type {
+  InMemoryOrganizerEventSeed,
+  InMemoryOrganizerTicketSeed,
+} from '../infra/in-memory-organizer-repository.js';
 import { InMemoryOrganizerRepository } from '../infra/in-memory-organizer-repository.js';
 import { registerOrganizerRoutes } from './organizer.routes.js';
 
@@ -360,6 +363,220 @@ describe('organizer event routes', () => {
         platformFeeCents: 0,
         netCents: 0,
       });
+      await scoped.close();
+    });
+  });
+
+  describe('POST /organizer/events/:id/tickets/validate', () => {
+    const MY_EVENT_ID = '11111111-1111-4111-8111-111111111111';
+
+    function seedMyEventWithTickets(
+      tickets: InMemoryOrganizerTicketSeed[] = [],
+    ): FastifyInstance {
+      repository = new InMemoryOrganizerRepository({
+        categories: [{ slug: 'shows', name: 'Shows' }],
+        venues: [
+          {
+            slug: 'arena-sp',
+            name: 'Arena SP',
+            city: 'São Paulo',
+            state: 'SP',
+          },
+        ],
+        events: [
+          seedEvent({
+            id: MY_EVENT_ID,
+            title: 'Meu Show',
+            organizerId: 'user-a',
+          }),
+        ],
+        tickets,
+      });
+      const next = Fastify({ logger: false });
+      registerOrganizerRoutes(next, {
+        getSession,
+        organizerRepository: repository,
+      });
+      return next;
+    }
+
+    it('validação exige sessão ativa e papel de organizador', async () => {
+      const noSession = await app.inject({
+        method: 'POST',
+        url: `/organizer/events/${MY_EVENT_ID}/tickets/validate`,
+        payload: { code: 'TKV-1' },
+      });
+      expect(noSession.statusCode).toBe(401);
+      expect(noSession.json()).toEqual({ error: 'not_authenticated' });
+
+      const buyer = await app.inject({
+        method: 'POST',
+        url: `/organizer/events/${MY_EVENT_ID}/tickets/validate`,
+        headers: { 'x-test-user-id': 'user-b' },
+        payload: { code: 'TKV-1' },
+      });
+      expect(buyer.statusCode).toBe(403);
+      expect(buyer.json()).toEqual({ error: 'not_organizer' });
+    });
+
+    it('id de evento inválido retorna 404 event_not_found', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/organizer/events/nao-existe/tickets/validate',
+        headers: { 'x-test-user-id': 'user-a' },
+        payload: { code: 'TKV-1' },
+      });
+
+      expect(response.statusCode).toBe(404);
+      expect(response.json()).toEqual({ error: 'event_not_found' });
+    });
+
+    it('corpo inválido retorna 400 invalid_body', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: `/organizer/events/${MY_EVENT_ID}/tickets/validate`,
+        headers: { 'x-test-user-id': 'user-a' },
+        payload: { code: '' },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json().error).toBe('invalid_body');
+
+      const missing = await app.inject({
+        method: 'POST',
+        url: `/organizer/events/${MY_EVENT_ID}/tickets/validate`,
+        headers: { 'x-test-user-id': 'user-a' },
+      });
+      expect(missing.statusCode).toBe(400);
+      expect(missing.json().error).toBe('invalid_body');
+    });
+
+    it('evento inexistente retorna 404 e evento alheio retorna 403', async () => {
+      const notFound = await app.inject({
+        method: 'POST',
+        url: '/organizer/events/11111111-1111-4111-8111-111111111112/tickets/validate',
+        headers: { 'x-test-user-id': 'user-a' },
+        payload: { code: 'TKV-1' },
+      });
+      expect(notFound.statusCode).toBe(404);
+      expect(notFound.json()).toEqual({ error: 'event_not_found' });
+
+      const forbidden = await app.inject({
+        method: 'POST',
+        url: `/organizer/events/${FOREIGN_EVENT_ID}/tickets/validate`,
+        headers: { 'x-test-user-id': 'user-a' },
+        payload: { code: 'TKV-1' },
+      });
+      expect(forbidden.statusCode).toBe(403);
+      expect(forbidden.json()).toEqual({ error: 'event_forbidden' });
+    });
+
+    it('ingresso próprio novo devolve valid com assento', async () => {
+      const scoped = seedMyEventWithTickets([
+        {
+          eventId: MY_EVENT_ID,
+          code: 'TKV-1',
+          sectorName: 'Pista Premium',
+          rowLabel: 'A',
+          seatLabel: '12',
+        },
+      ]);
+
+      const response = await scoped.inject({
+        method: 'POST',
+        url: `/organizer/events/${MY_EVENT_ID}/tickets/validate`,
+        headers: { 'x-test-user-id': 'user-a' },
+        payload: { code: 'TKV-1' },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        validation: {
+          result: 'valid',
+          usedAt: null,
+          usedBy: null,
+          sectorName: 'Pista Premium',
+          rowLabel: 'A',
+          seatLabel: '12',
+        },
+      });
+      await scoped.close();
+    });
+
+    it('revalidação devolve already_used com usedAt ISO e quem validou', async () => {
+      const scoped = seedMyEventWithTickets([
+        {
+          eventId: MY_EVENT_ID,
+          code: 'TKV-1',
+          sectorName: 'Pista Premium',
+          rowLabel: 'A',
+          seatLabel: '12',
+        },
+      ]);
+
+      const first = await scoped.inject({
+        method: 'POST',
+        url: `/organizer/events/${MY_EVENT_ID}/tickets/validate`,
+        headers: { 'x-test-user-id': 'user-a' },
+        payload: { code: 'TKV-1' },
+      });
+      expect(first.json().validation.result).toBe('valid');
+
+      const second = await scoped.inject({
+        method: 'POST',
+        url: `/organizer/events/${MY_EVENT_ID}/tickets/validate`,
+        headers: { 'x-test-user-id': 'user-a' },
+        payload: { code: 'TKV-1' },
+      });
+
+      expect(second.statusCode).toBe(200);
+      const body = second.json();
+      expect(body.validation.result).toBe('already_used');
+      expect(typeof body.validation.usedAt).toBe('string');
+      expect(new Date(body.validation.usedAt).toISOString()).toBe(
+        body.validation.usedAt,
+      );
+      expect(typeof body.validation.usedBy).toBe('string');
+      expect(body.validation.sectorName).toBe('Pista Premium');
+      await scoped.close();
+    });
+
+    it('código desconhecido e ingresso de outro evento devolvem invalid', async () => {
+      const scoped = seedMyEventWithTickets([
+        {
+          eventId: FOREIGN_EVENT_ID,
+          code: 'TKV-outro',
+          sectorName: 'Pista',
+          rowLabel: 'A',
+          seatLabel: '1',
+        },
+      ]);
+
+      const unknown = await scoped.inject({
+        method: 'POST',
+        url: `/organizer/events/${MY_EVENT_ID}/tickets/validate`,
+        headers: { 'x-test-user-id': 'user-a' },
+        payload: { code: 'TKV-inexistente' },
+      });
+      expect(unknown.statusCode).toBe(200);
+      expect(unknown.json()).toEqual({
+        validation: {
+          result: 'invalid',
+          usedAt: null,
+          usedBy: null,
+          sectorName: null,
+          rowLabel: null,
+          seatLabel: null,
+        },
+      });
+
+      const foreign = await scoped.inject({
+        method: 'POST',
+        url: `/organizer/events/${MY_EVENT_ID}/tickets/validate`,
+        headers: { 'x-test-user-id': 'user-a' },
+        payload: { code: 'TKV-outro' },
+      });
+      expect(foreign.statusCode).toBe(200);
+      expect(foreign.json().validation.result).toBe('invalid');
       await scoped.close();
     });
   });
