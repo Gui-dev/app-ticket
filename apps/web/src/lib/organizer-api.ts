@@ -6,12 +6,14 @@ import {
   type OrganizerRowCreate,
   type OrganizerSalesReportDto,
   type OrganizerSectorCreate,
+  type OrganizerTicketValidationDto,
   type OrganizerVenueCreate,
   type OrganizerVenueDto,
   organizerEventDetailResponseSchema,
   organizerEventListResponseSchema,
   organizerEventResponseSchema,
   organizerSalesReportResponseSchema,
+  organizerTicketValidationResponseSchema,
   organizerVenueListResponseSchema,
   organizerVenueResponseSchema,
 } from '@ticketvibe/shared';
@@ -131,6 +133,20 @@ export async function fetchOrganizerSalesReport(
   );
   if (!result.success) throw payloadError(result.error);
   return result.data.report;
+}
+
+export async function fetchOrganizerTicketValidation(
+  eventId: string,
+  input: { code: string },
+): Promise<OrganizerTicketValidationDto> {
+  const result = organizerTicketValidationResponseSchema.safeParse(
+    await postJson(
+      `events/${encodeURIComponent(eventId)}/tickets/validate`,
+      input,
+    ),
+  );
+  if (!result.success) throw payloadError(result.error);
+  return result.data.validation;
 }
 
 export async function fetchOrganizerEvent(

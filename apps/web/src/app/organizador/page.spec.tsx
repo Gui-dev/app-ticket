@@ -24,5 +24,9 @@ describe('página Painel do organizador', () => {
       'href',
       '/organizador/relatorios',
     );
+    expect(screen.getByRole('link', { name: 'Validação' })).toHaveAttribute(
+      'href',
+      '/organizador/validacao',
+    );
   });
 });

@@ -5,6 +5,7 @@ const SHORTCUTS = [
   { href: '/organizador/eventos', label: 'Meus eventos' },
   { href: '/organizador/locais', label: 'Locais' },
   { href: '/organizador/relatorios', label: 'Relatórios' },
+  { href: '/organizador/validacao', label: 'Validação' },
 ] as const;
 
 export default function OrganizadorPage() {

@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation';
 const NAV_ITEMS = [
   { href: '/organizador', label: 'Painel' },
   { href: '/organizador/relatorios', label: 'Relatórios' },
+  { href: '/organizador/validacao', label: 'Validação' },
 ] as const;
 
 function OrganizerNav() {

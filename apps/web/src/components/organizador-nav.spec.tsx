@@ -35,6 +35,16 @@ describe('OrganizerNav', () => {
     expect(link).toHaveAttribute('aria-current', 'page');
   });
 
+  it('renderiza o link Validação apontando para /organizador/validacao e o destaca na rota', () => {
+    pathname.current = '/organizador/validacao';
+
+    render(<OrganizerNav />);
+
+    const link = screen.getByRole('link', { name: 'Validação' });
+    expect(link).toHaveAttribute('href', '/organizador/validacao');
+    expect(link).toHaveAttribute('aria-current', 'page');
+  });
+
   it('não destaca o link Painel em outra rota', () => {
     pathname.current = '/organizador/ingressos';
 
