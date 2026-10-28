@@ -4,6 +4,7 @@ import {
   type EventSummaryDto,
   type OrderDto,
   orderDetailResponseSchema,
+  orderResponseSchema,
 } from '@ticketvibe/shared';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -20,7 +21,20 @@ const STATUS_LABELS: Record<OrderDto['status'], string> = {
   paid: 'Pagamento confirmado',
   failed: 'Pagamento não confirmado',
   expired: 'Pedido expirado',
+  refunded: 'Reembolsado',
 };
+
+const CANCEL_ERROR_MESSAGES: Record<string, string> = {
+  order_not_cancellable: 'Este pedido não pode mais ser cancelado.',
+  refund_window_closed: 'O período de cancelamento deste pedido já encerrou.',
+  refund_not_allowed:
+    'A política de cancelamento deste evento não permite reembolso.',
+  refund_provider_error:
+    'Não foi possível processar o reembolso agora. Tente novamente.',
+};
+
+const DEFAULT_CANCEL_ERROR_MESSAGE =
+  'Não foi possível cancelar o pedido. Tente novamente.';
 
 const PAYMENT_METHOD_LABELS: Record<OrderDto['paymentMethod'], string> = {
   card: 'Cartão',
@@ -35,6 +49,8 @@ function PedidoContent() {
   const [order, setOrder] = useState<OrderDto | null>(null);
   const [event, setEvent] = useState<EventSummaryDto | null>(null);
   const [state, setState] = useState<LoadState>('loading');
+  const [cancelPending, setCancelPending] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -70,6 +86,41 @@ function PedidoContent() {
     void loadOrder();
     return () => controller.abort();
   }, [id, router]);
+
+  async function cancelOrder() {
+    setCancelPending(true);
+    setCancelError(null);
+    try {
+      const response = await fetch(
+        `/api/orders/${encodeURIComponent(id)}/cancel`,
+        { method: 'POST' },
+      );
+      if (response.status === 401) {
+        router.push('/entrar');
+        return;
+      }
+      if (!response.ok) {
+        const payload: unknown = await response.json();
+        const code =
+          typeof payload === 'object' &&
+          payload !== null &&
+          'error' in payload &&
+          typeof (payload as { error: unknown }).error === 'string'
+            ? (payload as { error: string }).error
+            : null;
+        setCancelError(
+          (code && CANCEL_ERROR_MESSAGES[code]) ?? DEFAULT_CANCEL_ERROR_MESSAGE,
+        );
+        return;
+      }
+      const payload = orderResponseSchema.parse(await response.json());
+      setOrder(payload.order);
+    } catch {
+      setCancelError(DEFAULT_CANCEL_ERROR_MESSAGE);
+    } finally {
+      setCancelPending(false);
+    }
+  }
 
   if (state === 'failed') {
     return (
@@ -139,6 +190,11 @@ function PedidoContent() {
               {PAYMENT_METHOD_LABELS[order.paymentMethod]}
             </dd>
           </div>
+          {order.refundCents !== null ? (
+            <p className="text-sm text-foreground">
+              Reembolso de {formatBRL(order.refundCents)}
+            </p>
+          ) : null}
           <div className="flex items-center justify-between gap-2 font-semibold">
             <dt className="text-foreground">Total</dt>
             <dd className="text-foreground">{formatBRL(order.totalCents)}</dd>
@@ -146,6 +202,21 @@ function PedidoContent() {
         </dl>
       </section>
       <OrderTickets order={order} />
+      {cancelError ? (
+        <p role="alert" className="text-sm text-destructive">
+          {cancelError}
+        </p>
+      ) : null}
+      {order.status === 'paid' ? (
+        <button
+          type="button"
+          onClick={() => void cancelOrder()}
+          disabled={cancelPending}
+          className="w-fit self-start rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors outline-none hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Cancelar pedido
+        </button>
+      ) : null}
     </>
   );
 }

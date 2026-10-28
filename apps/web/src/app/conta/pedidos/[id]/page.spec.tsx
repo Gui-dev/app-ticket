@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { delay, HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
 import {
@@ -30,6 +30,8 @@ const server = setupServer();
 const orderId = '0f0f0f0f-0f0f-4f0f-8f0f-0f0f0f0f0f0f';
 
 const orderUrl = /\/api\/orders\/[^/]+$/;
+
+const cancelUrl = /\/api\/orders\/[^/]+\/cancel$/;
 
 const orderResponse = {
   order: {
@@ -200,5 +202,138 @@ describe('PedidoPage', () => {
     expect(
       screen.queryByText('Pedido não encontrado.'),
     ).not.toBeInTheDocument();
+  });
+
+  it('mostra o botão Cancelar pedido para pedido pago', async () => {
+    server.use(http.get(orderUrl, () => HttpResponse.json(orderResponse)));
+
+    render(<PedidoPage />);
+
+    expect(
+      await screen.findByRole('button', { name: 'Cancelar pedido' }),
+    ).toBeInTheDocument();
+  });
+
+  it('não mostra o botão Cancelar pedido quando o pedido não está pago', async () => {
+    server.use(
+      http.get(orderUrl, () =>
+        HttpResponse.json({
+          ...orderResponse,
+          order: { ...orderResponse.order, status: 'pending', paidAt: null },
+        }),
+      ),
+    );
+
+    render(<PedidoPage />);
+
+    expect(await screen.findByText('Aguardando pagamento')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Cancelar pedido' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('cancela o pedido pago e mostra o reembolso', async () => {
+    server.use(
+      http.get(orderUrl, () => HttpResponse.json(orderResponse)),
+      http.post(cancelUrl, () =>
+        HttpResponse.json({
+          ...orderResponse,
+          order: {
+            ...orderResponse.order,
+            status: 'refunded',
+            refundCents: 13200,
+          },
+        }),
+      ),
+    );
+
+    render(<PedidoPage />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Cancelar pedido' }),
+    );
+
+    expect(await screen.findByText('Reembolsado')).toBeInTheDocument();
+    expect(screen.getByText('Reembolso de R$ 132,00')).toBeInTheDocument();
+  });
+
+  it('mostra o erro quando a janela de cancelamento encerrou', async () => {
+    server.use(
+      http.get(orderUrl, () => HttpResponse.json(orderResponse)),
+      http.post(cancelUrl, () =>
+        HttpResponse.json({ error: 'refund_window_closed' }, { status: 409 }),
+      ),
+    );
+
+    render(<PedidoPage />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Cancelar pedido' }),
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'O período de cancelamento deste pedido já encerrou.',
+    );
+    expect(screen.getByText('Pagamento confirmado')).toBeInTheDocument();
+  });
+
+  it('mostra o erro quando a política do evento não permite reembolso', async () => {
+    server.use(
+      http.get(orderUrl, () => HttpResponse.json(orderResponse)),
+      http.post(cancelUrl, () =>
+        HttpResponse.json({ error: 'refund_not_allowed' }, { status: 409 }),
+      ),
+    );
+
+    render(<PedidoPage />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Cancelar pedido' }),
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'A política de cancelamento deste evento não permite reembolso.',
+    );
+    expect(screen.getByText('Pagamento confirmado')).toBeInTheDocument();
+  });
+
+  it('mostra o erro quando o pedido não pode mais ser cancelado', async () => {
+    server.use(
+      http.get(orderUrl, () => HttpResponse.json(orderResponse)),
+      http.post(cancelUrl, () =>
+        HttpResponse.json({ error: 'order_not_cancellable' }, { status: 409 }),
+      ),
+    );
+
+    render(<PedidoPage />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Cancelar pedido' }),
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Este pedido não pode mais ser cancelado.',
+    );
+    expect(screen.getByText('Pagamento confirmado')).toBeInTheDocument();
+  });
+
+  it('mostra o erro quando o provedor de reembolso falha', async () => {
+    server.use(
+      http.get(orderUrl, () => HttpResponse.json(orderResponse)),
+      http.post(cancelUrl, () =>
+        HttpResponse.json({ error: 'refund_provider_error' }, { status: 502 }),
+      ),
+    );
+
+    render(<PedidoPage />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Cancelar pedido' }),
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Não foi possível processar o reembolso agora. Tente novamente.',
+    );
+    expect(screen.getByText('Pagamento confirmado')).toBeInTheDocument();
   });
 });

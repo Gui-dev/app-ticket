@@ -28,6 +28,10 @@ const STATUS_CONTENT: Record<
     description:
       'A reserva dos assentos expirou antes da confirmação do pagamento.',
   },
+  refunded: {
+    title: 'Reembolsado',
+    description: 'O cancelamento foi concluído e o valor pago foi reembolsado.',
+  },
 };
 
 export function OrderConfirmation({ order }: OrderConfirmationProps) {

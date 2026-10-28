@@ -12,6 +12,7 @@ const STATUS_LABELS: Record<OrderSummaryDto['status'], string> = {
   paid: 'Pagamento confirmado',
   failed: 'Pagamento não confirmado',
   expired: 'Pedido expirado',
+  refunded: 'Reembolsado',
 };
 
 function ticketCountLabel(count: number): string {

@@ -89,4 +89,21 @@ describe('OrderConfirmation', () => {
       ),
     ).toBeInTheDocument();
   });
+
+  it('mostra que o pedido foi reembolsado', () => {
+    render(
+      <OrderConfirmation
+        order={{ ...baseOrder, status: 'refunded', refundCents: 19800 }}
+      />,
+    );
+
+    expect(
+      screen.getByRole('heading', { name: 'Reembolsado' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'O cancelamento foi concluído e o valor pago foi reembolsado.',
+      ),
+    ).toBeInTheDocument();
+  });
 });
