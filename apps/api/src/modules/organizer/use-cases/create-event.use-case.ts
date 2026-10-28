@@ -9,6 +9,8 @@ export interface CreateEventInput {
   categorySlug: string;
   venueSlug: string;
   startsAt: Date;
+  cancellationWindowHours?: number;
+  refundPercent?: number;
   organizerId: string;
 }
 

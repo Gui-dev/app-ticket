@@ -46,6 +46,8 @@ export interface InMemoryOrganizerEventSeed {
   startsAt: Date;
   organizerId: string | null;
   priceFromCents?: number;
+  cancellationWindowHours?: number;
+  refundPercent?: number;
 }
 
 export interface InMemoryOrganizerLotSeed {
@@ -200,6 +202,8 @@ export class InMemoryOrganizerRepository implements OrganizerRepository {
           startsAt: new Date(event.startsAt),
           organizerId: event.organizerId,
           priceFromCents: event.priceFromCents ?? 0,
+          cancellationWindowHours: event.cancellationWindowHours ?? 24,
+          refundPercent: event.refundPercent ?? 100,
         }),
       );
     }
@@ -375,6 +379,8 @@ export class InMemoryOrganizerRepository implements OrganizerRepository {
     categorySlug: string;
     venueSlug: string;
     startsAt: Date;
+    cancellationWindowHours?: number;
+    refundPercent?: number;
     organizerId: string;
   }): Promise<CreateEventResult> {
     if (!this.categories.has(input.categorySlug)) {
@@ -394,6 +400,8 @@ export class InMemoryOrganizerRepository implements OrganizerRepository {
       startsAt: new Date(input.startsAt),
       organizerId: input.organizerId,
       priceFromCents: 0,
+      cancellationWindowHours: input.cancellationWindowHours ?? 24,
+      refundPercent: input.refundPercent ?? 100,
     });
     this.events.set(id, record);
     return { kind: 'ok', event: cloneRecord(record) };
@@ -407,6 +415,8 @@ export class InMemoryOrganizerRepository implements OrganizerRepository {
     categorySlug: string;
     venueSlug: string;
     startsAt: Date;
+    cancellationWindowHours?: number;
+    refundPercent?: number;
   }): Promise<UpdateEventResult> {
     const event = this.events.get(input.eventId);
     if (!event) {
@@ -430,6 +440,8 @@ export class InMemoryOrganizerRepository implements OrganizerRepository {
       startsAt: new Date(input.startsAt),
       organizerId: event.organizerId,
       priceFromCents: event.priceFromCents,
+      cancellationWindowHours: input.cancellationWindowHours ?? 24,
+      refundPercent: input.refundPercent ?? 100,
     });
     this.events.set(event.id, updated);
     return { kind: 'ok', event: cloneRecord(updated) };
@@ -965,6 +977,8 @@ export class InMemoryOrganizerRepository implements OrganizerRepository {
       startsAt: Date;
       organizerId: string | null;
       priceFromCents: number;
+      cancellationWindowHours: number;
+      refundPercent: number;
     },
   ): OrganizerEventRecord {
     const category = this.categories.get(input.categorySlug);
@@ -990,6 +1004,8 @@ export class InMemoryOrganizerRepository implements OrganizerRepository {
       venueState: venue.state,
       startsAt: input.startsAt,
       priceFromCents: input.priceFromCents,
+      cancellationWindowHours: input.cancellationWindowHours,
+      refundPercent: input.refundPercent,
       organizerId: input.organizerId,
     };
   }

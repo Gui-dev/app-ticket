@@ -321,6 +321,88 @@ describe('organizer routes (postgres integration)', () => {
     expect(searchable.rows[0]?.total).toBe(1);
   });
 
+  it('política de cancelamento e reembolso é persistida e lida de volta', async () => {
+    await promoteOrganizers('user-a');
+    await seedCatalog();
+
+    const created = await app.inject({
+      method: 'POST',
+      url: '/organizer/events',
+      headers: { 'x-test-user-id': 'user-a' },
+      payload: {
+        ...CREATE_PAYLOAD,
+        cancellationWindowHours: 72,
+        refundPercent: 60,
+      },
+    });
+    expect(created.statusCode).toBe(201);
+    expect(created.json().event.cancellationWindowHours).toBe(72);
+    expect(created.json().event.refundPercent).toBe(60);
+
+    const [persisted] = await testDb
+      .select({
+        cancellationWindowHours: events.cancellationWindowHours,
+        refundPercent: events.refundPercent,
+      })
+      .from(events)
+      .where(eq(events.slug, 'show-do-organizador'));
+    expect(persisted).toEqual({
+      cancellationWindowHours: 72,
+      refundPercent: 60,
+    });
+
+    const patched = await app.inject({
+      method: 'PATCH',
+      url: `/organizer/events/${created.json().event.id}`,
+      headers: { 'x-test-user-id': 'user-a' },
+      payload: {
+        ...EDIT_PAYLOAD,
+        cancellationWindowHours: 0,
+        refundPercent: 0,
+      },
+    });
+    expect(patched.statusCode).toBe(200);
+    expect(patched.json().event.cancellationWindowHours).toBe(0);
+    expect(patched.json().event.refundPercent).toBe(0);
+
+    const detail = await app.inject({
+      method: 'GET',
+      url: `/organizer/events/${created.json().event.id}`,
+      headers: { 'x-test-user-id': 'user-a' },
+    });
+    expect(detail.statusCode).toBe(200);
+    expect(detail.json().event.cancellationWindowHours).toBe(0);
+    expect(detail.json().event.refundPercent).toBe(0);
+
+    const [afterPatch] = await testDb
+      .select({
+        cancellationWindowHours: events.cancellationWindowHours,
+        refundPercent: events.refundPercent,
+      })
+      .from(events)
+      .where(eq(events.id, created.json().event.id));
+    expect(afterPatch).toEqual({
+      cancellationWindowHours: 0,
+      refundPercent: 0,
+    });
+  });
+
+  it('evento criado sem política informa padrões 24 e 100', async () => {
+    await promoteOrganizers('user-a');
+    await seedCatalog();
+
+    const created = await app.inject({
+      method: 'POST',
+      url: '/organizer/events',
+      headers: { 'x-test-user-id': 'user-a' },
+      payload: CREATE_PAYLOAD,
+    });
+
+    expect(created.statusCode).toBe(201);
+    expect(created.json().event.cancellationWindowHours).toBe(24);
+    expect(created.json().event.refundPercent).toBe(100);
+  });
+
   it('dados da plataforma são de leitura', async () => {
     await promoteOrganizers('user-a');
     const { category, venue } = await seedCatalog();

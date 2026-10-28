@@ -67,6 +67,8 @@ interface OrganizerEventRow {
     description: string;
     startsAt: Date;
     priceFromCents: number;
+    cancellationWindowHours: number;
+    refundPercent: number;
     organizerId: string | null;
   };
   categories: {
@@ -93,6 +95,8 @@ const organizerEventSelect = {
     description: events.description,
     startsAt: events.startsAt,
     priceFromCents: events.priceFromCents,
+    cancellationWindowHours: events.cancellationWindowHours,
+    refundPercent: events.refundPercent,
     organizerId: events.organizerId,
   },
   categories: {
@@ -125,6 +129,8 @@ function toRecord(row: OrganizerEventRow): OrganizerEventRecord {
     venueState: row.venues.state,
     startsAt: row.events.startsAt,
     priceFromCents: row.events.priceFromCents,
+    cancellationWindowHours: row.events.cancellationWindowHours,
+    refundPercent: row.events.refundPercent,
     organizerId: row.events.organizerId,
   };
 }
@@ -169,6 +175,8 @@ export class DrizzleOrganizerRepository implements OrganizerRepository {
     categorySlug: string;
     venueSlug: string;
     startsAt: Date;
+    cancellationWindowHours?: number;
+    refundPercent?: number;
     organizerId: string;
   }): Promise<CreateEventResult> {
     const [category] = await this.db
@@ -212,6 +220,8 @@ export class DrizzleOrganizerRepository implements OrganizerRepository {
         organizerId: input.organizerId,
         startsAt: input.startsAt,
         priceFromCents: 0,
+        cancellationWindowHours: input.cancellationWindowHours,
+        refundPercent: input.refundPercent,
         searchVector: searchVectorFor({
           title: input.title,
           description: input.description,
@@ -222,6 +232,8 @@ export class DrizzleOrganizerRepository implements OrganizerRepository {
       .returning({
         id: events.id,
         priceFromCents: events.priceFromCents,
+        cancellationWindowHours: events.cancellationWindowHours,
+        refundPercent: events.refundPercent,
       });
 
     return {
@@ -241,6 +253,8 @@ export class DrizzleOrganizerRepository implements OrganizerRepository {
         venueState: venue.state,
         startsAt: input.startsAt,
         priceFromCents: row.priceFromCents,
+        cancellationWindowHours: row.cancellationWindowHours,
+        refundPercent: row.refundPercent,
         organizerId: input.organizerId,
       },
     };
@@ -254,6 +268,8 @@ export class DrizzleOrganizerRepository implements OrganizerRepository {
     categorySlug: string;
     venueSlug: string;
     startsAt: Date;
+    cancellationWindowHours?: number;
+    refundPercent?: number;
   }): Promise<UpdateEventResult> {
     const existing: OrganizerEventRow | undefined = await this.findRow(
       input.eventId,
@@ -292,6 +308,8 @@ export class DrizzleOrganizerRepository implements OrganizerRepository {
         categoryId: category.id,
         venueId: venue.id,
         startsAt: input.startsAt,
+        cancellationWindowHours: input.cancellationWindowHours,
+        refundPercent: input.refundPercent,
         searchVector: searchVectorFor({
           title: input.title,
           description: input.description,

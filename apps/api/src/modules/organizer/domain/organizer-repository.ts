@@ -13,6 +13,8 @@ export interface OrganizerEventRecord {
   venueState: string;
   startsAt: Date;
   priceFromCents: number;
+  cancellationWindowHours: number;
+  refundPercent: number;
   organizerId: string | null;
 }
 
@@ -151,6 +153,8 @@ export interface OrganizerRepository {
     categorySlug: string;
     venueSlug: string;
     startsAt: Date;
+    cancellationWindowHours?: number;
+    refundPercent?: number;
     organizerId: string;
   }): Promise<CreateEventResult>;
   updateEvent(input: {
@@ -161,6 +165,8 @@ export interface OrganizerRepository {
     categorySlug: string;
     venueSlug: string;
     startsAt: Date;
+    cancellationWindowHours?: number;
+    refundPercent?: number;
   }): Promise<UpdateEventResult>;
   deleteEvent(input: {
     eventId: string;

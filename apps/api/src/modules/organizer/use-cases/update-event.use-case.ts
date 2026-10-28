@@ -11,6 +11,8 @@ export interface UpdateEventInput {
   categorySlug: string;
   venueSlug: string;
   startsAt: Date;
+  cancellationWindowHours?: number;
+  refundPercent?: number;
 }
 
 export class UpdateEventUseCase {

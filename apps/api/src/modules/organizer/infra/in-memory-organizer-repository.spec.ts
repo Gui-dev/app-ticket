@@ -449,3 +449,100 @@ describe('InMemoryOrganizerRepository — validateTicketForOrganizer', () => {
     expect(unaffected.kind === 'ok' && unaffected.record.result).toBe('valid');
   });
 });
+
+describe('InMemoryOrganizerRepository — política de cancelamento e reembolso', () => {
+  function createRepository() {
+    return new InMemoryOrganizerRepository({
+      categories: [{ slug: 'shows', name: 'Shows' }],
+      venues: [
+        { slug: 'arena-sp', name: 'Arena SP', city: 'São Paulo', state: 'SP' },
+      ],
+      events: [],
+    });
+  }
+
+  const CREATE_INPUT = {
+    title: 'Show da Política',
+    description: 'Descrição longa o suficiente para o evento fixture.',
+    categorySlug: 'shows',
+    venueSlug: 'arena-sp',
+    startsAt: new Date('2026-12-01T20:00:00.000Z'),
+    organizerId: 'user-a',
+  };
+
+  it('política customizada no createEvent é lida de volta e substituída no updateEvent', async () => {
+    const repository = createRepository();
+
+    const created = await repository.createEvent({
+      ...CREATE_INPUT,
+      cancellationWindowHours: 48,
+      refundPercent: 70,
+    });
+    if (created.kind !== 'ok') throw new Error('create falhou');
+    expect(created.event.cancellationWindowHours).toBe(48);
+    expect(created.event.refundPercent).toBe(70);
+
+    const read = await repository.findEventForOrganizer({
+      eventId: created.event.id,
+      userId: 'user-a',
+    });
+    if (read.kind !== 'ok') throw new Error('read falhou');
+    expect(read.event.cancellationWindowHours).toBe(48);
+    expect(read.event.refundPercent).toBe(70);
+
+    const updated = await repository.updateEvent({
+      eventId: created.event.id,
+      userId: 'user-a',
+      title: 'Show da Política Renomeado',
+      description: 'Descrição remarcada com política nova do evento.',
+      categorySlug: 'shows',
+      venueSlug: 'arena-sp',
+      startsAt: new Date('2026-12-02T20:00:00.000Z'),
+      cancellationWindowHours: 12,
+      refundPercent: 30,
+    });
+    if (updated.kind !== 'ok') throw new Error('update falhou');
+    expect(updated.event.cancellationWindowHours).toBe(12);
+    expect(updated.event.refundPercent).toBe(30);
+
+    const readAgain = await repository.findEventForOrganizer({
+      eventId: created.event.id,
+      userId: 'user-a',
+    });
+    if (readAgain.kind !== 'ok') throw new Error('readAgain falhou');
+    expect(readAgain.event.cancellationWindowHours).toBe(12);
+    expect(readAgain.event.refundPercent).toBe(30);
+  });
+
+  it('createEvent sem política e seed sem política usam padrões 24 e 100', async () => {
+    const repository = new InMemoryOrganizerRepository({
+      categories: [{ slug: 'shows', name: 'Shows' }],
+      venues: [
+        { slug: 'arena-sp', name: 'Arena SP', city: 'São Paulo', state: 'SP' },
+      ],
+      events: [
+        {
+          title: 'Show Seedado',
+          description: 'Descrição suficientemente longa do evento testado.',
+          categorySlug: 'shows',
+          venueSlug: 'arena-sp',
+          startsAt: new Date('2026-12-01T20:00:00.000Z'),
+          organizerId: 'user-a',
+        },
+      ],
+    });
+
+    const read = await repository.findEventForOrganizer({
+      eventId: 'evt-1',
+      userId: 'user-a',
+    });
+    if (read.kind !== 'ok') throw new Error('read falhou');
+    expect(read.event.cancellationWindowHours).toBe(24);
+    expect(read.event.refundPercent).toBe(100);
+
+    const created = await repository.createEvent({ ...CREATE_INPUT });
+    if (created.kind !== 'ok') throw new Error('create falhou');
+    expect(created.event.cancellationWindowHours).toBe(24);
+    expect(created.event.refundPercent).toBe(100);
+  });
+});

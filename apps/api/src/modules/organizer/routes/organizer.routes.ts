@@ -72,6 +72,8 @@ function toEventDto(event: OrganizerEventRecord): OrganizerEventDto {
     },
     startsAt: event.startsAt.toISOString(),
     priceFromCents: event.priceFromCents,
+    cancellationWindowHours: event.cancellationWindowHours,
+    refundPercent: event.refundPercent,
     platform: event.organizerId === null,
   };
 }
@@ -198,6 +200,8 @@ export function registerOrganizerRoutes(
       categorySlug: parsed.data.categorySlug,
       venueSlug: parsed.data.venueSlug,
       startsAt: new Date(parsed.data.startsAt),
+      cancellationWindowHours: parsed.data.cancellationWindowHours,
+      refundPercent: parsed.data.refundPercent,
       organizerId: session.userId,
     });
     if (result.kind === 'category_not_found') {
@@ -273,6 +277,8 @@ export function registerOrganizerRoutes(
       categorySlug: parsed.data.categorySlug,
       venueSlug: parsed.data.venueSlug,
       startsAt: new Date(parsed.data.startsAt),
+      cancellationWindowHours: parsed.data.cancellationWindowHours,
+      refundPercent: parsed.data.refundPercent,
     });
     if (result.kind === 'not_found') {
       return reply.code(404).send({ error: 'event_not_found' });
