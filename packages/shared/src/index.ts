@@ -324,6 +324,7 @@ export const orderStatusSchema = z.enum([
   'paid',
   'failed',
   'expired',
+  'refunded',
 ]);
 export type OrderStatus = z.infer<typeof orderStatusSchema>;
 
@@ -356,6 +357,7 @@ export const orderSchema = z.object({
   subtotalCents: z.number().int().min(0),
   serviceFeeCents: z.number().int().min(0),
   totalCents: z.number().int().min(0),
+  refundCents: z.number().int().min(0).nullable(),
   items: z.array(orderItemSchema),
   createdAt: z.iso.datetime(),
   paidAt: z.iso.datetime().nullable(),
@@ -478,6 +480,8 @@ export const organizerEventCreateSchema = z.object({
   categorySlug: z.string().min(1),
   venueSlug: z.string().min(1),
   startsAt: z.iso.datetime(),
+  cancellationWindowHours: z.number().int().min(0).max(2160).optional(),
+  refundPercent: z.number().int().min(0).max(100).optional(),
 });
 
 export type OrganizerEventCreate = z.infer<typeof organizerEventCreateSchema>;
@@ -528,6 +532,8 @@ export const organizerEventDtoSchema = z.object({
   startsAt: z.iso.datetime(),
   priceFromCents: z.number().int().min(0),
   platform: z.boolean(),
+  cancellationWindowHours: z.number().int().min(0).max(2160).optional(),
+  refundPercent: z.number().int().min(0).max(100).optional(),
 });
 
 export type OrganizerEventDto = z.infer<typeof organizerEventDtoSchema>;

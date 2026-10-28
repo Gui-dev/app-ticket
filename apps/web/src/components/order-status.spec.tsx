@@ -23,6 +23,7 @@ const paidOrder = {
   subtotalCents: 6000,
   serviceFeeCents: 600,
   totalCents: 6600,
+  refundCents: null,
   items: [
     {
       sectorSlug: 'plateia',

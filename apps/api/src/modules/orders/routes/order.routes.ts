@@ -38,6 +38,7 @@ function serializeOrder(
     subtotalCents: order.subtotalCents,
     serviceFeeCents: order.serviceFeeCents,
     totalCents: order.totalCents,
+    refundCents: null,
     items: order.items.map((item) => {
       const ticket = ticketsBySeatId?.get(item.seatId);
       return {

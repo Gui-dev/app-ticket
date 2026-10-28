@@ -40,6 +40,7 @@ const orderResponse = {
     subtotalCents: 12000,
     serviceFeeCents: 1200,
     totalCents: 13200,
+    refundCents: null,
     items: [],
     createdAt: '2026-10-18T12:00:00.000Z',
     paidAt: null,

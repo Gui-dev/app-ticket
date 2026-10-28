@@ -758,6 +758,7 @@ describe('order contracts', () => {
       subtotalCents: 12000,
       serviceFeeCents: 1200,
       totalCents: 13200,
+      refundCents: null,
       items: [
         {
           sectorSlug: 'plateia',
@@ -779,7 +780,7 @@ describe('order contracts', () => {
     expect(
       createOrderRequestSchema.safeParse({ paymentMethod: 'pix' }).success,
     ).toBe(false);
-    expect(orderStatusSchema.safeParse('refunded').success).toBe(false);
+    expect(orderStatusSchema.safeParse('canceled').success).toBe(false);
   });
 
   it('parses the create-order response with the stripe payment block', () => {
@@ -792,6 +793,7 @@ describe('order contracts', () => {
         subtotalCents: 12000,
         serviceFeeCents: 1200,
         totalCents: 13200,
+        refundCents: null,
         items: [],
         createdAt: new Date().toISOString(),
         paidAt: null,
@@ -872,6 +874,7 @@ describe('orderDetailResponseSchema', () => {
     subtotalCents: 12000,
     serviceFeeCents: 1200,
     totalCents: 13200,
+    refundCents: null,
     items: [],
     createdAt: '2026-10-18T12:00:00.000Z',
     paidAt: '2026-10-18T12:05:00.000Z',
@@ -1609,5 +1612,42 @@ describe('organizerTicketValidateSchema', () => {
 
   it('rejects a missing code', () => {
     expect(organizerTicketValidateSchema.safeParse({}).success).toBe(false);
+  });
+});
+
+describe('orderStatusSchema', () => {
+  it('accepts the refunded status', () => {
+    expect(orderStatusSchema.safeParse('refunded').success).toBe(true);
+  });
+});
+
+describe('orderSchema', () => {
+  it('accepts a nullable refundCents', () => {
+    const parsed = orderSchema.shape.refundCents.safeParse(null);
+    expect(parsed.success).toBe(true);
+  });
+});
+
+describe('organizer event policy fields', () => {
+  it('accepts cancellationWindowHours and refundPercent', () => {
+    expect(
+      organizerEventDtoSchema.shape.cancellationWindowHours.safeParse(24)
+        .success,
+    ).toBe(true);
+    expect(
+      organizerEventDtoSchema.shape.refundPercent.safeParse(70).success,
+    ).toBe(true);
+    expect(
+      organizerEventDtoSchema.shape.refundPercent.safeParse(101).success,
+    ).toBe(false);
+  });
+
+  it('keeps policy fields optional', () => {
+    const parsed = organizerEventDtoSchema.safeParse(validOrganizerEventDto);
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && parsed.data.cancellationWindowHours).toBe(
+      undefined,
+    );
+    expect(parsed.success && parsed.data.refundPercent).toBe(undefined);
   });
 });

@@ -12,6 +12,7 @@ const baseOrder: OrderDto = {
   subtotalCents: 18000,
   serviceFeeCents: 1800,
   totalCents: 19800,
+  refundCents: null,
   items: [
     {
       sectorSlug: 'plateia',
