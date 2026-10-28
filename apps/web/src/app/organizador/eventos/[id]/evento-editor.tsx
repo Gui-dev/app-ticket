@@ -103,6 +103,10 @@ function EventoEditor({ eventId, categories }: EventoEditorProps) {
         categorySlug: String(form.get('categorySlug') ?? ''),
         venueSlug: String(form.get('venueSlug') ?? ''),
         startsAt: fromDateTimeLocalValue(String(form.get('startsAt') ?? '')),
+        cancellationWindowHours: Number(
+          form.get('cancellationWindowHours') ?? 24,
+        ),
+        refundPercent: Number(form.get('refundPercent') ?? 100),
       });
       await recarregarEvento();
     } catch (cause) {
@@ -227,6 +231,38 @@ function EventoEditor({ eventId, categories }: EventoEditorProps) {
                 name="startsAt"
                 required
                 defaultValue={toDateTimeLocalValue(event.startsAt)}
+              />
+            </label>
+            <label
+              htmlFor="editar-evento-cancellation-window"
+              className="flex flex-col gap-1.5 text-sm font-medium"
+            >
+              Janela de cancelamento (horas)
+              <Input
+                id="editar-evento-cancellation-window"
+                type="number"
+                name="cancellationWindowHours"
+                required
+                min={0}
+                max={2160}
+                step={1}
+                defaultValue={event.cancellationWindowHours ?? 24}
+              />
+            </label>
+            <label
+              htmlFor="editar-evento-refund-percent"
+              className="flex flex-col gap-1.5 text-sm font-medium"
+            >
+              Reembolso (%)
+              <Input
+                id="editar-evento-refund-percent"
+                type="number"
+                name="refundPercent"
+                required
+                min={0}
+                max={100}
+                step={1}
+                defaultValue={event.refundPercent ?? 100}
               />
             </label>
             <Button type="submit" disabled={pending}>

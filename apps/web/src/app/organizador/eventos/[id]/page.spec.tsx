@@ -131,6 +131,10 @@ describe('página Editar evento', () => {
     expect(screen.getByLabelText('Data e hora')).toHaveValue(
       '2026-11-20T20:00',
     );
+    expect(screen.getByLabelText('Janela de cancelamento (horas)')).toHaveValue(
+      24,
+    );
+    expect(screen.getByLabelText('Reembolso (%)')).toHaveValue(100);
 
     const setor = screen.getByRole('listitem', { name: 'Plateia' });
     expect(
@@ -162,6 +166,12 @@ describe('página Editar evento', () => {
     fireEvent.change(screen.getByLabelText('Data e hora'), {
       target: { value: '2026-11-21T21:00' },
     });
+    fireEvent.change(screen.getByLabelText('Janela de cancelamento (horas)'), {
+      target: { value: '120' },
+    });
+    fireEvent.change(screen.getByLabelText('Reembolso (%)'), {
+      target: { value: '80' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Salvar alterações' }));
 
     await waitFor(() => expect(detalheCalls()).toBe(2));
@@ -172,6 +182,57 @@ describe('página Editar evento', () => {
     expect(parsed.categorySlug).toBe('shows');
     expect(parsed.venueSlug).toBe('audio-club');
     expect(parsed.startsAt).toBe(fromDateTimeLocalValue('2026-11-21T21:00'));
+    expect(parsed.cancellationWindowHours).toBe(120);
+    expect(parsed.refundPercent).toBe(80);
+  });
+
+  it('mostra os valores da política de cancelamento quando o evento traz os campos', async () => {
+    server.use(
+      http.get(/\/api\/organizer\/venues$/, () =>
+        HttpResponse.json({ venues: [audioClub] }),
+      ),
+      http.get('http://localhost:3001/categories', () =>
+        HttpResponse.json({ categories: [] }),
+      ),
+      http.get(detailUrl, () =>
+        HttpResponse.json({
+          event: {
+            ...montarEvento(),
+            cancellationWindowHours: 72,
+            refundPercent: 50,
+          },
+        }),
+      ),
+    );
+
+    render(
+      await EditarEventoPage({ params: Promise.resolve({ id: eventId }) }),
+    );
+
+    expect(
+      await screen.findByLabelText('Janela de cancelamento (horas)'),
+    ).toHaveValue(72);
+    expect(screen.getByLabelText('Reembolso (%)')).toHaveValue(50);
+  });
+
+  it('usa 24 e 100 como padrões da política quando o evento não traz os campos', async () => {
+    const { detalheCalls } = await renderEditarEventoPage();
+
+    let received: unknown;
+    server.use(
+      http.patch(detailUrl, async (info) => {
+        received = await info.request.json();
+        return HttpResponse.json({ event: montarEvento() });
+      }),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar alterações' }));
+
+    await waitFor(() => expect(detalheCalls()).toBe(2));
+
+    const parsed = organizerEventCreateSchema.parse(received);
+    expect(parsed.cancellationWindowHours).toBe(24);
+    expect(parsed.refundPercent).toBe(100);
   });
 
   it('mantém o instante do evento quando a data só é salva sem alteração', async () => {
