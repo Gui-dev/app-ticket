@@ -48,6 +48,7 @@ export class InMemoryOrderRepository implements OrderRepository {
       subtotalCents: input.subtotalCents,
       serviceFeeCents: input.serviceFeeCents,
       totalCents: input.totalCents,
+      refundCents: null,
       createdAt: this.now(),
       paidAt: null,
       items: input.items.map((item) => ({ ...item })),

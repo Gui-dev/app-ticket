@@ -30,6 +30,6 @@ export interface PaymentProvider {
     rawBody: string;
     signature: string | null;
   }): Promise<PaymentEvent | null>;
-  refund(providerRef: string): Promise<void>;
+  refund(providerRef: string, amountCents?: number): Promise<void>;
   cancelPayment(providerRef: string): Promise<void>;
 }

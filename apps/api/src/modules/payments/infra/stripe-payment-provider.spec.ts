@@ -177,6 +177,22 @@ describe('StripePaymentProvider', () => {
     );
   });
 
+  it('reembolsa o valor parcial informando o amount', async () => {
+    const provider = buildProvider();
+    const create = vi
+      .spyOn(stripeClientOf(provider).refunds, 'create')
+      .mockResolvedValue({
+        id: 're_2',
+      } as unknown as Stripe.Response<Stripe.Refund>);
+
+    await provider.refund('pi_1', 6300);
+
+    expect(create).toHaveBeenCalledWith(
+      { payment_intent: 'pi_1', amount: 6300 },
+      { idempotencyKey: 'refund-pi_1' },
+    );
+  });
+
   it('cancela o payment intent da referência', async () => {
     const provider = buildProvider();
     const cancel = vi

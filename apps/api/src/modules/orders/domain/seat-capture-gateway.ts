@@ -6,6 +6,8 @@ export type ConfirmPaidResult =
   | { kind: 'seats_lost' }
   | { kind: 'order_not_found' };
 
+export type CancelPaidResult = { kind: 'refunded' } | { kind: 'not_paid' };
+
 export interface SeatCaptureGateway {
   confirmOrderPayment(input: {
     providerRef: string;
@@ -15,4 +17,8 @@ export interface SeatCaptureGateway {
     orderId: string;
     now: Date;
   }): Promise<{ seatKeys: string[] }>;
+  cancelPaidOrder(input: {
+    orderId: string;
+    refundCents: number;
+  }): Promise<CancelPaidResult>;
 }

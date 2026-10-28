@@ -4,6 +4,7 @@ import {
   type OrderDto,
   orderDetailResponseSchema,
   orderListResponseSchema,
+  orderResponseSchema,
   orderSchema,
 } from '@ticketvibe/shared';
 import type { FastifyInstance } from 'fastify';
@@ -14,17 +15,33 @@ import type { OrderRecord } from '../domain/order-entity.js';
 import type { OrderRepository } from '../domain/order-repository.js';
 import { type TicketRecord, ticketStatusFor } from '../domain/ticket-entity.js';
 import type { TicketRepository } from '../domain/ticket-repository.js';
+import type {
+  CancelOrderResult,
+  CancelOrderUseCase,
+} from '../use-cases/cancel-order.use-case.js';
 import type { CreateOrderUseCase } from '../use-cases/create-order.use-case.js';
 
 interface OrderRoutesDeps {
   getSession: GetSessionFn;
   createOrder: CreateOrderUseCase;
+  cancelOrder: CancelOrderUseCase;
   orderRepository: OrderRepository;
   ticketRepository: TicketRepository;
   eventsRepository: EventsRepository;
 }
 
 const orderIdSchema = orderSchema.shape.id;
+
+const CANCEL_ERRORS: Record<
+  Exclude<CancelOrderResult['kind'], 'ok'>,
+  { status: number; error: string }
+> = {
+  order_not_found: { status: 404, error: 'order_not_found' },
+  order_not_cancellable: { status: 409, error: 'order_not_cancellable' },
+  refund_window_closed: { status: 409, error: 'refund_window_closed' },
+  refund_not_allowed: { status: 409, error: 'refund_not_allowed' },
+  refund_provider_error: { status: 502, error: 'refund_provider_error' },
+};
 
 function serializeOrder(
   order: OrderRecord,
@@ -38,7 +55,7 @@ function serializeOrder(
     subtotalCents: order.subtotalCents,
     serviceFeeCents: order.serviceFeeCents,
     totalCents: order.totalCents,
-    refundCents: null,
+    refundCents: order.refundCents,
     items: order.items.map((item) => {
       const ticket = ticketsBySeatId?.get(item.seatId);
       return {
@@ -138,6 +155,32 @@ export function registerOrderRoutes(
           };
         }),
       }),
+    );
+  });
+
+  app.post('/orders/:id/cancel', async (request, reply) => {
+    const session = await deps.getSession(request.headers);
+    if (!session || session.isAnonymous) {
+      return reply.code(401).send({ error: 'unauthorized' });
+    }
+    const { id } = request.params as { id: string };
+    if (!orderIdSchema.safeParse(id).success) {
+      return reply.code(404).send({ error: 'order_not_found' });
+    }
+    const result = await deps.cancelOrder.execute({
+      orderId: id,
+      userId: session.userId,
+    });
+    if (result.kind !== 'ok') {
+      const mapped = CANCEL_ERRORS[result.kind];
+      return reply.code(mapped.status).send({ error: mapped.error });
+    }
+    const order = await deps.orderRepository.findById(id);
+    if (!order) {
+      return reply.code(404).send({ error: 'order_not_found' });
+    }
+    return reply.send(
+      orderResponseSchema.parse({ order: serializeOrder(order) }),
     );
   });
 

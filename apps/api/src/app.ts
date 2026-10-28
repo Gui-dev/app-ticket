@@ -28,6 +28,7 @@ import { DrizzlePaymentEventRepository } from './modules/orders/infra/drizzle-pa
 import { DrizzleSeatCaptureGateway } from './modules/orders/infra/drizzle-seat-capture-gateway.js';
 import { DrizzleTicketRepository } from './modules/orders/infra/drizzle-ticket-repository.js';
 import { registerOrderRoutes } from './modules/orders/routes/order.routes.js';
+import { CancelOrderUseCase } from './modules/orders/use-cases/cancel-order.use-case.js';
 import { CreateOrderUseCase } from './modules/orders/use-cases/create-order.use-case.js';
 import type { OrganizerRepository } from './modules/organizer/domain/organizer-repository.js';
 import { DrizzleOrganizerRepository } from './modules/organizer/infra/drizzle-organizer-repository.js';
@@ -96,6 +97,7 @@ export function buildApp(
     ticketRepository?: TicketRepository;
     seatCaptureGateway?: SeatCaptureGateway;
     createOrder?: CreateOrderUseCase;
+    cancelOrder?: CancelOrderUseCase;
     organizerRepository?: OrganizerRepository;
   } = {},
 ): FastifyInstance {
@@ -347,6 +349,14 @@ export function buildApp(
         paymentProvider,
         seatCaptureGateway,
         lazyCartRepository,
+      ),
+    cancelOrder:
+      options.cancelOrder ??
+      new CancelOrderUseCase(
+        orderRepository,
+        eventsRepository,
+        seatCaptureGateway,
+        paymentProvider,
       ),
   });
 

@@ -158,6 +158,7 @@ export class DrizzleOrderRepository implements OrderRepository {
         subtotalCents: orders.subtotalCents,
         serviceFeeCents: orders.serviceFeeCents,
         totalCents: orders.totalCents,
+        refundCents: orders.refundCents,
         createdAt: orders.createdAt,
         paidAt: orders.paidAt,
       })

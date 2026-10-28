@@ -37,6 +37,7 @@ function pendingOrder(overrides: Partial<OrderRecord> = {}): OrderRecord {
     subtotalCents: 12000,
     serviceFeeCents: 1200,
     totalCents: 13200,
+    refundCents: null,
     createdAt: new Date('2026-10-18T11:40:00.000Z'),
     paidAt: null,
     items: [],

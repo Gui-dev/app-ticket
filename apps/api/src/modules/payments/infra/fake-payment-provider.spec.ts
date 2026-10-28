@@ -136,6 +136,13 @@ describe('FakePaymentProvider', () => {
     expect(provider.refundedRefs).toEqual(['pi_fake_1']);
   });
 
+  it('registra o reembolso parcial ignorando o amount informado', async () => {
+    const provider = new FakePaymentProvider();
+    await provider.refund('pi_fake_1', 6300);
+    await provider.refund('pi_fake_1', 100);
+    expect(provider.refundedRefs).toEqual(['pi_fake_1']);
+  });
+
   it('registra o reembolso apenas uma vez para a mesma referência', async () => {
     const provider = new FakePaymentProvider();
     await provider.refund('pi_fake_1');

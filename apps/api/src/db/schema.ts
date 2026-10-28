@@ -61,6 +61,10 @@ export const events = pgTable(
     badgeLabel: text('badge_label'),
     featured: boolean('featured').notNull().default(false),
     isHot: boolean('is_hot').notNull().default(false),
+    cancellationWindowHours: integer('cancellation_window_hours')
+      .notNull()
+      .default(24),
+    refundPercent: integer('refund_percent').notNull().default(100),
     searchVector: tsvector('search_vector'),
   },
   (table) => [
@@ -181,7 +185,7 @@ export const orders = pgTable(
       .notNull()
       .references(() => events.id),
     status: text('status')
-      .$type<'pending' | 'paid' | 'failed' | 'expired'>()
+      .$type<'pending' | 'paid' | 'failed' | 'expired' | 'refunded'>()
       .notNull()
       .default('pending'),
     paymentMethod: text('payment_method').$type<'card' | 'boleto'>().notNull(),
@@ -191,6 +195,7 @@ export const orders = pgTable(
     subtotalCents: integer('subtotal_cents').notNull(),
     serviceFeeCents: integer('service_fee_cents').notNull(),
     totalCents: integer('total_cents').notNull(),
+    refundCents: integer('refund_cents'),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
       .notNull()
       .defaultNow(),

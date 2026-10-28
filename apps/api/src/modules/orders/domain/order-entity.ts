@@ -28,6 +28,7 @@ export interface OrderRecord {
   subtotalCents: number;
   serviceFeeCents: number;
   totalCents: number;
+  refundCents: number | null;
   createdAt: Date;
   paidAt: Date | null;
   items: OrderItemRecord[];

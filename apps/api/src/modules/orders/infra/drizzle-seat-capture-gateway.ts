@@ -1,4 +1,4 @@
-import { asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 
 import type { Db } from '../../../db/client.js';
 import {
@@ -15,6 +15,7 @@ import type {
 } from '../../seatmaps/domain/seat-availability-broker.js';
 import { decideOrderCapture } from '../domain/order-entity.js';
 import type {
+  CancelPaidResult,
   ConfirmPaidResult,
   SeatCaptureGateway,
 } from '../domain/seat-capture-gateway.js';
@@ -25,6 +26,7 @@ type ReleaseTransactionResult = {
   seatKeys: string[];
   deltas: SeatStatusDelta[];
 };
+type CancelTransactionResult = { deltas: SeatStatusDelta[] } & CancelPaidResult;
 
 const itemDelta = (
   order: { eventSlug: string },
@@ -128,6 +130,52 @@ export class DrizzleSeatCaptureGateway implements SeatCaptureGateway {
       this.broker.publish(deltas);
     }
     return confirmResult;
+  }
+
+  async cancelPaidOrder(input: {
+    orderId: string;
+    refundCents: number;
+  }): Promise<CancelPaidResult> {
+    const result = (await this.db.transaction(
+      async (tx): Promise<CancelTransactionResult> => {
+        const [order] = await tx
+          .select({ order: orders, eventSlug: events.slug })
+          .from(orders)
+          .innerJoin(events, eq(events.id, orders.eventId))
+          .where(eq(orders.id, input.orderId))
+          .for('update');
+        if (!order || order.order.status !== 'paid') {
+          return { kind: 'not_paid', deltas: [] };
+        }
+        const orderRecord = order.order;
+        const items = await tx
+          .select()
+          .from(orderItems)
+          .where(eq(orderItems.orderId, orderRecord.id));
+        const seatIds = items.map((item) => item.seatId);
+        if (seatIds.length > 0) {
+          await tx
+            .update(seats)
+            .set({ status: 'available', holdUserId: null, holdExpiresAt: null })
+            .where(inArray(seats.id, seatIds));
+        }
+        await tx
+          .update(orders)
+          .set({ status: 'refunded', refundCents: input.refundCents })
+          .where(and(eq(orders.id, orderRecord.id), eq(orders.status, 'paid')));
+        return {
+          kind: 'refunded',
+          deltas: items.map((item) =>
+            itemDelta({ eventSlug: order.eventSlug }, item, 'available'),
+          ),
+        };
+      },
+    )) satisfies CancelTransactionResult;
+
+    if (result.kind === 'refunded' && result.deltas.length > 0) {
+      this.broker.publish(result.deltas);
+    }
+    return { kind: result.kind };
   }
 
   async releaseOrderSeats(input: {

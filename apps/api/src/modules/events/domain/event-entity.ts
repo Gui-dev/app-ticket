@@ -19,6 +19,8 @@ export interface EventEntity {
   badgeLabel: string | null;
   featured: boolean;
   isHot: boolean;
+  cancellationWindowHours?: number;
+  refundPercent?: number;
 }
 
 export interface ArtistRefEntity {

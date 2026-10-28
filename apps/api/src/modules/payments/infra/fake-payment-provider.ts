@@ -71,7 +71,7 @@ export class FakePaymentProvider implements PaymentProvider {
     });
   }
 
-  async refund(providerRef: string): Promise<void> {
+  async refund(providerRef: string, _amountCents?: number): Promise<void> {
     if (this.refunded.has(providerRef)) return;
     this.refunded.add(providerRef);
     this.refundedRefs.push(providerRef);

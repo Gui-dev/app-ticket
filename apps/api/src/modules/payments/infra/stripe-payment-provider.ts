@@ -70,9 +70,12 @@ export class StripePaymentProvider implements PaymentProvider {
     });
   }
 
-  async refund(providerRef: string): Promise<void> {
+  async refund(providerRef: string, amountCents?: number): Promise<void> {
     await this.stripe.refunds.create(
-      { payment_intent: providerRef },
+      {
+        payment_intent: providerRef,
+        ...(amountCents === undefined ? {} : { amount: amountCents }),
+      },
       { idempotencyKey: `refund-${providerRef}` },
     );
   }

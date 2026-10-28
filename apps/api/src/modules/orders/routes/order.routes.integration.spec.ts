@@ -1,8 +1,9 @@
 import {
   createOrderResponseSchema,
   orderListResponseSchema,
+  orderResponseSchema,
 } from '@ticketvibe/shared';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
@@ -15,6 +16,7 @@ import {
   seatRows,
   seats,
   sectors,
+  tickets,
   user,
 } from '../../../db/schema.js';
 import { seedFixtures } from '../../../db/seed-fixtures.js';
@@ -41,11 +43,13 @@ import { DrizzleSeatCaptureGateway } from '../infra/drizzle-seat-capture-gateway
 import { DrizzleTicketRepository } from '../infra/drizzle-ticket-repository.js';
 
 const EVENT_SLUG = 'o-fantasma-da-opera';
+const ORDER_ID_ANY = '00000000-0000-4000-8000-000000000000';
 
 describe('order routes (postgres + redis integration)', () => {
   let app: FastifyInstance;
   let testDb: Db;
   let redis: RedisClient;
+  let broker!: InMemorySeatAvailabilityBroker;
 
   const getSession: GetSessionFn = async (headers) => {
     const userId = headers['x-test-user-id'];
@@ -60,6 +64,7 @@ describe('order routes (postgres + redis integration)', () => {
     redis = createRedis(TEST_REDIS_URL);
     await redis.connect();
 
+    broker = new InMemorySeatAvailabilityBroker();
     app = buildApp({
       seatmapRepository: new DrizzleSeatmapRepository(
         testDb,
@@ -70,10 +75,7 @@ describe('order routes (postgres + redis integration)', () => {
       eventsRepository: new DrizzleEventsRepository(testDb),
       orderRepository: new DrizzleOrderRepository(testDb),
       ticketRepository: new DrizzleTicketRepository(testDb),
-      seatCaptureGateway: new DrizzleSeatCaptureGateway(
-        testDb,
-        new InMemorySeatAvailabilityBroker(),
-      ),
+      seatCaptureGateway: new DrizzleSeatCaptureGateway(testDb, broker),
       paymentProvider: new FakePaymentProvider('whsec_test'),
       getSession,
     });
@@ -84,6 +86,7 @@ describe('order routes (postgres + redis integration)', () => {
     await resetDatabase(testDb);
     await seedFixtures(testDb);
     await flushTestRedis();
+    broker.published.length = 0;
     await testDb.insert(user).values([
       { id: 'user-a', name: 'User A', email: 'user-a@example.com' },
       { id: 'user-b', name: 'User B', email: 'user-b@example.com' },
@@ -95,6 +98,75 @@ describe('order routes (postgres + redis integration)', () => {
     await app.close();
     await redis.quit();
     await testDb.$client.end();
+  });
+
+  class RefundFailsProvider extends FakePaymentProvider {
+    override async refund(): Promise<void> {
+      throw new Error('provider offline');
+    }
+  }
+
+  const createPaidOrderWithTicket = async (seatLabel = '6') => {
+    await testDb
+      .update(events)
+      .set({ startsAt: sql`now() + interval '7 days'` })
+      .where(eq(events.slug, EVENT_SLUG));
+    await hold(seatLabel);
+    const response = await createOrder();
+    expect(response.statusCode).toBe(201);
+    const body = createOrderResponseSchema.parse(response.json());
+    const orderId = body.order.id;
+    const providerRef = body.payment.providerRef;
+    const [item] = await testDb
+      .select()
+      .from(orderItems)
+      .where(eq(orderItems.orderId, orderId));
+    await testDb
+      .update(seats)
+      .set({ status: 'occupied', holdUserId: null, holdExpiresAt: null })
+      .where(eq(seats.id, item.seatId));
+    await testDb
+      .update(orders)
+      .set({
+        status: 'paid',
+        paidAt: new Date(),
+        providerRef,
+        provider: 'fake',
+      })
+      .where(eq(orders.id, orderId));
+    await testDb.insert(tickets).values({
+      orderId,
+      orderItemId: item.id,
+      seatId: item.seatId,
+      code: `code-${seatLabel}`,
+    });
+    return { orderId, orderItemId: item.id, seatId: item.seatId, providerRef };
+  };
+
+  const readSeat = async (seatId: string) => {
+    const [seat] = await testDb
+      .select()
+      .from(seats)
+      .where(eq(seats.id, seatId));
+    return seat;
+  };
+
+  const readOrderRow = async (orderId: string) => {
+    const [row] = await testDb
+      .select()
+      .from(orders)
+      .where(eq(orders.id, orderId));
+    return row;
+  };
+
+  it('exige sessão no cancelamento do pedido', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: `/orders/${ORDER_ID_ANY}/cancel`,
+    });
+    expect(response.statusCode).toBe(401);
+    expect(response.json()).toEqual({ error: 'unauthorized' });
+    expect(broker.published).toEqual([]);
   });
 
   const hold = async (seatLabel: string, userId = 'user-a') => {
@@ -319,5 +391,193 @@ describe('order routes (postgres + redis integration)', () => {
       createdAt: '2026-10-18T12:00:00.000Z',
     });
     expect(body.orders.map((order) => order.id)).not.toContain(foreignOrder.id);
+  });
+
+  it('cancela o pedido pago com reembolso integral e ingresso inválido', async () => {
+    const { orderId, seatId } = await createPaidOrderWithTicket('6');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/orders/${orderId}/cancel`,
+      headers: { 'x-test-user-id': 'user-a' },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = orderResponseSchema.parse(response.json());
+    expect(body.order).toMatchObject({
+      id: orderId,
+      status: 'refunded',
+      refundCents: 13200,
+    });
+    expect(await readSeat(seatId)).toMatchObject({ status: 'available' });
+    expect(broker.published).toEqual([
+      {
+        eventSlug: EVENT_SLUG,
+        sectorSlug: 'plateia',
+        rowLabel: 'A',
+        seatLabel: '6',
+        status: 'available',
+      },
+    ]);
+
+    const detail = await app.inject({
+      method: 'GET',
+      url: `/orders/${orderId}`,
+      headers: { 'x-test-user-id': 'user-a' },
+    });
+    const detailBody = orderResponseSchema.parse(detail.json());
+    expect(detailBody.order.items[0]?.ticket).toEqual({
+      code: 'code-6',
+      status: 'invalid',
+    });
+  });
+
+  it('recusa o segundo cancelamento do pedido já reembolsado', async () => {
+    const { orderId } = await createPaidOrderWithTicket('6');
+    await app.inject({
+      method: 'POST',
+      url: `/orders/${orderId}/cancel`,
+      headers: { 'x-test-user-id': 'user-a' },
+    });
+
+    const second = await app.inject({
+      method: 'POST',
+      url: `/orders/${orderId}/cancel`,
+      headers: { 'x-test-user-id': 'user-a' },
+    });
+
+    expect(second.statusCode).toBe(409);
+    expect(second.json()).toEqual({ error: 'order_not_cancellable' });
+  });
+
+  it('aceita o cancelamento na borda inclusiva da janela', async () => {
+    const { orderId } = await createPaidOrderWithTicket('6');
+    await testDb
+      .update(events)
+      .set({ startsAt: sql`now() + interval '24 hours 30 seconds'` })
+      .where(eq(events.slug, EVENT_SLUG));
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/orders/${orderId}/cancel`,
+      headers: { 'x-test-user-id': 'user-a' },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect((await readOrderRow(orderId))?.status).toBe('refunded');
+  });
+
+  it('recusa o cancelamento fora da janela', async () => {
+    const { orderId, seatId } = await createPaidOrderWithTicket('6');
+    await testDb
+      .update(events)
+      .set({ startsAt: sql`now() + interval '23 hours 59 minutes'` })
+      .where(eq(events.slug, EVENT_SLUG));
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/orders/${orderId}/cancel`,
+      headers: { 'x-test-user-id': 'user-a' },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({ error: 'refund_window_closed' });
+    expect((await readOrderRow(orderId))?.status).toBe('paid');
+    expect((await readOrderRow(orderId))?.refundCents).toBeNull();
+    expect(await readSeat(seatId)).toMatchObject({ status: 'occupied' });
+    expect(broker.published).toEqual([]);
+  });
+
+  it('recusa o reembolso com porcentagem zero sem mudar o estado', async () => {
+    await testDb
+      .update(events)
+      .set({ refundPercent: 0 })
+      .where(eq(events.slug, EVENT_SLUG));
+    const { orderId, seatId } = await createPaidOrderWithTicket('6');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/orders/${orderId}/cancel`,
+      headers: { 'x-test-user-id': 'user-a' },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({ error: 'refund_not_allowed' });
+    expect(await readOrderRow(orderId)).toMatchObject({
+      status: 'paid',
+      refundCents: null,
+    });
+    expect(await readSeat(seatId)).toMatchObject({ status: 'occupied' });
+    expect(broker.published).toEqual([]);
+  });
+
+  it('devolve 502 na falha do provider e mantém o pedido pago', {
+    timeout: 20_000,
+  }, async () => {
+    const failApp = buildApp({
+      seatmapRepository: new DrizzleSeatmapRepository(
+        testDb,
+        new InMemorySeatAvailabilityBroker(),
+      ),
+      holdRepository: new RedisHoldRepository(redis),
+      cartRepository: new RedisCartRepository(redis),
+      eventsRepository: new DrizzleEventsRepository(testDb),
+      orderRepository: new DrizzleOrderRepository(testDb),
+      ticketRepository: new DrizzleTicketRepository(testDb),
+      seatCaptureGateway: new DrizzleSeatCaptureGateway(
+        testDb,
+        new InMemorySeatAvailabilityBroker(),
+      ),
+      paymentProvider: new RefundFailsProvider('whsec_test'),
+      getSession,
+    });
+    await failApp.ready();
+    const { orderId, seatId, providerRef } =
+      await createPaidOrderWithTicket('6');
+
+    try {
+      const response = await failApp.inject({
+        method: 'POST',
+        url: `/orders/${orderId}/cancel`,
+        headers: { 'x-test-user-id': 'user-a' },
+      });
+
+      expect(response.statusCode).toBe(502);
+      expect(response.json()).toEqual({ error: 'refund_provider_error' });
+      expect(await readOrderRow(orderId)).toMatchObject({
+        status: 'paid',
+        refundCents: null,
+        providerRef,
+      });
+      expect(await readSeat(seatId)).toMatchObject({ status: 'occupied' });
+      expect(broker.published).toEqual([]);
+    } finally {
+      await failApp.close();
+    }
+  });
+
+  it('devolve 404 para o pedido de outro usuário', async () => {
+    const { orderId } = await createPaidOrderWithTicket('6');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/orders/${orderId}/cancel`,
+      headers: { 'x-test-user-id': 'user-b' },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({ error: 'order_not_found' });
+    expect((await readOrderRow(orderId))?.status).toBe('paid');
+  });
+
+  it('devolve 404 para um pedido desconhecido', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: `/orders/${ORDER_ID_ANY}/cancel`,
+      headers: { 'x-test-user-id': 'user-a' },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({ error: 'order_not_found' });
   });
 });
