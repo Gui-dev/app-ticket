@@ -27,6 +27,8 @@ import {
   orderSchema,
   orderStatusSchema,
   orderTotals,
+  organizerConnectResponseSchema,
+  organizerConnectStatusSchema,
   organizerEventCreateSchema,
   organizerEventDetailResponseSchema,
   organizerEventDetailSchema,
@@ -45,6 +47,8 @@ import {
   organizerTicketValidateSchema,
   organizerTicketValidationRecordSchema,
   organizerTicketValidationResponseSchema,
+  organizerTransferEntrySchema,
+  organizerTransfersResponseSchema,
   organizerVenueCreateSchema,
   organizerVenueListResponseSchema,
   organizerVenueResponseSchema,
@@ -58,10 +62,12 @@ import {
   sectorSchema,
   serviceFeeCents,
   setCartItemResponseSchema,
+  splitAmounts,
   suggestQuerySchema,
   suggestResponseSchema,
   TICKET_TYPE_LABELS,
   ticketPriceCents,
+  transferStatusSchema,
   venueDetailResponseSchema,
   venueDetailSchema,
 } from './index';
@@ -1649,5 +1655,116 @@ describe('organizer event policy fields', () => {
       undefined,
     );
     expect(parsed.success && parsed.data.refundPercent).toBe(undefined);
+  });
+});
+
+describe('splitAmounts', () => {
+  it('splits 19999 into gross, platform fee and organizer net', () => {
+    expect(splitAmounts(19999)).toEqual({
+      grossCents: 19999,
+      platformFeeCents: 2000,
+      organizerNetCents: 17999,
+    });
+  });
+
+  it('splits 10000 into gross, platform fee and organizer net', () => {
+    expect(splitAmounts(10000)).toEqual({
+      grossCents: 10000,
+      platformFeeCents: 1000,
+      organizerNetCents: 9000,
+    });
+  });
+
+  it('keeps fee plus net equal to gross', () => {
+    const first = splitAmounts(19999);
+    expect(first.platformFeeCents + first.organizerNetCents).toBe(
+      first.grossCents,
+    );
+    const second = splitAmounts(10000);
+    expect(second.platformFeeCents + second.organizerNetCents).toBe(
+      second.grossCents,
+    );
+  });
+});
+
+describe('transferStatusSchema', () => {
+  it('accepts the five transfer statuses', () => {
+    for (const status of [
+      'none',
+      'pending',
+      'succeeded',
+      'failed',
+      'skipped',
+    ] as const) {
+      expect(transferStatusSchema.safeParse(status).success).toBe(true);
+    }
+  });
+
+  it('rejects an unknown status', () => {
+    expect(transferStatusSchema.safeParse('unknown').success).toBe(false);
+  });
+});
+
+describe('organizer connect and transfer contracts', () => {
+  const validEntry = {
+    orderId: '2f1a3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d',
+    eventTitle: 'Rock Night',
+    eventSlug: 'rock-night-sao-paulo',
+    grossCents: 19999,
+    platformFeeCents: 2000,
+    organizerNetCents: 17999,
+    transferStatus: 'succeeded',
+    createdAt: '2026-10-29T12:00:00.000Z',
+  };
+
+  it('parses a connect status payload', () => {
+    expect(
+      organizerConnectStatusSchema.parse({
+        connected: true,
+        payoutsEnabled: true,
+      }),
+    ).toEqual({ connected: true, payoutsEnabled: true });
+    expect(
+      organizerConnectStatusSchema.safeParse({ connected: true }).success,
+    ).toBe(false);
+  });
+
+  it('parses a connect response with and without an onboarding url', () => {
+    expect(
+      organizerConnectResponseSchema.parse({
+        onboardingUrl: 'https://connect.stripe.com/setup/e/acct_123',
+      }).onboardingUrl,
+    ).toBe('https://connect.stripe.com/setup/e/acct_123');
+    expect(
+      organizerConnectResponseSchema.parse({ onboardingUrl: null })
+        .onboardingUrl,
+    ).toBeNull();
+    expect(
+      organizerConnectResponseSchema.safeParse({
+        onboardingUrl: 'not-a-url',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('parses a transfer entry', () => {
+    expect(organizerTransferEntrySchema.parse(validEntry)).toEqual(validEntry);
+    expect(
+      organizerTransferEntrySchema.safeParse({ ...validEntry, grossCents: -1 })
+        .success,
+    ).toBe(false);
+    expect(
+      organizerTransferEntrySchema.safeParse({
+        ...validEntry,
+        createdAt: '29/10/2026',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('parses the transfers list response', () => {
+    const payload = { transfers: [validEntry] };
+    expect(organizerTransfersResponseSchema.parse(payload)).toEqual(payload);
+    expect(
+      organizerTransfersResponseSchema.safeParse({ transfers: [{}] }).success,
+    ).toBe(false);
   });
 });

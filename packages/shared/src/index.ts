@@ -302,6 +302,19 @@ export function serviceFeeCents(subtotalCents: number): number {
   return Math.round((subtotalCents * SERVICE_FEE_BPS) / 10_000);
 }
 
+export function splitAmounts(totalCents: number): {
+  grossCents: number;
+  platformFeeCents: number;
+  organizerNetCents: number;
+} {
+  const platformFeeCents = serviceFeeCents(totalCents);
+  return {
+    grossCents: totalCents,
+    platformFeeCents,
+    organizerNetCents: totalCents - platformFeeCents,
+  };
+}
+
 export function orderTotals(items: { priceCents: number }[]): {
   subtotalCents: number;
   serviceFeeCents: number;
@@ -331,6 +344,15 @@ export type OrderStatus = z.infer<typeof orderStatusSchema>;
 export const ticketStatusSchema = z.enum(['valid', 'invalid']);
 export type TicketStatusDto = z.infer<typeof ticketStatusSchema>;
 
+export const transferStatusSchema = z.enum([
+  'none',
+  'pending',
+  'succeeded',
+  'failed',
+  'skipped',
+]);
+export type TransferStatus = z.infer<typeof transferStatusSchema>;
+
 export const orderTicketSchema = z.object({
   code: z.string().min(1),
   status: ticketStatusSchema,
@@ -358,6 +380,8 @@ export const orderSchema = z.object({
   serviceFeeCents: z.number().int().min(0),
   totalCents: z.number().int().min(0),
   refundCents: z.number().int().min(0).nullable(),
+  organizerNetCents: z.number().int().min(0).optional(),
+  transferStatus: transferStatusSchema.optional(),
   items: z.array(orderItemSchema),
   createdAt: z.iso.datetime(),
   paidAt: z.iso.datetime().nullable(),
@@ -416,6 +440,8 @@ export const orderSummarySchema = z.object({
   serviceFeeCents: z.number().int().min(0),
   totalCents: z.number().int().min(0),
   itemCount: z.number().int().min(0),
+  organizerNetCents: z.number().int().min(0).optional(),
+  transferStatus: transferStatusSchema.optional(),
   createdAt: z.iso.datetime(),
 });
 
@@ -664,6 +690,46 @@ export const organizerSalesReportQuerySchema = z.object({
 
 export type OrganizerSalesReportQuery = z.input<
   typeof organizerSalesReportQuerySchema
+>;
+
+export const organizerConnectStatusSchema = z.object({
+  connected: z.boolean(),
+  payoutsEnabled: z.boolean(),
+});
+
+export type OrganizerConnectStatusDto = z.infer<
+  typeof organizerConnectStatusSchema
+>;
+
+export const organizerConnectResponseSchema = z.object({
+  onboardingUrl: z.string().url().nullable(),
+});
+
+export type OrganizerConnectResponse = z.infer<
+  typeof organizerConnectResponseSchema
+>;
+
+export const organizerTransferEntrySchema = z.object({
+  orderId: z.uuid(),
+  eventTitle: z.string().min(1),
+  eventSlug: z.string().min(1),
+  grossCents: z.number().int().min(0),
+  platformFeeCents: z.number().int().min(0),
+  organizerNetCents: z.number().int().min(0),
+  transferStatus: transferStatusSchema,
+  createdAt: z.iso.datetime(),
+});
+
+export type OrganizerTransferEntryDto = z.infer<
+  typeof organizerTransferEntrySchema
+>;
+
+export const organizerTransfersResponseSchema = z.object({
+  transfers: z.array(organizerTransferEntrySchema),
+});
+
+export type OrganizerTransfersResponse = z.infer<
+  typeof organizerTransfersResponseSchema
 >;
 
 export const organizerTicketValidationRecordSchema = z
