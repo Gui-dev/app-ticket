@@ -216,4 +216,109 @@ describe('StripePaymentProvider', () => {
 
     await expect(provider.cancelPayment('pi_1')).resolves.toBeUndefined();
   });
+
+  it('cria conta express e link de onboarding para o usuário', async () => {
+    const provider = buildProvider();
+    const create = vi
+      .spyOn(stripeClientOf(provider).accounts, 'create')
+      .mockResolvedValue({
+        id: 'acct_1',
+      } as unknown as Stripe.Response<Stripe.Account>);
+    const createLink = vi
+      .spyOn(stripeClientOf(provider).accountLinks, 'create')
+      .mockResolvedValue({
+        id: 'al_1',
+        url: 'https://connect.stripe.com/setup/e/acct_1',
+      } as unknown as Stripe.Response<Stripe.AccountLink>);
+
+    const result = await provider.createConnectOnboarding({ userId: 'user-a' });
+
+    expect(create).toHaveBeenCalledWith({ type: 'express' });
+    expect(createLink).toHaveBeenCalledWith({
+      account: 'acct_1',
+      refresh_url: 'http://localhost:3000/organizador/repasses',
+      return_url: 'http://localhost:3000/organizador/repasses',
+      type: 'account_onboarding',
+    });
+    expect(result).toEqual({
+      accountId: 'acct_1',
+      onboardingUrl: 'https://connect.stripe.com/setup/e/acct_1',
+    });
+  });
+
+  it('usa WEB_APP_URL nas urls de refresh e return do link de onboarding', async () => {
+    const provider = buildProvider();
+    const create = vi
+      .spyOn(stripeClientOf(provider).accounts, 'create')
+      .mockResolvedValue({
+        id: 'acct_1',
+      } as unknown as Stripe.Response<Stripe.Account>);
+    const createLink = vi
+      .spyOn(stripeClientOf(provider).accountLinks, 'create')
+      .mockResolvedValue({
+        id: 'al_1',
+        url: 'https://connect.stripe.com/setup/e/acct_1',
+      } as unknown as Stripe.Response<Stripe.AccountLink>);
+
+    const previous = process.env.WEB_APP_URL;
+    process.env.WEB_APP_URL = 'https://app.example';
+    try {
+      await provider.createConnectOnboarding({ userId: 'user-a' });
+
+      expect(create).toHaveBeenCalledWith({ type: 'express' });
+      expect(createLink).toHaveBeenCalledWith({
+        account: 'acct_1',
+        refresh_url: 'https://app.example/organizador/repasses',
+        return_url: 'https://app.example/organizador/repasses',
+        type: 'account_onboarding',
+      });
+    } finally {
+      if (previous === undefined) delete process.env.WEB_APP_URL;
+      else process.env.WEB_APP_URL = previous;
+    }
+  });
+
+  it('reaproveita a conta existente sem criar uma segunda conta', async () => {
+    const provider = buildProvider();
+    const create = vi
+      .spyOn(stripeClientOf(provider).accounts, 'create')
+      .mockResolvedValue({
+        id: 'acct_2',
+      } as unknown as Stripe.Response<Stripe.Account>);
+    const createLink = vi
+      .spyOn(stripeClientOf(provider).accountLinks, 'create')
+      .mockResolvedValue({
+        id: 'al_1',
+        url: 'https://connect.stripe.com/setup/e/acct_9',
+      } as unknown as Stripe.Response<Stripe.AccountLink>);
+
+    const result = await provider.createConnectOnboarding({
+      userId: 'user-a',
+      accountId: 'acct_9',
+    });
+
+    expect(create).not.toHaveBeenCalled();
+    expect(createLink).toHaveBeenCalledWith(
+      expect.objectContaining({ account: 'acct_9' }),
+    );
+    expect(result).toEqual({
+      accountId: 'acct_9',
+      onboardingUrl: 'https://connect.stripe.com/setup/e/acct_9',
+    });
+  });
+
+  it('devolve payouts_enabled da conta connect recuperada', async () => {
+    const provider = buildProvider();
+    const retrieve = vi
+      .spyOn(stripeClientOf(provider).accounts, 'retrieve')
+      .mockResolvedValue({
+        id: 'acct_1',
+        payouts_enabled: true,
+      } as unknown as Stripe.Response<Stripe.Account>);
+
+    await expect(provider.getConnectAccount('acct_1')).resolves.toEqual({
+      payoutsEnabled: true,
+    });
+    expect(retrieve).toHaveBeenCalledWith('acct_1');
+  });
 });

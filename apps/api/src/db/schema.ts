@@ -299,6 +299,7 @@ export const user = pgTable('user', {
   image: text('image'),
   isAnonymous: boolean('is_anonymous').default(false),
   role: text('role').notNull().default('buyer'),
+  stripeAccountId: text('stripe_account_id'),
   createdAt: timestamp('created_at', { withTimezone: true })
     .defaultNow()
     .notNull(),

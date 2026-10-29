@@ -157,4 +157,36 @@ describe('FakePaymentProvider', () => {
     await provider.cancelPayment('pi_fake_2');
     expect(provider.cancelledRefs).toEqual(['pi_fake_1', 'pi_fake_2']);
   });
+
+  it('cria onboarding de connect com conta fake determinística', async () => {
+    const provider = new FakePaymentProvider();
+    const result = await provider.createConnectOnboarding({ userId: 'user-a' });
+    expect(result.accountId).toBe('acct_fake_user-a');
+    expect(result.onboardingUrl).toBe(
+      'https://connect.stripe.com/fake/acct_fake_user-a/onboarding',
+    );
+  });
+
+  it('reutiliza a mesma conta fake no onboarding repetido', async () => {
+    const provider = new FakePaymentProvider();
+    const first = await provider.createConnectOnboarding({ userId: 'user-a' });
+    const second = await provider.createConnectOnboarding({ userId: 'user-a' });
+    expect(second.accountId).toBe(first.accountId);
+    expect(second.onboardingUrl).toBe(first.onboardingUrl);
+  });
+
+  it('marca a conta conectada como pronta para repasses imediatamente', async () => {
+    const provider = new FakePaymentProvider();
+    const result = await provider.createConnectOnboarding({ userId: 'user-a' });
+    await expect(provider.getConnectAccount(result.accountId)).resolves.toEqual(
+      { payoutsEnabled: true },
+    );
+  });
+
+  it('devolve payoutsEnabled false para conta connect desconhecida', async () => {
+    const provider = new FakePaymentProvider();
+    await expect(
+      provider.getConnectAccount('acct_fake_desconhecida'),
+    ).resolves.toEqual({ payoutsEnabled: false });
+  });
 });

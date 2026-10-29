@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto';
 
 import type {
+  ConnectAccountStatus,
+  ConnectOnboardingResult,
+  CreateConnectOnboardingInput,
   CreatePaymentInput,
   CreatePaymentResult,
   PaymentEvent,
@@ -29,6 +32,7 @@ export class FakePaymentProvider implements PaymentProvider {
   readonly cancelledRefs: string[] = [];
   private readonly clientSecrets = new Map<string, string>();
   private readonly refunded = new Set<string>();
+  private readonly connectAccounts = new Set<string>();
 
   constructor(
     private readonly webhookSecret = process.env.STRIPE_WEBHOOK_SECRET ??
@@ -79,5 +83,20 @@ export class FakePaymentProvider implements PaymentProvider {
 
   async cancelPayment(providerRef: string): Promise<void> {
     this.cancelledRefs.push(providerRef);
+  }
+
+  async createConnectOnboarding(
+    input: CreateConnectOnboardingInput,
+  ): Promise<ConnectOnboardingResult> {
+    const accountId = `acct_fake_${input.userId}`;
+    this.connectAccounts.add(accountId);
+    return {
+      accountId,
+      onboardingUrl: `https://connect.stripe.com/fake/${accountId}/onboarding`,
+    };
+  }
+
+  async getConnectAccount(accountId: string): Promise<ConnectAccountStatus> {
+    return { payoutsEnabled: this.connectAccounts.has(accountId) };
   }
 }

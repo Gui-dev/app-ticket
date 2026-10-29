@@ -3,6 +3,8 @@ import {
   type OrganizerLotDto,
   type OrganizerSectorDto,
   type OrganizerVenueDto,
+  organizerConnectResponseSchema,
+  organizerConnectStatusSchema,
   organizerEventCreateSchema,
   organizerEventDetailResponseSchema,
   organizerEventDtoSchema,
@@ -25,6 +27,8 @@ import type { FastifyInstance } from 'fastify';
 
 import type { GetSessionFn } from '../../auth/get-session.js';
 import { guardOrganizer } from '../../auth/role-guard.js';
+import type { PaymentProvider } from '../../payments/domain/payment-provider.js';
+import type { StripeAccountStore } from '../../payments/domain/stripe-account-store.js';
 import type {
   OrganizerEventRecord,
   OrganizerLotRecord,
@@ -53,6 +57,8 @@ import { ValidateTicketUseCase } from '../use-cases/validate-ticket.use-case.js'
 interface OrganizerRoutesDeps {
   getSession: GetSessionFn;
   organizerRepository: OrganizerRepository;
+  paymentProvider: PaymentProvider;
+  stripeAccountStore: StripeAccountStore;
 }
 
 const eventIdSchema = organizerEventDtoSchema.shape.id;
@@ -757,5 +763,61 @@ export function registerOrganizerRoutes(
     return reply
       .code(200)
       .send(organizerTicketValidationResponseSchema.parse({ validation }));
+  });
+
+  app.post('/organizer/payments/connect', async (request, reply) => {
+    const session = await deps.getSession(request.headers);
+    if (!session) {
+      return reply.code(401).send({ error: 'not_authenticated' });
+    }
+    const guard = guardOrganizer(session);
+    if (guard.kind !== 'ok') {
+      return reply.code(403).send({ error: 'not_organizer' });
+    }
+    const stored = await deps.stripeAccountStore.getByUserId(session.userId);
+    const onboarding = await deps.paymentProvider.createConnectOnboarding({
+      userId: session.userId,
+      accountId: stored?.stripeAccountId ?? null,
+    });
+    if (!stored) {
+      await deps.stripeAccountStore.setByUserId(
+        session.userId,
+        onboarding.accountId,
+      );
+    }
+    return reply.code(200).send(
+      organizerConnectResponseSchema.parse({
+        onboardingUrl: onboarding.onboardingUrl,
+      }),
+    );
+  });
+
+  app.get('/organizer/payments/connect', async (request, reply) => {
+    const session = await deps.getSession(request.headers);
+    if (!session) {
+      return reply.code(401).send({ error: 'not_authenticated' });
+    }
+    const guard = guardOrganizer(session);
+    if (guard.kind !== 'ok') {
+      return reply.code(403).send({ error: 'not_organizer' });
+    }
+    const stored = await deps.stripeAccountStore.getByUserId(session.userId);
+    if (!stored) {
+      return reply.code(200).send(
+        organizerConnectStatusSchema.parse({
+          connected: false,
+          payoutsEnabled: false,
+        }),
+      );
+    }
+    const account = await deps.paymentProvider.getConnectAccount(
+      stored.stripeAccountId,
+    );
+    return reply.code(200).send(
+      organizerConnectStatusSchema.parse({
+        connected: true,
+        payoutsEnabled: account.payoutsEnabled,
+      }),
+    );
   });
 }

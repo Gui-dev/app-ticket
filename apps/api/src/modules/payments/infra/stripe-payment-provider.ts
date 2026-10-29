@@ -1,6 +1,9 @@
 import Stripe from 'stripe';
 
 import type {
+  ConnectAccountStatus,
+  ConnectOnboardingResult,
+  CreateConnectOnboardingInput,
   CreatePaymentInput,
   CreatePaymentResult,
   PaymentEvent,
@@ -86,5 +89,26 @@ export class StripePaymentProvider implements PaymentProvider {
     } catch {
       return;
     }
+  }
+
+  async createConnectOnboarding(
+    input: CreateConnectOnboardingInput,
+  ): Promise<ConnectOnboardingResult> {
+    const account = input.accountId
+      ? { id: input.accountId, payouts_enabled: false }
+      : await this.stripe.accounts.create({ type: 'express' });
+    const redirectUrl = `${process.env.WEB_APP_URL ?? 'http://localhost:3000'}/organizador/repasses`;
+    const link = await this.stripe.accountLinks.create({
+      account: account.id,
+      refresh_url: redirectUrl,
+      return_url: redirectUrl,
+      type: 'account_onboarding',
+    });
+    return { accountId: account.id, onboardingUrl: link.url };
+  }
+
+  async getConnectAccount(accountId: string): Promise<ConnectAccountStatus> {
+    const account = await this.stripe.accounts.retrieve(accountId);
+    return { payoutsEnabled: account.payouts_enabled };
   }
 }

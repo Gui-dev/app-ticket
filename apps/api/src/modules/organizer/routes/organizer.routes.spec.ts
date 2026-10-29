@@ -1,11 +1,13 @@
 import Fastify, { type FastifyInstance } from 'fastify';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type {
   GetSessionFn,
   SessionUser,
   UserRole,
 } from '../../auth/get-session.js';
+import { FakePaymentProvider } from '../../payments/infra/fake-payment-provider.js';
+import { InMemoryStripeAccountStore } from '../../payments/infra/in-memory-stripe-account-store.js';
 import type {
   InMemoryOrganizerEventSeed,
   InMemoryOrganizerTicketSeed,
@@ -41,6 +43,8 @@ describe('organizer event routes', () => {
   let app: FastifyInstance;
   let repository: InMemoryOrganizerRepository;
   let roles: Map<string, UserRole>;
+  let paymentProvider: FakePaymentProvider;
+  let stripeAccountStore: InMemoryStripeAccountStore;
 
   const getSession: GetSessionFn = async (headers) => {
     const userId = headers['x-test-user-id'];
@@ -52,6 +56,8 @@ describe('organizer event routes', () => {
 
   beforeEach(() => {
     roles = new Map([['user-a', 'organizer']]);
+    paymentProvider = new FakePaymentProvider();
+    stripeAccountStore = new InMemoryStripeAccountStore();
     repository = new InMemoryOrganizerRepository({
       categories: [{ slug: 'shows', name: 'Shows' }],
       venues: [
@@ -74,6 +80,8 @@ describe('organizer event routes', () => {
     registerOrganizerRoutes(app, {
       getSession,
       organizerRepository: repository,
+      paymentProvider,
+      stripeAccountStore,
     });
   });
 
@@ -232,6 +240,8 @@ describe('organizer event routes', () => {
       registerOrganizerRoutes(next, {
         getSession,
         organizerRepository: repository,
+        paymentProvider,
+        stripeAccountStore,
       });
       return next;
     }
@@ -396,6 +406,8 @@ describe('organizer event routes', () => {
       registerOrganizerRoutes(next, {
         getSession,
         organizerRepository: repository,
+        paymentProvider,
+        stripeAccountStore,
       });
       return next;
     }
@@ -578,6 +590,117 @@ describe('organizer event routes', () => {
       expect(foreign.statusCode).toBe(200);
       expect(foreign.json().validation.result).toBe('invalid');
       await scoped.close();
+    });
+  });
+
+  describe('organizer payments connect routes', () => {
+    it('onboarding exige sessão ativa e papel de organizador', async () => {
+      const noSession = await app.inject({
+        method: 'POST',
+        url: '/organizer/payments/connect',
+      });
+      expect(noSession.statusCode).toBe(401);
+      expect(noSession.json()).toEqual({ error: 'not_authenticated' });
+
+      const buyer = await app.inject({
+        method: 'POST',
+        url: '/organizer/payments/connect',
+        headers: { 'x-test-user-id': 'user-b' },
+      });
+      expect(buyer.statusCode).toBe(403);
+      expect(buyer.json()).toEqual({ error: 'not_organizer' });
+    });
+
+    it('status exige sessão ativa e papel de organizador', async () => {
+      const noSession = await app.inject({
+        method: 'GET',
+        url: '/organizer/payments/connect',
+      });
+      expect(noSession.statusCode).toBe(401);
+      expect(noSession.json()).toEqual({ error: 'not_authenticated' });
+
+      const buyer = await app.inject({
+        method: 'GET',
+        url: '/organizer/payments/connect',
+        headers: { 'x-test-user-id': 'user-b' },
+      });
+      expect(buyer.statusCode).toBe(403);
+      expect(buyer.json()).toEqual({ error: 'not_organizer' });
+    });
+
+    it('cria a conta connect, persiste no store e devolve onboardingUrl', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/organizer/payments/connect',
+        headers: { 'x-test-user-id': 'user-a' },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        onboardingUrl:
+          'https://connect.stripe.com/fake/acct_fake_user-a/onboarding',
+      });
+      await expect(stripeAccountStore.getByUserId('user-a')).resolves.toEqual({
+        stripeAccountId: 'acct_fake_user-a',
+      });
+    });
+
+    it('reutiliza a conta existente no segundo onboarding', async () => {
+      await app.inject({
+        method: 'POST',
+        url: '/organizer/payments/connect',
+        headers: { 'x-test-user-id': 'user-a' },
+      });
+      const spy = vi.spyOn(paymentProvider, 'createConnectOnboarding');
+
+      const second = await app.inject({
+        method: 'POST',
+        url: '/organizer/payments/connect',
+        headers: { 'x-test-user-id': 'user-a' },
+      });
+
+      expect(second.statusCode).toBe(200);
+      expect(spy).toHaveBeenCalledWith({
+        userId: 'user-a',
+        accountId: 'acct_fake_user-a',
+      });
+      await expect(stripeAccountStore.getByUserId('user-a')).resolves.toEqual({
+        stripeAccountId: 'acct_fake_user-a',
+      });
+    });
+
+    it('status devolve connected false para organizador sem conta', async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/organizer/payments/connect',
+        headers: { 'x-test-user-id': 'user-a' },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        connected: false,
+        payoutsEnabled: false,
+      });
+    });
+
+    it('status devolve connected e payoutsEnabled com conta pronta', async () => {
+      await app.inject({
+        method: 'POST',
+        url: '/organizer/payments/connect',
+        headers: { 'x-test-user-id': 'user-a' },
+      });
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/organizer/payments/connect',
+        headers: { 'x-test-user-id': 'user-a' },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        connected: true,
+        payoutsEnabled: true,
+      });
     });
   });
 });

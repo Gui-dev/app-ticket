@@ -22,6 +22,20 @@ export interface PaymentEvent {
   amountCents: number | null;
 }
 
+export interface CreateConnectOnboardingInput {
+  userId: string;
+  accountId?: string | null;
+}
+
+export interface ConnectOnboardingResult {
+  accountId: string;
+  onboardingUrl: string;
+}
+
+export interface ConnectAccountStatus {
+  payoutsEnabled: boolean;
+}
+
 export interface PaymentProvider {
   readonly providerName: 'stripe' | 'fake';
   createPayment(input: CreatePaymentInput): Promise<CreatePaymentResult>;
@@ -32,4 +46,8 @@ export interface PaymentProvider {
   }): Promise<PaymentEvent | null>;
   refund(providerRef: string, amountCents?: number): Promise<void>;
   cancelPayment(providerRef: string): Promise<void>;
+  createConnectOnboarding(
+    input: CreateConnectOnboardingInput,
+  ): Promise<ConnectOnboardingResult>;
+  getConnectAccount(accountId: string): Promise<ConnectAccountStatus>;
 }

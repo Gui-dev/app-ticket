@@ -36,7 +36,9 @@ import { registerOrganizerRoutes } from './modules/organizer/routes/organizer.ro
 import { createPaymentProvider } from './modules/payments/create-payment-provider.js';
 import type { PaymentEventQueue } from './modules/payments/domain/payment-event-queue.js';
 import type { PaymentProvider } from './modules/payments/domain/payment-provider.js';
+import type { StripeAccountStore } from './modules/payments/domain/stripe-account-store.js';
 import { BullMqPaymentEventQueue } from './modules/payments/infra/bullmq-payment-event-queue.js';
+import { DrizzleStripeAccountStore } from './modules/payments/infra/drizzle-stripe-account-store.js';
 import {
   PAYMENT_JOB_OPTIONS,
   PAYMENTS_QUEUE_NAME,
@@ -99,6 +101,7 @@ export function buildApp(
     createOrder?: CreateOrderUseCase;
     cancelOrder?: CancelOrderUseCase;
     organizerRepository?: OrganizerRepository;
+    stripeAccountStore?: StripeAccountStore;
   } = {},
 ): FastifyInstance {
   const app = Fastify({ logger: false });
@@ -201,6 +204,8 @@ export function buildApp(
   const organizerRepository =
     options.organizerRepository ??
     new DrizzleOrganizerRepository(getDefaultDb());
+  const stripeAccountStore =
+    options.stripeAccountStore ?? new DrizzleStripeAccountStore(getDefaultDb());
 
   const getHoldRepository = (): HoldRepository => {
     if (options.holdRepository) return options.holdRepository;
@@ -360,7 +365,12 @@ export function buildApp(
       ),
   });
 
-  registerOrganizerRoutes(app, { getSession, organizerRepository });
+  registerOrganizerRoutes(app, {
+    getSession,
+    organizerRepository,
+    paymentProvider,
+    stripeAccountStore,
+  });
 
   registerWebhookRoutes(app, {
     paymentProvider,
