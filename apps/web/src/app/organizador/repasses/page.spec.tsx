@@ -116,10 +116,12 @@ describe('página Repasses', () => {
 
   it('mostra o pill de conta conectada e omite o link quando já há conexão', async () => {
     connectStatus.current = { connected: true, payoutsEnabled: true };
+    const connectPosts: string[] = [];
     server.use(
-      http.post(/\/api\/organizer\/payments\/connect$/, () =>
-        HttpResponse.json({ error: 'unexpected_call' }, { status: 500 }),
-      ),
+      http.post(/\/api\/organizer\/payments\/connect$/, (info) => {
+        connectPosts.push(new URL(info.request.url).pathname);
+        return HttpResponse.json({ error: 'unexpected_call' }, { status: 500 });
+      }),
     );
 
     render(<RepassesPage />);
@@ -130,6 +132,28 @@ describe('página Repasses', () => {
     expect(screen.queryByText('Não conectado')).not.toBeInTheDocument();
     expect(
       screen.queryByRole('link', { name: 'Conectar Stripe' }),
+    ).not.toBeInTheDocument();
+    expect(connectPosts).toHaveLength(0);
+  });
+
+  it('mostra o pill desconectado e o link quando a conta existe mas ainda não pode receber repasses', async () => {
+    connectStatus.current = { connected: true, payoutsEnabled: false };
+    const connectPosts: string[] = [];
+    server.use(
+      http.post(/\/api\/organizer\/payments\/connect$/, (info) => {
+        connectPosts.push(new URL(info.request.url).pathname);
+        return HttpResponse.json({ onboardingUrl });
+      }),
+    );
+
+    render(<RepassesPage />);
+
+    expect(await screen.findByText('Não conectado')).toBeInTheDocument();
+    const anchor = await screen.findByRole('link', { name: 'Conectar Stripe' });
+    expect(anchor).toHaveAttribute('href', onboardingUrl);
+    await waitFor(() => expect(connectPosts).toHaveLength(1));
+    expect(
+      screen.queryByText('Conta conectada; repasse automático'),
     ).not.toBeInTheDocument();
   });
 

@@ -83,10 +83,10 @@ function RepassesPage() {
     };
   }, []);
 
-  const connected = connectStatus?.connected;
+  const payoutsEnabled = connectStatus?.payoutsEnabled;
 
   useEffect(() => {
-    if (connected !== false || onboardingUrl !== null) return undefined;
+    if (payoutsEnabled !== false || onboardingUrl !== null) return undefined;
     const controller = new AbortController();
 
     async function loadOnboardingUrl() {
@@ -101,7 +101,7 @@ function RepassesPage() {
 
     void loadOnboardingUrl();
     return () => controller.abort();
-  }, [connected, onboardingUrl]);
+  }, [payoutsEnabled, onboardingUrl]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -151,10 +151,10 @@ function RepassesPage() {
           </p>
         ) : (
           <span className="rounded-full border border-border bg-secondary px-4 py-2 text-sm font-semibold text-secondary-foreground">
-            {connected ? CONNECTED_LABEL : DISCONNECTED_LABEL}
+            {payoutsEnabled ? CONNECTED_LABEL : DISCONNECTED_LABEL}
           </span>
         )}
-        {connected === false && onboardingUrl !== null ? (
+        {payoutsEnabled === false && onboardingUrl !== null ? (
           <a
             href={onboardingUrl}
             target="_blank"
