@@ -25,6 +25,7 @@ import {
   orderListResponseSchema,
   orderPaymentSchema,
   orderSchema,
+  orderSplit,
   orderStatusSchema,
   orderTotals,
   organizerConnectResponseSchema,
@@ -62,7 +63,6 @@ import {
   sectorSchema,
   serviceFeeCents,
   setCartItemResponseSchema,
-  splitAmounts,
   suggestQuerySchema,
   suggestResponseSchema,
   TICKET_TYPE_LABELS,
@@ -1658,32 +1658,34 @@ describe('organizer event policy fields', () => {
   });
 });
 
-describe('splitAmounts', () => {
-  it('splits 19999 into gross, platform fee and organizer net', () => {
-    expect(splitAmounts(19999)).toEqual({
-      grossCents: 19999,
-      platformFeeCents: 2000,
-      organizerNetCents: 17999,
-    });
-  });
-
-  it('splits 10000 into gross, platform fee and organizer net', () => {
-    expect(splitAmounts(10000)).toEqual({
-      grossCents: 10000,
+describe('orderSplit', () => {
+  it('derives the split from the stored gross total and service fee', () => {
+    expect(orderSplit({ totalCents: 11000, serviceFeeCents: 1000 })).toEqual({
+      grossCents: 11000,
       platformFeeCents: 1000,
-      organizerNetCents: 9000,
+      organizerNetCents: 10000,
     });
   });
 
-  it('keeps fee plus net equal to gross', () => {
-    const first = splitAmounts(19999);
-    expect(first.platformFeeCents + first.organizerNetCents).toBe(
-      first.grossCents,
+  it('keeps platform fee plus organizer net equal to gross', () => {
+    const split = orderSplit({ totalCents: 11000, serviceFeeCents: 1000 });
+    expect(split.platformFeeCents + split.organizerNetCents).toBe(
+      split.grossCents,
     );
-    const second = splitAmounts(10000);
-    expect(second.platformFeeCents + second.organizerNetCents).toBe(
-      second.grossCents,
-    );
+  });
+
+  it('uses the stored order fee instead of recomputing it from the gross', () => {
+    const totals = orderTotals([{ priceCents: 10000 }]);
+    const split = orderSplit({
+      totalCents: totals.totalCents,
+      serviceFeeCents: totals.serviceFeeCents,
+    });
+    expect(split).toEqual({
+      grossCents: 11000,
+      platformFeeCents: 1000,
+      organizerNetCents: 10000,
+    });
+    expect(split.organizerNetCents).toBe(totals.subtotalCents);
   });
 });
 

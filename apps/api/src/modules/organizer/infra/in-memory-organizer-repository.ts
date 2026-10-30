@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { splitAmounts, type TransferStatus } from '@ticketvibe/shared';
+import { orderSplit, type TransferStatus } from '@ticketvibe/shared';
 
 import type {
   CreateEventResult,
@@ -858,7 +858,10 @@ export class InMemoryOrganizerRepository implements OrganizerRepository {
         orderId: order.id,
         eventTitle: event.title,
         eventSlug: event.slug,
-        ...splitAmounts(order.totalCents),
+        ...orderSplit({
+          totalCents: order.totalCents,
+          serviceFeeCents: order.serviceFeeCents,
+        }),
         transferStatus: order.transferStatus,
         createdAt: new Date(order.createdAt),
       }));

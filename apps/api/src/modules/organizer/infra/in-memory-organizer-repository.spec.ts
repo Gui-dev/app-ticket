@@ -582,13 +582,14 @@ describe('InMemoryOrganizerRepository — listOrderTransfers', () => {
     });
   }
 
-  it('lista pedidos pagos do organizador com bruto, taxa e líquido do splitAmounts', async () => {
+  it('lista pedidos pagos do organizador com bruto, taxa e líquido do orderSplit', async () => {
     const repository = createRepository([
       {
         id: '123e4567-e89b-42d3-a456-426614174000',
         eventId: 'evt-meu',
         status: 'paid',
         paidAt: new Date('2026-06-01T10:00:00.000Z'),
+        serviceFeeCents: 1200,
         totalCents: 13200,
       },
     ]);
@@ -601,8 +602,8 @@ describe('InMemoryOrganizerRepository — listOrderTransfers', () => {
       eventTitle: 'Meu Show',
       eventSlug: 'meu-show',
       grossCents: 13200,
-      platformFeeCents: 1320,
-      organizerNetCents: 11880,
+      platformFeeCents: 1200,
+      organizerNetCents: 12000,
       transferStatus: 'none',
     });
     expect(transfers[0].createdAt.toISOString()).toBe(

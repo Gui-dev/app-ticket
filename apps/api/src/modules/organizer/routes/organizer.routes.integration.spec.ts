@@ -2055,7 +2055,7 @@ describe('organizer routes (postgres integration)', () => {
       return order;
     }
 
-    it('organizador lista repasses dos próprios pedidos com bruto, taxa e líquido do splitAmounts', async () => {
+    it('organizador lista repasses dos próprios pedidos com bruto, taxa e líquido do orderSplit', async () => {
       await promoteOrganizers('user-a');
       const { category, venue } = await seedCatalog();
       const myEvent = await insertEvent(
@@ -2078,7 +2078,7 @@ describe('organizer routes (postgres integration)', () => {
       const newer = await insertTransferOrder({
         eventId: myEvent.id,
         status: 'paid',
-        totalCents: 5000,
+        totalCents: 5500,
         createdAt: new Date('2026-06-03T10:00:00.000Z'),
       });
       const older = await insertTransferOrder({
@@ -2119,9 +2119,9 @@ describe('organizer routes (postgres integration)', () => {
             orderId: newer.id,
             eventTitle: 'Meu Show',
             eventSlug: 'meu-show',
-            grossCents: 5000,
+            grossCents: 5500,
             platformFeeCents: 500,
-            organizerNetCents: 4500,
+            organizerNetCents: 5000,
             transferStatus: 'none',
             createdAt: '2026-06-03T10:00:00.000Z',
           },
@@ -2130,8 +2130,8 @@ describe('organizer routes (postgres integration)', () => {
             eventTitle: 'Meu Show',
             eventSlug: 'meu-show',
             grossCents: 13200,
-            platformFeeCents: 1320,
-            organizerNetCents: 11880,
+            platformFeeCents: 1200,
+            organizerNetCents: 12000,
             transferStatus: 'none',
             createdAt: '2026-06-01T10:00:00.000Z',
           },
@@ -2169,7 +2169,7 @@ describe('organizer routes (postgres integration)', () => {
       expect(paymentProvider.transfers).toEqual([
         {
           orderId: order.id,
-          amountCents: 11880,
+          amountCents: 12000,
           destination: 'acct_fake_user-a',
           transferRef: expect.stringMatching(/^tr_fake_/),
         },

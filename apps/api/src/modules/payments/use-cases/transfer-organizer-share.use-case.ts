@@ -1,4 +1,4 @@
-import { splitAmounts } from '@ticketvibe/shared';
+import { orderSplit } from '@ticketvibe/shared';
 
 import type { EventsRepository } from '../../events/domain/events-repository.js';
 import type { OrderRepository } from '../../orders/domain/order-repository.js';
@@ -39,7 +39,10 @@ export class TransferOrganizerShareUseCase {
     try {
       const { transferRef } = await this.paymentProvider.transfer({
         orderId: order.id,
-        amountCents: splitAmounts(order.totalCents).organizerNetCents,
+        amountCents: orderSplit({
+          totalCents: order.totalCents,
+          serviceFeeCents: order.serviceFeeCents,
+        }).organizerNetCents,
         destination: stored.stripeAccountId,
       });
       await this.orderRepository.setTransfer({

@@ -302,16 +302,18 @@ export function serviceFeeCents(subtotalCents: number): number {
   return Math.round((subtotalCents * SERVICE_FEE_BPS) / 10_000);
 }
 
-export function splitAmounts(totalCents: number): {
+export function orderSplit(input: {
+  totalCents: number;
+  serviceFeeCents: number;
+}): {
   grossCents: number;
   platformFeeCents: number;
   organizerNetCents: number;
 } {
-  const platformFeeCents = serviceFeeCents(totalCents);
   return {
-    grossCents: totalCents,
-    platformFeeCents,
-    organizerNetCents: totalCents - platformFeeCents,
+    grossCents: input.totalCents,
+    platformFeeCents: input.serviceFeeCents,
+    organizerNetCents: input.totalCents - input.serviceFeeCents,
   };
 }
 

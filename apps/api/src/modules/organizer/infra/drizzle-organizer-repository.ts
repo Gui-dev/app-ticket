@@ -1,4 +1,4 @@
-import { splitAmounts } from '@ticketvibe/shared';
+import { orderSplit } from '@ticketvibe/shared';
 import {
   and,
   asc,
@@ -530,6 +530,7 @@ export class DrizzleOrganizerRepository implements OrganizerRepository {
         eventTitle: events.title,
         eventSlug: events.slug,
         totalCents: orders.totalCents,
+        serviceFeeCents: orders.serviceFeeCents,
         transferStatus: orders.transferStatus,
         createdAt: orders.createdAt,
       })
@@ -543,9 +544,10 @@ export class DrizzleOrganizerRepository implements OrganizerRepository {
       orderId: row.orderId,
       eventTitle: row.eventTitle,
       eventSlug: row.eventSlug,
-      grossCents: splitAmounts(row.totalCents).grossCents,
-      platformFeeCents: splitAmounts(row.totalCents).platformFeeCents,
-      organizerNetCents: splitAmounts(row.totalCents).organizerNetCents,
+      ...orderSplit({
+        totalCents: row.totalCents,
+        serviceFeeCents: row.serviceFeeCents,
+      }),
       transferStatus: row.transferStatus,
       createdAt: row.createdAt,
     }));

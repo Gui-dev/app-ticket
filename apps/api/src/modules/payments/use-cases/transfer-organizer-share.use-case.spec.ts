@@ -113,7 +113,7 @@ describe('TransferOrganizerShareUseCase', () => {
 
     expect(harness.transfer).toHaveBeenCalledWith({
       orderId: ORDER_ID,
-      amountCents: 11880,
+      amountCents: 12000,
       destination: ACCOUNT_ID,
     });
     expect(harness.setTransfer).toHaveBeenCalledWith({
