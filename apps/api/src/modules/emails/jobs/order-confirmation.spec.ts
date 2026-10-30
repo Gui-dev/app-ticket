@@ -27,6 +27,8 @@ const paidOrder: OrderRecord = {
   serviceFeeCents: 1200,
   totalCents: 13200,
   refundCents: null,
+  transferStatus: 'none',
+  transferRef: null,
   createdAt: NOW,
   paidAt: NOW,
   items: [

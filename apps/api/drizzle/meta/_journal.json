@@ -120,6 +120,13 @@
       "when": 1793290319136,
       "tag": "0016_faithful_crystal",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1793325698741,
+      "tag": "0017_flawless_the_hand",
+      "breakpoints": true
     }
   ]
 }

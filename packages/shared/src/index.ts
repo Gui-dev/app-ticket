@@ -732,6 +732,14 @@ export type OrganizerTransfersResponse = z.infer<
   typeof organizerTransfersResponseSchema
 >;
 
+export const organizerTransferRetryResponseSchema = z.object({
+  transferStatus: transferStatusSchema,
+});
+
+export type OrganizerTransferRetryResponse = z.infer<
+  typeof organizerTransferRetryResponseSchema
+>;
+
 export const organizerTicketValidationRecordSchema = z
   .object({
     result: z.enum(['valid', 'already_used', 'invalid']),

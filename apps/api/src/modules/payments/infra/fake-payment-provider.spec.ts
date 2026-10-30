@@ -189,4 +189,43 @@ describe('FakePaymentProvider', () => {
       provider.getConnectAccount('acct_fake_desconhecida'),
     ).resolves.toEqual({ payoutsEnabled: false });
   });
+
+  it('registra a transferência do repasse com referência fake', async () => {
+    const provider = new FakePaymentProvider();
+    const result = await provider.transfer({
+      orderId: 'order-1',
+      amountCents: 11880,
+      destination: 'acct_fake_user-a',
+    });
+    expect(result.transferRef).toMatch(/^tr_fake_/);
+    expect(provider.transfers).toEqual([
+      {
+        orderId: 'order-1',
+        amountCents: 11880,
+        destination: 'acct_fake_user-a',
+        transferRef: result.transferRef,
+      },
+    ]);
+  });
+
+  it('lança uma única vez quando a próxima transferência deve falhar', async () => {
+    const provider = new FakePaymentProvider();
+    provider.failNextTransfer = true;
+    await expect(
+      provider.transfer({
+        orderId: 'order-1',
+        amountCents: 11880,
+        destination: 'acct_fake_user-a',
+      }),
+    ).rejects.toThrow();
+    expect(provider.transfers).toEqual([]);
+
+    const result = await provider.transfer({
+      orderId: 'order-1',
+      amountCents: 11880,
+      destination: 'acct_fake_user-a',
+    });
+    expect(result.transferRef).toMatch(/^tr_fake_/);
+    expect(provider.transfers).toHaveLength(1);
+  });
 });

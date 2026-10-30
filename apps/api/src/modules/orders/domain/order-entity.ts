@@ -2,6 +2,7 @@ import type {
   OrderStatus,
   PaymentMethod,
   TicketType,
+  TransferStatus,
 } from '@ticketvibe/shared';
 
 export interface OrderItemRecord {
@@ -29,6 +30,8 @@ export interface OrderRecord {
   serviceFeeCents: number;
   totalCents: number;
   refundCents: number | null;
+  transferStatus: TransferStatus;
+  transferRef: string | null;
   createdAt: Date;
   paidAt: Date | null;
   items: OrderItemRecord[];

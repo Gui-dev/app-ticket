@@ -179,6 +179,8 @@ describe('InMemoryOrderRepository', () => {
       serviceFeeCents: 1200,
       totalCents: 13200,
       refundCents: null,
+      transferStatus: 'none',
+      transferRef: null,
       createdAt: START,
       paidAt: START,
       items: [{ ...item }],

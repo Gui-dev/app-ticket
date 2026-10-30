@@ -1,15 +1,19 @@
+import { randomUUID } from 'node:crypto';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
 import type {
   GetSessionFn,
   SessionUser,
   UserRole,
 } from '../../auth/get-session.js';
+import type { OrderRecord } from '../../orders/domain/order-entity.js';
+import type { OrderRepository } from '../../orders/domain/order-repository.js';
 import { FakePaymentProvider } from '../../payments/infra/fake-payment-provider.js';
 import { InMemoryStripeAccountStore } from '../../payments/infra/in-memory-stripe-account-store.js';
+import type { TransferOrganizerShareUseCase } from '../../payments/use-cases/transfer-organizer-share.use-case.js';
 import type {
   InMemoryOrganizerEventSeed,
+  InMemoryOrganizerOrderSeed,
   InMemoryOrganizerTicketSeed,
 } from '../infra/in-memory-organizer-repository.js';
 import { InMemoryOrganizerRepository } from '../infra/in-memory-organizer-repository.js';
@@ -30,6 +34,7 @@ function seedEvent(
 
 const PLATFORM_EVENT_ID = '22222222-2222-4222-8222-222222222222';
 const FOREIGN_EVENT_ID = '33333333-3333-4333-8333-333333333333';
+const MY_EVENT_ID = '44444444-4444-4444-8444-444444444444';
 
 const CREATE_PAYLOAD = {
   title: 'Festival de Inverno',
@@ -38,6 +43,13 @@ const CREATE_PAYLOAD = {
   venueSlug: 'arena-sp',
   startsAt: '2026-12-01T20:00:00.000Z',
 } as const;
+
+const retryOrderRepository = {
+  findById: async () => null,
+} as unknown as OrderRepository;
+const retryUseCase = {
+  execute: async () => 'skipped',
+} as unknown as TransferOrganizerShareUseCase;
 
 describe('organizer event routes', () => {
   let app: FastifyInstance;
@@ -74,6 +86,11 @@ describe('organizer event routes', () => {
           title: 'Show Alheio',
           organizerId: 'user-b',
         }),
+        seedEvent({
+          id: MY_EVENT_ID,
+          title: 'Meu Show',
+          organizerId: 'user-a',
+        }),
       ],
     });
     app = Fastify({ logger: false });
@@ -82,6 +99,8 @@ describe('organizer event routes', () => {
       organizerRepository: repository,
       paymentProvider,
       stripeAccountStore,
+      orderRepository: retryOrderRepository,
+      transferOrganizerShare: retryUseCase,
     });
   });
 
@@ -242,6 +261,8 @@ describe('organizer event routes', () => {
         organizerRepository: repository,
         paymentProvider,
         stripeAccountStore,
+        orderRepository: retryOrderRepository,
+        transferOrganizerShare: retryUseCase,
       });
       return next;
     }
@@ -408,6 +429,8 @@ describe('organizer event routes', () => {
         organizerRepository: repository,
         paymentProvider,
         stripeAccountStore,
+        orderRepository: retryOrderRepository,
+        transferOrganizerShare: retryUseCase,
       });
       return next;
     }
@@ -702,5 +725,352 @@ describe('organizer event routes', () => {
         payoutsEnabled: true,
       });
     });
+  });
+});
+
+describe('organizer payments transfers routes', () => {
+  const MY_EVENT_ID = '44444444-4444-4444-8444-444444444444';
+  const FOREIGN_EVENT_ID = '33333333-3333-4333-8333-333333333333';
+  const PLATFORM_EVENT_ID = '22222222-2222-4222-8222-222222222222';
+  const ORDER_ID = '550e8400-e29b-41d4-a716-446655440000';
+  const OTHER_ORDER_ID = '660f9511-f90c-52e5-b827-557766551111';
+
+  const getSession: GetSessionFn = async (headers) => {
+    const userId = headers['x-test-user-id'];
+    if (typeof userId !== 'string') return null;
+    const role: UserRole = userId === 'user-a' ? 'organizer' : 'buyer';
+    return { userId, role };
+  };
+
+  function seedEvent(
+    values: Partial<InMemoryOrganizerEventSeed> & { title: string },
+  ): InMemoryOrganizerEventSeed {
+    return {
+      description: 'Descrição suficientemente longa do evento testado.',
+      categorySlug: 'shows',
+      venueSlug: 'arena-sp',
+      startsAt: new Date('2026-12-01T20:00:00.000Z'),
+      organizerId: null,
+      ...values,
+    };
+  }
+
+  function retryOrder(values: {
+    id: string;
+    eventId: string;
+    transferStatus: 'none' | 'pending' | 'succeeded' | 'failed' | 'skipped';
+  }): OrderRecord {
+    return {
+      id: values.id,
+      eventId: values.eventId,
+      transferStatus: values.transferStatus,
+    } as unknown as OrderRecord;
+  }
+
+  async function createTransfersApp(options: {
+    events: InMemoryOrganizerEventSeed[];
+    orders: InMemoryOrganizerOrderSeed[];
+    ordersById?: Map<string, OrderRecord>;
+    execute?: (input: {
+      orderId: string;
+    }) => Promise<'transferred' | 'skipped' | 'failed'>;
+  }) {
+    const repository = new InMemoryOrganizerRepository({
+      categories: [{ slug: 'shows', name: 'Shows' }],
+      venues: [
+        { slug: 'arena-sp', name: 'Arena SP', city: 'São Paulo', state: 'SP' },
+      ],
+      events: options.events,
+      orders: options.orders,
+    });
+    const app = Fastify({ logger: false });
+    registerOrganizerRoutes(app, {
+      getSession,
+      organizerRepository: repository,
+      paymentProvider: new FakePaymentProvider(),
+      stripeAccountStore: new InMemoryStripeAccountStore(),
+      orderRepository: {
+        findById: async (id: string) => options.ordersById?.get(id) ?? null,
+      } as unknown as OrderRepository,
+      transferOrganizerShare: {
+        execute: options.execute ?? (async () => 'transferred'),
+      } as unknown as TransferOrganizerShareUseCase,
+    });
+    await app.ready();
+    return app;
+  }
+
+  it('roteiro de repasses exige sessão ativa', async () => {
+    const app = await createTransfersApp({ events: [], orders: [] });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/organizer/payments/transfers',
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(response.json()).toEqual({ error: 'not_authenticated' });
+    await app.close();
+  });
+
+  it('organizador lista repasses dos próprios pedidos com bruto, taxa e líquido do splitAmounts', async () => {
+    const app = await createTransfersApp({
+      events: [
+        seedEvent({
+          id: MY_EVENT_ID,
+          title: 'Meu Show',
+          organizerId: 'user-a',
+        }),
+        seedEvent({
+          id: FOREIGN_EVENT_ID,
+          title: 'Show Alheio',
+          organizerId: 'user-b',
+        }),
+        seedEvent({ id: PLATFORM_EVENT_ID, title: 'Show da Plataforma' }),
+      ],
+      orders: [
+        {
+          id: ORDER_ID,
+          eventId: MY_EVENT_ID,
+          status: 'paid',
+          totalCents: 13200,
+          createdAt: new Date('2026-06-01T10:00:00.000Z'),
+        },
+        {
+          id: OTHER_ORDER_ID,
+          eventId: MY_EVENT_ID,
+          status: 'paid',
+          totalCents: 5000,
+          createdAt: new Date('2026-06-03T10:00:00.000Z'),
+        },
+        {
+          id: randomUUID(),
+          eventId: MY_EVENT_ID,
+          status: 'pending',
+          totalCents: 2000,
+          createdAt: new Date('2026-06-04T10:00:00.000Z'),
+        },
+        {
+          id: randomUUID(),
+          eventId: FOREIGN_EVENT_ID,
+          status: 'paid',
+          totalCents: 9000,
+        },
+        {
+          id: randomUUID(),
+          eventId: PLATFORM_EVENT_ID,
+          status: 'paid',
+          totalCents: 7000,
+        },
+      ],
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/organizer/payments/transfers',
+      headers: { 'x-test-user-id': 'user-a' },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      transfers: [
+        {
+          orderId: OTHER_ORDER_ID,
+          eventTitle: 'Meu Show',
+          eventSlug: 'meu-show',
+          grossCents: 5000,
+          platformFeeCents: 500,
+          organizerNetCents: 4500,
+          transferStatus: 'none',
+          createdAt: '2026-06-03T10:00:00.000Z',
+        },
+        {
+          orderId: ORDER_ID,
+          eventTitle: 'Meu Show',
+          eventSlug: 'meu-show',
+          grossCents: 13200,
+          platformFeeCents: 1320,
+          organizerNetCents: 11880,
+          transferStatus: 'none',
+          createdAt: '2026-06-01T10:00:00.000Z',
+        },
+      ],
+    });
+    await app.close();
+  });
+
+  it('reinvoca o repasse para um pedido com transfer_status failed', async () => {
+    const execute = vi.fn(
+      async (): Promise<'transferred' | 'skipped' | 'failed'> => 'transferred',
+    );
+    const app = await createTransfersApp({
+      events: [
+        seedEvent({
+          id: MY_EVENT_ID,
+          title: 'Meu Show',
+          organizerId: 'user-a',
+        }),
+      ],
+      orders: [],
+      ordersById: new Map([
+        [
+          ORDER_ID,
+          retryOrder({
+            id: ORDER_ID,
+            eventId: MY_EVENT_ID,
+            transferStatus: 'failed',
+          }),
+        ],
+      ]),
+      execute,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/organizer/payments/transfers/${ORDER_ID}/retry`,
+      headers: { 'x-test-user-id': 'user-a' },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ transferStatus: 'succeeded' });
+    expect(execute).toHaveBeenCalledWith({ orderId: ORDER_ID });
+    await app.close();
+  });
+
+  it('devolve transferStatus failed quando o repasse falha de novo', async () => {
+    const execute = vi.fn(
+      async (): Promise<'transferred' | 'skipped' | 'failed'> => 'failed',
+    );
+    const app = await createTransfersApp({
+      events: [
+        seedEvent({
+          id: MY_EVENT_ID,
+          title: 'Meu Show',
+          organizerId: 'user-a',
+        }),
+      ],
+      orders: [],
+      ordersById: new Map([
+        [
+          ORDER_ID,
+          retryOrder({
+            id: ORDER_ID,
+            eventId: MY_EVENT_ID,
+            transferStatus: 'failed',
+          }),
+        ],
+      ]),
+      execute,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/organizer/payments/transfers/${ORDER_ID}/retry`,
+      headers: { 'x-test-user-id': 'user-a' },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ transferStatus: 'failed' });
+    await app.close();
+  });
+
+  it('devolve transfer_not_retryable quando o repasse não está failed', async () => {
+    for (const transferStatus of ['succeeded', 'none', 'skipped'] as const) {
+      const execute = vi.fn();
+      const app = await createTransfersApp({
+        events: [
+          seedEvent({
+            id: MY_EVENT_ID,
+            title: 'Meu Show',
+            organizerId: 'user-a',
+          }),
+        ],
+        orders: [],
+        ordersById: new Map([
+          [
+            ORDER_ID,
+            retryOrder({
+              id: ORDER_ID,
+              eventId: MY_EVENT_ID,
+              transferStatus,
+            }),
+          ],
+        ]),
+        execute,
+      });
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/organizer/payments/transfers/${ORDER_ID}/retry`,
+        headers: { 'x-test-user-id': 'user-a' },
+      });
+
+      expect(response.statusCode).toBe(409);
+      expect(response.json()).toEqual({ error: 'transfer_not_retryable' });
+      expect(execute).not.toHaveBeenCalled();
+      await app.close();
+    }
+  });
+
+  it('devolve order_not_found para pedido de evento alheio sem revelar proibição', async () => {
+    const execute = vi.fn();
+    const app = await createTransfersApp({
+      events: [
+        seedEvent({
+          id: FOREIGN_EVENT_ID,
+          title: 'Show Alheio',
+          organizerId: 'user-b',
+        }),
+      ],
+      orders: [],
+      ordersById: new Map([
+        [
+          ORDER_ID,
+          retryOrder({
+            id: ORDER_ID,
+            eventId: FOREIGN_EVENT_ID,
+            transferStatus: 'failed',
+          }),
+        ],
+      ]),
+      execute,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/organizer/payments/transfers/${ORDER_ID}/retry`,
+      headers: { 'x-test-user-id': 'user-a' },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({ error: 'order_not_found' });
+    expect(execute).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it('devolve order_not_found para pedido desconhecido', async () => {
+    const execute = vi.fn();
+    const app = await createTransfersApp({
+      events: [
+        seedEvent({
+          id: MY_EVENT_ID,
+          title: 'Meu Show',
+          organizerId: 'user-a',
+        }),
+      ],
+      orders: [],
+      execute,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/organizer/payments/transfers/${ORDER_ID}/retry`,
+      headers: { 'x-test-user-id': 'user-a' },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({ error: 'order_not_found' });
+    expect(execute).not.toHaveBeenCalled();
+    await app.close();
   });
 });

@@ -74,6 +74,8 @@ const orderFixture: OrderRecord = {
   serviceFeeCents: 1800,
   totalCents: 19800,
   refundCents: null,
+  transferStatus: 'none',
+  transferRef: null,
   createdAt: new Date('2026-10-18T12:00:00.000Z'),
   paidAt: null,
   items: [

@@ -1,5 +1,5 @@
+import type { TransferStatus } from '@ticketvibe/shared';
 import { and, asc, desc, eq, lt, type SQL, sql } from 'drizzle-orm';
-
 import type { Db } from '../../../db/client.js';
 import { events, orderItems, orders } from '../../../db/schema.js';
 import type {
@@ -110,6 +110,20 @@ export class DrizzleOrderRepository implements OrderRepository {
       .where(eq(orders.id, input.orderId));
   }
 
+  async setTransfer(input: {
+    orderId: string;
+    status: TransferStatus;
+    transferRef?: string;
+  }): Promise<void> {
+    const patch: { transferStatus: TransferStatus; transferRef?: string } = {
+      transferStatus: input.status,
+    };
+    if (input.transferRef !== undefined) {
+      patch.transferRef = input.transferRef;
+    }
+    await this.db.update(orders).set(patch).where(eq(orders.id, input.orderId));
+  }
+
   async markFailed(input: { orderId: string; now: Date }): Promise<void> {
     await this.db
       .update(orders)
@@ -159,6 +173,8 @@ export class DrizzleOrderRepository implements OrderRepository {
         serviceFeeCents: orders.serviceFeeCents,
         totalCents: orders.totalCents,
         refundCents: orders.refundCents,
+        transferStatus: orders.transferStatus,
+        transferRef: orders.transferRef,
         createdAt: orders.createdAt,
         paidAt: orders.paidAt,
       })

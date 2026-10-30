@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
+import type { TransferStatus } from '@ticketvibe/shared';
 import type {
   OrderRecord,
   OrderSummaryRecord,
@@ -49,6 +50,8 @@ export class InMemoryOrderRepository implements OrderRepository {
       serviceFeeCents: input.serviceFeeCents,
       totalCents: input.totalCents,
       refundCents: null,
+      transferStatus: 'none',
+      transferRef: null,
       createdAt: this.now(),
       paidAt: null,
       items: input.items.map((item) => ({ ...item })),
@@ -118,6 +121,19 @@ export class InMemoryOrderRepository implements OrderRepository {
     const order = this.orders.get(input.orderId);
     if (order) {
       order.providerRef = input.providerRef;
+    }
+  }
+
+  async setTransfer(input: {
+    orderId: string;
+    status: TransferStatus;
+    transferRef?: string;
+  }): Promise<void> {
+    const order = this.orders.get(input.orderId);
+    if (!order) return;
+    order.transferStatus = input.status;
+    if (input.transferRef !== undefined) {
+      order.transferRef = input.transferRef;
     }
   }
 

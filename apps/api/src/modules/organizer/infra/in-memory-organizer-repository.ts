@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
+import { splitAmounts, type TransferStatus } from '@ticketvibe/shared';
+
 import type {
   CreateEventResult,
   CreateRowResult,
@@ -13,6 +15,7 @@ import type {
   OrganizerLotRecord,
   OrganizerRepository,
   OrganizerSectorRecord,
+  OrganizerTransferRecord,
   OrganizerVenueRecord,
   SalesReportForOrganizerResult,
   TicketValidationForOrganizerInput,
@@ -69,11 +72,15 @@ export interface InMemoryOrganizerSectorSeed {
 }
 
 export interface InMemoryOrganizerOrderSeed {
+  id?: string;
   eventId: string;
   seatIds?: string[];
   status?: 'pending' | 'paid' | 'failed' | 'expired';
   paidAt?: Date;
   serviceFeeCents?: number;
+  totalCents?: number;
+  createdAt?: Date;
+  transferStatus?: TransferStatus;
   items?: { priceCents: number }[];
 }
 
@@ -98,10 +105,14 @@ interface InMemoryOrganizerTicketRecord {
 }
 
 interface InMemoryOrganizerOrderRecord {
+  id: string;
   eventId: string;
   status: 'pending' | 'paid' | 'failed' | 'expired';
   paidAt: Date;
   serviceFeeCents: number;
+  totalCents: number;
+  createdAt: Date;
+  transferStatus: TransferStatus;
   items: { priceCents: number }[];
 }
 
@@ -243,15 +254,24 @@ export class InMemoryOrganizerRepository implements OrganizerRepository {
     }
     for (const order of seed.orders ?? []) {
       const items = order.items ?? [{ priceCents: 0 }];
+      const paidAt = order.paidAt ? new Date(order.paidAt) : new Date();
+      const serviceFeeCents =
+        order.serviceFeeCents ??
+        Math.round(
+          items.reduce((total, item) => total + item.priceCents, 0) * 0.1,
+        );
       this.orders.push({
+        id: order.id ?? randomUUID(),
         eventId: order.eventId,
         status: order.status ?? 'paid',
-        paidAt: order.paidAt ? new Date(order.paidAt) : new Date(),
-        serviceFeeCents:
-          order.serviceFeeCents ??
-          Math.round(
-            items.reduce((total, item) => total + item.priceCents, 0) * 0.1,
-          ),
+        paidAt,
+        serviceFeeCents,
+        totalCents:
+          order.totalCents ??
+          items.reduce((total, item) => total + item.priceCents, 0) +
+            serviceFeeCents,
+        createdAt: order.createdAt ? new Date(order.createdAt) : paidAt,
+        transferStatus: order.transferStatus ?? 'none',
         items,
       });
       for (const seatId of order.seatIds ?? []) {
@@ -811,6 +831,37 @@ export class InMemoryOrganizerRepository implements OrganizerRepository {
         netCents: grossCents - platformFeeCents,
       },
     };
+  }
+
+  async listOrderTransfers(
+    organizerId: string,
+  ): Promise<OrganizerTransferRecord[]> {
+    return this.orders
+      .map((order) => ({ order, event: this.events.get(order.eventId) }))
+      .filter(
+        (
+          row,
+        ): row is {
+          order: InMemoryOrganizerOrderRecord;
+          event: OrganizerEventRecord;
+        } =>
+          row.event !== undefined &&
+          row.event.organizerId === organizerId &&
+          row.order.status === 'paid',
+      )
+      .sort(
+        (a, b) =>
+          b.order.createdAt.getTime() - a.order.createdAt.getTime() ||
+          a.order.id.localeCompare(b.order.id),
+      )
+      .map(({ order, event }) => ({
+        orderId: order.id,
+        eventTitle: event.title,
+        eventSlug: event.slug,
+        ...splitAmounts(order.totalCents),
+        transferStatus: order.transferStatus,
+        createdAt: new Date(order.createdAt),
+      }));
   }
 
   async validateTicketForOrganizer(

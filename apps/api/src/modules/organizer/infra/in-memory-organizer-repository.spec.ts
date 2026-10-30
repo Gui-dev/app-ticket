@@ -546,3 +546,150 @@ describe('InMemoryOrganizerRepository — política de cancelamento e reembolso'
     expect(created.event.refundPercent).toBe(100);
   });
 });
+
+describe('InMemoryOrganizerRepository — listOrderTransfers', () => {
+  function seedEvent(
+    values: Partial<InMemoryOrganizerEventSeed> & { title: string },
+  ): InMemoryOrganizerEventSeed {
+    return {
+      description: 'Descrição suficientemente longa do evento testado.',
+      categorySlug: 'shows',
+      venueSlug: 'arena-sp',
+      startsAt: new Date('2026-12-01T20:00:00.000Z'),
+      organizerId: 'user-a',
+      ...values,
+    };
+  }
+
+  function createRepository(
+    orders: InMemoryOrganizerOrderSeed[] = [],
+    eventOverrides: Partial<InMemoryOrganizerEventSeed> = {},
+  ) {
+    return new InMemoryOrganizerRepository({
+      categories: [{ slug: 'shows', name: 'Shows' }],
+      venues: [
+        { slug: 'arena-sp', name: 'Arena SP', city: 'São Paulo', state: 'SP' },
+      ],
+      events: [
+        seedEvent({ id: 'evt-meu', title: 'Meu Show', ...eventOverrides }),
+        seedEvent({
+          id: 'evt-plataforma',
+          title: 'Show da Plataforma',
+          organizerId: null,
+        }),
+      ],
+      orders,
+    });
+  }
+
+  it('lista pedidos pagos do organizador com bruto, taxa e líquido do splitAmounts', async () => {
+    const repository = createRepository([
+      {
+        id: '123e4567-e89b-42d3-a456-426614174000',
+        eventId: 'evt-meu',
+        status: 'paid',
+        paidAt: new Date('2026-06-01T10:00:00.000Z'),
+        totalCents: 13200,
+      },
+    ]);
+
+    const transfers = await repository.listOrderTransfers('user-a');
+
+    expect(transfers).toHaveLength(1);
+    expect(transfers[0]).toMatchObject({
+      orderId: '123e4567-e89b-42d3-a456-426614174000',
+      eventTitle: 'Meu Show',
+      eventSlug: 'meu-show',
+      grossCents: 13200,
+      platformFeeCents: 1320,
+      organizerNetCents: 11880,
+      transferStatus: 'none',
+    });
+    expect(transfers[0].createdAt.toISOString()).toBe(
+      '2026-06-01T10:00:00.000Z',
+    );
+  });
+
+  it('ignora eventos alheios, eventos da plataforma e pedidos não pagos', async () => {
+    const repository = new InMemoryOrganizerRepository({
+      categories: [{ slug: 'shows', name: 'Shows' }],
+      venues: [
+        { slug: 'arena-sp', name: 'Arena SP', city: 'São Paulo', state: 'SP' },
+      ],
+      events: [
+        seedEvent({ id: 'evt-meu', title: 'Meu Show' }),
+        seedEvent({
+          id: 'evt-alheio',
+          title: 'Show Alheio',
+          organizerId: 'user-b',
+        }),
+        seedEvent({
+          id: 'evt-plataforma',
+          title: 'Show da Plataforma',
+          organizerId: null,
+        }),
+      ],
+      orders: [
+        {
+          eventId: 'evt-meu',
+          status: 'paid',
+          createdAt: new Date('2026-06-01T10:00:00.000Z'),
+        },
+        {
+          eventId: 'evt-alheio',
+          status: 'paid',
+          items: [{ priceCents: 9000 }],
+        },
+        {
+          eventId: 'evt-plataforma',
+          status: 'paid',
+          items: [{ priceCents: 7000 }],
+        },
+        {
+          eventId: 'evt-meu',
+          status: 'pending',
+          items: [{ priceCents: 5000 }],
+        },
+        {
+          eventId: 'evt-meu',
+          status: 'paid',
+          items: [{ priceCents: 2000 }],
+          totalCents: 2200,
+          transferStatus: 'succeeded',
+          createdAt: new Date('2026-06-02T10:00:00.000Z'),
+        },
+      ],
+    });
+
+    const transfers = await repository.listOrderTransfers('user-a');
+
+    expect(transfers.map((entry) => entry.transferStatus)).toEqual([
+      'succeeded',
+      'none',
+    ]);
+  });
+
+  it('ordena pelo mais recente primeiro', async () => {
+    const repository = createRepository([
+      {
+        id: '00000000-0000-4000-8000-000000000001',
+        eventId: 'evt-meu',
+        status: 'paid',
+        createdAt: new Date('2026-06-01T10:00:00.000Z'),
+      },
+      {
+        id: '00000000-0000-4000-8000-000000000002',
+        eventId: 'evt-meu',
+        status: 'paid',
+        createdAt: new Date('2026-06-03T10:00:00.000Z'),
+      },
+    ]);
+
+    const transfers = await repository.listOrderTransfers('user-a');
+
+    expect(transfers.map((entry) => entry.orderId)).toEqual([
+      '00000000-0000-4000-8000-000000000002',
+      '00000000-0000-4000-8000-000000000001',
+    ]);
+  });
+});

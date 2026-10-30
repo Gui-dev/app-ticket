@@ -23,11 +23,16 @@ import {
   resetDatabase,
 } from '../../../db/test-helpers.js';
 import type { GetSessionFn, UserRole } from '../../auth/get-session.js';
+import { DrizzleEventsRepository } from '../../events/infra/drizzle-events-repository.js';
+import { DrizzleOrderRepository } from '../../orders/infra/drizzle-order-repository.js';
+import { DrizzleStripeAccountStore } from '../../payments/infra/drizzle-stripe-account-store.js';
+import { FakePaymentProvider } from '../../payments/infra/fake-payment-provider.js';
 import { DrizzleOrganizerRepository } from '../infra/drizzle-organizer-repository.js';
 
 describe('organizer routes (postgres integration)', () => {
   let app: FastifyInstance;
   let testDb: Db;
+  let paymentProvider: FakePaymentProvider;
 
   const getSession: GetSessionFn = async (headers) => {
     const userId = headers['x-test-user-id'];
@@ -48,15 +53,22 @@ describe('organizer routes (postgres integration)', () => {
     testDb = createDb(TEST_DATABASE_URL);
     await migrateTestDatabase(testDb);
 
+    paymentProvider = new FakePaymentProvider();
     app = buildApp({
       getSession,
+      eventsRepository: new DrizzleEventsRepository(testDb),
+      orderRepository: new DrizzleOrderRepository(testDb),
       organizerRepository: new DrizzleOrganizerRepository(testDb),
+      stripeAccountStore: new DrizzleStripeAccountStore(testDb),
+      paymentProvider,
     });
     await app.ready();
   });
 
   beforeEach(async () => {
     await resetDatabase(testDb);
+    paymentProvider.transfers.length = 0;
+    paymentProvider.failNextTransfer = false;
     await testDb.insert(user).values([
       { id: 'user-a', name: 'User A', email: 'user-a@example.com' },
       { id: 'user-b', name: 'User B', email: 'user-b@example.com' },
@@ -2013,6 +2025,217 @@ describe('organizer routes (postgres integration)', () => {
 
       const state = await usedAtOf('TKV-OWNER');
       expect(state?.usedAt).toBeNull();
+    });
+  });
+
+  describe('organizer payments transfers routes', () => {
+    async function insertTransferOrder(input: {
+      eventId: string;
+      status: 'pending' | 'paid' | 'failed' | 'expired';
+      totalCents: number;
+      createdAt: Date;
+      transferStatus?: 'none' | 'pending' | 'succeeded' | 'failed' | 'skipped';
+    }) {
+      const [order] = await testDb
+        .insert(orders)
+        .values({
+          userId: 'user-anon',
+          eventId: input.eventId,
+          status: input.status,
+          paymentMethod: 'card',
+          provider: 'stripe',
+          subtotalCents: input.totalCents - Math.round(input.totalCents / 11),
+          serviceFeeCents: Math.round(input.totalCents / 11),
+          totalCents: input.totalCents,
+          createdAt: input.createdAt,
+          paidAt: input.status === 'paid' ? input.createdAt : null,
+          transferStatus: input.transferStatus ?? undefined,
+        })
+        .returning();
+      return order;
+    }
+
+    it('organizador lista repasses dos próprios pedidos com bruto, taxa e líquido do splitAmounts', async () => {
+      await promoteOrganizers('user-a');
+      const { category, venue } = await seedCatalog();
+      const myEvent = await insertEvent(
+        { slug: 'meu-show', organizerId: 'user-a', title: 'Meu Show' },
+        { category, venue },
+      );
+      const foreignEvent = await insertEvent(
+        { slug: 'show-alheio', organizerId: 'user-b', title: 'Show Alheio' },
+        { category, venue },
+      );
+      const platformEvent = await insertEvent(
+        {
+          slug: 'show-plataforma',
+          organizerId: null,
+          title: 'Show da Plataforma',
+        },
+        { category, venue },
+      );
+
+      const newer = await insertTransferOrder({
+        eventId: myEvent.id,
+        status: 'paid',
+        totalCents: 5000,
+        createdAt: new Date('2026-06-03T10:00:00.000Z'),
+      });
+      const older = await insertTransferOrder({
+        eventId: myEvent.id,
+        status: 'paid',
+        totalCents: 13200,
+        createdAt: new Date('2026-06-01T10:00:00.000Z'),
+      });
+      await insertTransferOrder({
+        eventId: myEvent.id,
+        status: 'pending',
+        totalCents: 2000,
+        createdAt: new Date('2026-06-04T10:00:00.000Z'),
+      });
+      await insertTransferOrder({
+        eventId: foreignEvent.id,
+        status: 'paid',
+        totalCents: 9000,
+        createdAt: new Date('2026-06-02T10:00:00.000Z'),
+      });
+      await insertTransferOrder({
+        eventId: platformEvent.id,
+        status: 'paid',
+        totalCents: 7000,
+        createdAt: new Date('2026-06-02T10:00:00.000Z'),
+      });
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/organizer/payments/transfers',
+        headers: { 'x-test-user-id': 'user-a' },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        transfers: [
+          {
+            orderId: newer.id,
+            eventTitle: 'Meu Show',
+            eventSlug: 'meu-show',
+            grossCents: 5000,
+            platformFeeCents: 500,
+            organizerNetCents: 4500,
+            transferStatus: 'none',
+            createdAt: '2026-06-03T10:00:00.000Z',
+          },
+          {
+            orderId: older.id,
+            eventTitle: 'Meu Show',
+            eventSlug: 'meu-show',
+            grossCents: 13200,
+            platformFeeCents: 1320,
+            organizerNetCents: 11880,
+            transferStatus: 'none',
+            createdAt: '2026-06-01T10:00:00.000Z',
+          },
+        ],
+      });
+    });
+
+    it('reinvoca o repasse com transfer_status failed e persiste o resultado', async () => {
+      await promoteOrganizers('user-a');
+      await testDb
+        .update(user)
+        .set({ stripeAccountId: 'acct_fake_user-a' })
+        .where(eq(user.id, 'user-a'));
+      const { category, venue } = await seedCatalog();
+      const myEvent = await insertEvent(
+        { slug: 'meu-show', organizerId: 'user-a', title: 'Meu Show' },
+        { category, venue },
+      );
+      const order = await insertTransferOrder({
+        eventId: myEvent.id,
+        status: 'paid',
+        totalCents: 13200,
+        createdAt: new Date('2026-06-01T10:00:00.000Z'),
+        transferStatus: 'failed',
+      });
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/organizer/payments/transfers/${order.id}/retry`,
+        headers: { 'x-test-user-id': 'user-a' },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ transferStatus: 'succeeded' });
+      expect(paymentProvider.transfers).toEqual([
+        {
+          orderId: order.id,
+          amountCents: 11880,
+          destination: 'acct_fake_user-a',
+          transferRef: expect.stringMatching(/^tr_fake_/),
+        },
+      ]);
+
+      const [persisted] = await testDb
+        .select({
+          transferStatus: orders.transferStatus,
+          transferRef: orders.transferRef,
+        })
+        .from(orders)
+        .where(eq(orders.id, order.id));
+      expect(persisted.transferStatus).toBe('succeeded');
+      expect(persisted.transferRef).toMatch(/^tr_fake_/);
+    });
+
+    it('devolve transfer_not_retryable quando o repasse não está failed', async () => {
+      await promoteOrganizers('user-a');
+      const { category, venue } = await seedCatalog();
+      const myEvent = await insertEvent(
+        { slug: 'meu-show', organizerId: 'user-a', title: 'Meu Show' },
+        { category, venue },
+      );
+      const order = await insertTransferOrder({
+        eventId: myEvent.id,
+        status: 'paid',
+        totalCents: 13200,
+        createdAt: new Date('2026-06-01T10:00:00.000Z'),
+        transferStatus: 'none',
+      });
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/organizer/payments/transfers/${order.id}/retry`,
+        headers: { 'x-test-user-id': 'user-a' },
+      });
+
+      expect(response.statusCode).toBe(409);
+      expect(response.json()).toEqual({ error: 'transfer_not_retryable' });
+      expect(paymentProvider.transfers).toEqual([]);
+    });
+
+    it('devolve order_not_found para pedido de evento alheio sem revelar proibição', async () => {
+      await promoteOrganizers('user-a');
+      const { category, venue } = await seedCatalog();
+      const foreignEvent = await insertEvent(
+        { slug: 'show-alheio', organizerId: 'user-b', title: 'Show Alheio' },
+        { category, venue },
+      );
+      const order = await insertTransferOrder({
+        eventId: foreignEvent.id,
+        status: 'paid',
+        totalCents: 13200,
+        createdAt: new Date('2026-06-01T10:00:00.000Z'),
+        transferStatus: 'failed',
+      });
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/organizer/payments/transfers/${order.id}/retry`,
+        headers: { 'x-test-user-id': 'user-a' },
+      });
+
+      expect(response.statusCode).toBe(404);
+      expect(response.json()).toEqual({ error: 'order_not_found' });
+      expect(paymentProvider.transfers).toEqual([]);
     });
   });
 });

@@ -7,6 +7,7 @@ import type {
 } from '../../orders/use-cases/confirm-order-payment.use-case.js';
 import type { ExpirePendingOrdersUseCase } from '../../orders/use-cases/expire-pending-orders.use-case.js';
 import type { FailOrderUseCase } from '../../orders/use-cases/fail-order.use-case.js';
+import type { TransferOrganizerShareUseCase } from '../use-cases/transfer-organizer-share.use-case.js';
 import {
   createExpirePendingOrdersJob,
   createProcessPaymentEventJob,
@@ -30,6 +31,9 @@ function createHarness() {
   }));
   const expireExecute = vi.fn(async () => ({ expired: 3 }));
   const enqueue = vi.fn(async () => undefined);
+  const transferExecute = vi.fn(
+    async (): Promise<'transferred' | 'skipped' | 'failed'> => 'transferred',
+  );
 
   const confirmOrderPayment = {
     execute: confirmExecute,
@@ -41,18 +45,23 @@ function createHarness() {
   const orderConfirmationQueue = {
     enqueue,
   } as unknown as OrderConfirmationQueue;
+  const transferOrganizerShare = {
+    execute: transferExecute,
+  } as unknown as TransferOrganizerShareUseCase;
 
   return {
     processPaymentEvent: createProcessPaymentEventJob({
       confirmOrderPayment,
       failOrder,
       orderConfirmationQueue,
+      transferOrganizerShare,
     }),
     expireJob: createExpirePendingOrdersJob({ expirePendingOrders }),
     confirmExecute,
     failExecute,
     expireExecute,
     enqueue,
+    transferExecute,
   };
 }
 
@@ -90,6 +99,59 @@ describe('process payment event job', () => {
 
     expect(harness.enqueue).toHaveBeenCalledTimes(1);
     expect(harness.enqueue).toHaveBeenCalledWith({ orderId: 'pedido-1' });
+  });
+
+  it('executa o repasse do organizador após confirmar o pagamento', async () => {
+    const harness = createHarness();
+
+    await harness.processPaymentEvent(SUCCEEDED);
+
+    expect(harness.transferExecute).toHaveBeenCalledWith({
+      orderId: 'pedido-1',
+    });
+  });
+
+  it('mantém o job completo mesmo com o repasse marcando failed', async () => {
+    const harness = createHarness();
+    harness.transferExecute.mockResolvedValueOnce('failed');
+
+    await expect(
+      harness.processPaymentEvent(SUCCEEDED),
+    ).resolves.toBeUndefined();
+
+    expect(harness.enqueue).toHaveBeenCalledTimes(1);
+    expect(harness.enqueue).toHaveBeenCalledWith({ orderId: 'pedido-1' });
+  });
+
+  it('mantém o e-mail enfileirado mesmo com o repasse lançando erro', async () => {
+    const harness = createHarness();
+    harness.transferExecute.mockRejectedValueOnce(
+      new Error('Stripe indisponível'),
+    );
+
+    await expect(
+      harness.processPaymentEvent(SUCCEEDED),
+    ).resolves.toBeUndefined();
+
+    expect(harness.enqueue).toHaveBeenCalledTimes(1);
+    expect(harness.enqueue).toHaveBeenCalledWith({ orderId: 'pedido-1' });
+  });
+
+  it('não executa o repasse em eventos failed e expired', async () => {
+    const harness = createHarness();
+
+    await harness.processPaymentEvent({
+      ...SUCCEEDED,
+      type: 'failed',
+      amountCents: null,
+    });
+    await harness.processPaymentEvent({
+      ...SUCCEEDED,
+      type: 'expired',
+      amountCents: null,
+    });
+
+    expect(harness.transferExecute).not.toHaveBeenCalled();
   });
 
   it('enfileira o e-mail quando o pedido já estava pago', async () => {

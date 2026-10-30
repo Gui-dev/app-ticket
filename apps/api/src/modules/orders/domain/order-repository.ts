@@ -1,4 +1,4 @@
-import type { PaymentMethod } from '@ticketvibe/shared';
+import type { PaymentMethod, TransferStatus } from '@ticketvibe/shared';
 
 import type {
   OrderItemRecord,
@@ -39,6 +39,11 @@ export interface OrderRepository {
   setProviderRef(input: {
     orderId: string;
     providerRef: string;
+  }): Promise<void>;
+  setTransfer(input: {
+    orderId: string;
+    status: TransferStatus;
+    transferRef?: string;
   }): Promise<void>;
   markFailed(input: { orderId: string; now: Date }): Promise<void>;
   markExpired(input: { orderId: string; now: Date }): Promise<void>;

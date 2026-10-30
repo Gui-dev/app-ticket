@@ -19,6 +19,9 @@ import {
   organizerSectorDtoSchema,
   organizerTicketValidateSchema,
   organizerTicketValidationResponseSchema,
+  organizerTransferEntrySchema,
+  organizerTransferRetryResponseSchema,
+  organizerTransfersResponseSchema,
   organizerVenueCreateSchema,
   organizerVenueListResponseSchema,
   organizerVenueResponseSchema,
@@ -27,8 +30,10 @@ import type { FastifyInstance } from 'fastify';
 
 import type { GetSessionFn } from '../../auth/get-session.js';
 import { guardOrganizer } from '../../auth/role-guard.js';
+import type { OrderRepository } from '../../orders/domain/order-repository.js';
 import type { PaymentProvider } from '../../payments/domain/payment-provider.js';
 import type { StripeAccountStore } from '../../payments/domain/stripe-account-store.js';
+import type { TransferOrganizerShareUseCase } from '../../payments/use-cases/transfer-organizer-share.use-case.js';
 import type {
   OrganizerEventRecord,
   OrganizerLotRecord,
@@ -59,9 +64,12 @@ interface OrganizerRoutesDeps {
   organizerRepository: OrganizerRepository;
   paymentProvider: PaymentProvider;
   stripeAccountStore: StripeAccountStore;
+  orderRepository: OrderRepository;
+  transferOrganizerShare: TransferOrganizerShareUseCase;
 }
 
 const eventIdSchema = organizerEventDtoSchema.shape.id;
+const transferOrderIdSchema = organizerTransferEntrySchema.shape.orderId;
 
 function toEventDto(event: OrganizerEventRecord): OrganizerEventDto {
   return {
@@ -820,4 +828,69 @@ export function registerOrganizerRoutes(
       }),
     );
   });
+
+  app.get('/organizer/payments/transfers', async (request, reply) => {
+    const session = await deps.getSession(request.headers);
+    if (!session) {
+      return reply.code(401).send({ error: 'not_authenticated' });
+    }
+    const guard = guardOrganizer(session);
+    if (guard.kind !== 'ok') {
+      return reply.code(403).send({ error: 'not_organizer' });
+    }
+    const transfers = await deps.organizerRepository.listOrderTransfers(
+      session.userId,
+    );
+    return reply.code(200).send(
+      organizerTransfersResponseSchema.parse({
+        transfers: transfers.slice(0, 200).map((entry) => ({
+          orderId: entry.orderId,
+          eventTitle: entry.eventTitle,
+          eventSlug: entry.eventSlug,
+          grossCents: entry.grossCents,
+          platformFeeCents: entry.platformFeeCents,
+          organizerNetCents: entry.organizerNetCents,
+          transferStatus: entry.transferStatus,
+          createdAt: entry.createdAt.toISOString(),
+        })),
+      }),
+    );
+  });
+
+  app.post(
+    '/organizer/payments/transfers/:orderId/retry',
+    async (request, reply) => {
+      const session = await deps.getSession(request.headers);
+      if (!session) {
+        return reply.code(401).send({ error: 'not_authenticated' });
+      }
+      const guard = guardOrganizer(session);
+      if (guard.kind !== 'ok') {
+        return reply.code(403).send({ error: 'not_organizer' });
+      }
+      const { orderId } = request.params as { orderId: string };
+      if (!transferOrderIdSchema.safeParse(orderId).success) {
+        return reply.code(404).send({ error: 'order_not_found' });
+      }
+      const order = await deps.orderRepository.findById(orderId);
+      if (!order) {
+        return reply.code(404).send({ error: 'order_not_found' });
+      }
+      const ownership = await deps.organizerRepository.findEventForOrganizer({
+        eventId: order.eventId,
+        userId: session.userId,
+      });
+      if (ownership.kind !== 'ok') {
+        return reply.code(404).send({ error: 'order_not_found' });
+      }
+      if (order.transferStatus !== 'failed') {
+        return reply.code(409).send({ error: 'transfer_not_retryable' });
+      }
+      const outcome = await deps.transferOrganizerShare.execute({ orderId });
+      const transferStatus = outcome === 'transferred' ? 'succeeded' : outcome;
+      return reply
+        .code(200)
+        .send(organizerTransferRetryResponseSchema.parse({ transferStatus }));
+    },
+  );
 }

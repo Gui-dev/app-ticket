@@ -43,6 +43,7 @@ interface EventRow {
     badgeLabel: string | null;
     featured: boolean;
     isHot: boolean;
+    organizerId: string | null;
     cancellationWindowHours: number;
     refundPercent: number;
   };
@@ -70,6 +71,7 @@ export const eventSelect = {
     badgeLabel: events.badgeLabel,
     featured: events.featured,
     isHot: events.isHot,
+    organizerId: events.organizerId,
     cancellationWindowHours: events.cancellationWindowHours,
     refundPercent: events.refundPercent,
   },
@@ -134,6 +136,7 @@ export function toEventEntity(row: EventRow): EventEntity {
     badgeLabel: row.events.badgeLabel,
     featured: row.events.featured,
     isHot: row.events.isHot,
+    organizerId: row.events.organizerId,
     cancellationWindowHours: row.events.cancellationWindowHours,
     refundPercent: row.events.refundPercent,
   };

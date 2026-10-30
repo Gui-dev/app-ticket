@@ -41,6 +41,7 @@ vi.mock('./create-payments-worker-deps.js', () => ({
     confirmOrderPayment: { execute: vi.fn() },
     failOrder: { execute: vi.fn() },
     expirePendingOrders: { execute: vi.fn() },
+    transferOrganizerShare: { execute: vi.fn() },
   }),
 }));
 

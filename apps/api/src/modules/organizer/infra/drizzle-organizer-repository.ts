@@ -1,6 +1,8 @@
+import { splitAmounts } from '@ticketvibe/shared';
 import {
   and,
   asc,
+  desc,
   eq,
   gte,
   inArray,
@@ -10,7 +12,6 @@ import {
   or,
   sql,
 } from 'drizzle-orm';
-
 import type { Db } from '../../../db/client.js';
 import {
   categories,
@@ -38,6 +39,7 @@ import type {
   OrganizerLotRecord,
   OrganizerRepository,
   OrganizerSectorRecord,
+  OrganizerTransferRecord,
   OrganizerVenueRecord,
   SalesReportForOrganizerResult,
   TicketValidationForOrganizerInput,
@@ -517,6 +519,36 @@ export class DrizzleOrganizerRepository implements OrganizerRepository {
       input.from === null ? undefined : gte(orders.paidAt, input.from),
       input.to === null ? undefined : lt(orders.paidAt, input.to),
     );
+  }
+
+  async listOrderTransfers(
+    organizerId: string,
+  ): Promise<OrganizerTransferRecord[]> {
+    const rows = await this.db
+      .select({
+        orderId: orders.id,
+        eventTitle: events.title,
+        eventSlug: events.slug,
+        totalCents: orders.totalCents,
+        transferStatus: orders.transferStatus,
+        createdAt: orders.createdAt,
+      })
+      .from(orders)
+      .innerJoin(events, eq(events.id, orders.eventId))
+      .where(
+        and(eq(events.organizerId, organizerId), eq(orders.status, 'paid')),
+      )
+      .orderBy(desc(orders.createdAt), asc(orders.id));
+    return rows.map((row) => ({
+      orderId: row.orderId,
+      eventTitle: row.eventTitle,
+      eventSlug: row.eventSlug,
+      grossCents: splitAmounts(row.totalCents).grossCents,
+      platformFeeCents: splitAmounts(row.totalCents).platformFeeCents,
+      organizerNetCents: splitAmounts(row.totalCents).organizerNetCents,
+      transferStatus: row.transferStatus,
+      createdAt: row.createdAt,
+    }));
   }
 
   async listVenues(): Promise<OrganizerVenueRecord[]> {

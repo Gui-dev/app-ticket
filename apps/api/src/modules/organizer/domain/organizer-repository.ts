@@ -1,3 +1,5 @@
+import type { TransferStatus } from '@ticketvibe/shared';
+
 export interface OrganizerEventRecord {
   id: string;
   slug: string;
@@ -103,6 +105,17 @@ export type TicketValidationForOrganizerResult =
   | { kind: 'invalid' }
   | { kind: 'not_found' }
   | { kind: 'forbidden' };
+
+export interface OrganizerTransferRecord {
+  orderId: string;
+  eventTitle: string;
+  eventSlug: string;
+  grossCents: number;
+  platformFeeCents: number;
+  organizerNetCents: number;
+  transferStatus: TransferStatus;
+  createdAt: Date;
+}
 
 export interface TicketValidationForOrganizerInput {
   eventId: string;
@@ -233,4 +246,5 @@ export interface OrganizerRepository {
   validateTicketForOrganizer(
     input: TicketValidationForOrganizerInput,
   ): Promise<TicketValidationForOrganizerResult>;
+  listOrderTransfers(organizerId: string): Promise<OrganizerTransferRecord[]>;
 }

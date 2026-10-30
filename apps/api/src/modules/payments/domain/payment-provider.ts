@@ -36,6 +36,16 @@ export interface ConnectAccountStatus {
   payoutsEnabled: boolean;
 }
 
+export interface TransferInput {
+  orderId: string;
+  amountCents: number;
+  destination: string;
+}
+
+export interface TransferResult {
+  transferRef: string;
+}
+
 export interface PaymentProvider {
   readonly providerName: 'stripe' | 'fake';
   createPayment(input: CreatePaymentInput): Promise<CreatePaymentResult>;
@@ -50,4 +60,5 @@ export interface PaymentProvider {
     input: CreateConnectOnboardingInput,
   ): Promise<ConnectOnboardingResult>;
   getConnectAccount(accountId: string): Promise<ConnectAccountStatus>;
+  transfer(input: TransferInput): Promise<TransferResult>;
 }

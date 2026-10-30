@@ -19,6 +19,7 @@ export interface EventEntity {
   badgeLabel: string | null;
   featured: boolean;
   isHot: boolean;
+  organizerId?: string | null;
   cancellationWindowHours?: number;
   refundPercent?: number;
 }

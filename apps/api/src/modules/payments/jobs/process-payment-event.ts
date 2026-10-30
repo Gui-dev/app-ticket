@@ -3,6 +3,7 @@ import type { ConfirmOrderPaymentUseCase } from '../../orders/use-cases/confirm-
 import type { ExpirePendingOrdersUseCase } from '../../orders/use-cases/expire-pending-orders.use-case.js';
 import type { FailOrderUseCase } from '../../orders/use-cases/fail-order.use-case.js';
 import type { PaymentEventType } from '../domain/payment-provider.js';
+import type { TransferOrganizerShareUseCase } from '../use-cases/transfer-organizer-share.use-case.js';
 
 export const PAYMENTS_QUEUE_NAME = 'payments';
 export const PROCESS_PAYMENT_EVENT_JOB = 'process-payment-event';
@@ -31,6 +32,7 @@ export function createProcessPaymentEventJob(deps: {
   confirmOrderPayment: ConfirmOrderPaymentUseCase;
   failOrder: FailOrderUseCase;
   orderConfirmationQueue: OrderConfirmationQueue;
+  transferOrganizerShare: TransferOrganizerShareUseCase;
 }): (data: PaymentEventJobData) => Promise<void> {
   return async (data) => {
     if (data.providerRef === null) return;
@@ -46,6 +48,13 @@ export function createProcessPaymentEventJob(deps: {
           result.kind === 'paid' ||
           (result.kind === 'already' && result.status === 'paid')
         ) {
+          try {
+            await deps.transferOrganizerShare.execute({
+              orderId: result.orderId,
+            });
+          } catch (error) {
+            console.error('[worker] organizer transfer failed', error);
+          }
           await deps.orderConfirmationQueue.enqueue({
             orderId: result.orderId,
           });

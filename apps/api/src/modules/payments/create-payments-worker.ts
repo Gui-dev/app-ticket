@@ -43,6 +43,7 @@ export async function createPaymentsWorker(input: {
     confirmOrderPayment: deps.confirmOrderPayment,
     failOrder: deps.failOrder,
     orderConfirmationQueue,
+    transferOrganizerShare: deps.transferOrganizerShare,
   });
   const expirePendingOrders = createExpirePendingOrdersJob({
     expirePendingOrders: deps.expirePendingOrders,

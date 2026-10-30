@@ -26,6 +26,8 @@ function paidOrder(overrides: Partial<OrderRecord> = {}): OrderRecord {
     serviceFeeCents: 900,
     totalCents: 9900,
     refundCents: null,
+    transferStatus: 'none',
+    transferRef: null,
     createdAt: new Date('2026-10-17T12:00:00.000Z'),
     paidAt: new Date('2026-10-17T12:05:00.000Z'),
     items: [],

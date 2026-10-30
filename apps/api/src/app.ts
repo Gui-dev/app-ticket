@@ -45,6 +45,7 @@ import {
   type PaymentEventJobData,
 } from './modules/payments/jobs/process-payment-event.js';
 import { registerWebhookRoutes } from './modules/payments/routes/webhook.routes.js';
+import { TransferOrganizerShareUseCase } from './modules/payments/use-cases/transfer-organizer-share.use-case.js';
 import type { CartRepository } from './modules/seatmaps/domain/cart-repository.js';
 import type { HoldRepository } from './modules/seatmaps/domain/hold-repository.js';
 import type { SeatmapRepository } from './modules/seatmaps/domain/seatmap-repository.js';
@@ -102,6 +103,7 @@ export function buildApp(
     cancelOrder?: CancelOrderUseCase;
     organizerRepository?: OrganizerRepository;
     stripeAccountStore?: StripeAccountStore;
+    transferOrganizerShare?: TransferOrganizerShareUseCase;
   } = {},
 ): FastifyInstance {
   const app = Fastify({ logger: false });
@@ -206,6 +208,14 @@ export function buildApp(
     new DrizzleOrganizerRepository(getDefaultDb());
   const stripeAccountStore =
     options.stripeAccountStore ?? new DrizzleStripeAccountStore(getDefaultDb());
+  const transferOrganizerShare =
+    options.transferOrganizerShare ??
+    new TransferOrganizerShareUseCase(
+      orderRepository,
+      eventsRepository,
+      paymentProvider,
+      stripeAccountStore,
+    );
 
   const getHoldRepository = (): HoldRepository => {
     if (options.holdRepository) return options.holdRepository;
@@ -370,6 +380,8 @@ export function buildApp(
     organizerRepository,
     paymentProvider,
     stripeAccountStore,
+    orderRepository,
+    transferOrganizerShare,
   });
 
   registerWebhookRoutes(app, {

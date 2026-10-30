@@ -30,6 +30,13 @@ export class FakePaymentProvider implements PaymentProvider {
   readonly providerName = 'fake';
   readonly refundedRefs: string[] = [];
   readonly cancelledRefs: string[] = [];
+  readonly transfers: {
+    orderId: string;
+    amountCents: number;
+    destination: string;
+    transferRef: string;
+  }[] = [];
+  failNextTransfer = false;
   private readonly clientSecrets = new Map<string, string>();
   private readonly refunded = new Set<string>();
   private readonly connectAccounts = new Set<string>();
@@ -98,5 +105,20 @@ export class FakePaymentProvider implements PaymentProvider {
 
   async getConnectAccount(accountId: string): Promise<ConnectAccountStatus> {
     return { payoutsEnabled: this.connectAccounts.has(accountId) };
+  }
+
+  async transfer(input: {
+    orderId: string;
+    amountCents: number;
+    destination: string;
+  }): Promise<{ transferRef: string }> {
+    if (this.failNextTransfer) {
+      this.failNextTransfer = false;
+      throw new Error('Fake transfer failure');
+    }
+    const id = randomUUID();
+    const transferRef = `tr_fake_${id}`;
+    this.transfers.push({ ...input, transferRef });
+    return { transferRef };
   }
 }

@@ -111,4 +111,22 @@ export class StripePaymentProvider implements PaymentProvider {
     const account = await this.stripe.accounts.retrieve(accountId);
     return { payoutsEnabled: account.payouts_enabled };
   }
+
+  async transfer(input: {
+    orderId: string;
+    amountCents: number;
+    destination: string;
+  }): Promise<{ transferRef: string }> {
+    const transfer = await this.stripe.transfers.create(
+      {
+        amount: input.amountCents,
+        currency: 'brl',
+        destination: input.destination,
+        transfer_group: input.orderId,
+        description: `Repasse pedido ${input.orderId}`,
+      },
+      { idempotencyKey: `transfer-${input.orderId}` },
+    );
+    return { transferRef: transfer.id };
+  }
 }

@@ -196,6 +196,11 @@ export const orders = pgTable(
     serviceFeeCents: integer('service_fee_cents').notNull(),
     totalCents: integer('total_cents').notNull(),
     refundCents: integer('refund_cents'),
+    transferStatus: text('transfer_status')
+      .$type<'none' | 'pending' | 'succeeded' | 'failed' | 'skipped'>()
+      .notNull()
+      .default('none'),
+    transferRef: text('transfer_ref'),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
       .notNull()
       .defaultNow(),

@@ -321,4 +321,31 @@ describe('StripePaymentProvider', () => {
     });
     expect(retrieve).toHaveBeenCalledWith('acct_1');
   });
+
+  it('cria a transferência do repasse com idempotência derivada do pedido', async () => {
+    const provider = buildProvider();
+    const create = vi
+      .spyOn(stripeClientOf(provider).transfers, 'create')
+      .mockResolvedValue({
+        id: 'tr_1',
+      } as unknown as Stripe.Response<Stripe.Transfer>);
+
+    const result = await provider.transfer({
+      orderId: '550e8400-e29b-41d4-a716-446655440000',
+      amountCents: 11880,
+      destination: 'acct_1',
+    });
+
+    expect(create).toHaveBeenCalledWith(
+      {
+        amount: 11880,
+        currency: 'brl',
+        destination: 'acct_1',
+        transfer_group: '550e8400-e29b-41d4-a716-446655440000',
+        description: 'Repasse pedido 550e8400-e29b-41d4-a716-446655440000',
+      },
+      { idempotencyKey: 'transfer-550e8400-e29b-41d4-a716-446655440000' },
+    );
+    expect(result).toEqual({ transferRef: 'tr_1' });
+  });
 });
