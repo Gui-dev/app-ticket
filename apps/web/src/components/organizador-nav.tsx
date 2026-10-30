@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { href: '/organizador', label: 'Painel' },
   { href: '/organizador/relatorios', label: 'Relatórios' },
   { href: '/organizador/validacao', label: 'Validação' },
+  { href: '/organizador/repasses', label: 'Repasses' },
 ] as const;
 
 function OrganizerNav() {

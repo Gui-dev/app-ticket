@@ -1,4 +1,5 @@
 import {
+  type OrganizerConnectStatusDto,
   type OrganizerEventCreate,
   type OrganizerEventDetailDto,
   type OrganizerEventDto,
@@ -7,15 +8,21 @@ import {
   type OrganizerSalesReportDto,
   type OrganizerSectorCreate,
   type OrganizerTicketValidationDto,
+  type OrganizerTransferEntryDto,
   type OrganizerVenueCreate,
   type OrganizerVenueDto,
+  organizerConnectResponseSchema,
+  organizerConnectStatusSchema,
   organizerEventDetailResponseSchema,
   organizerEventListResponseSchema,
   organizerEventResponseSchema,
   organizerSalesReportResponseSchema,
   organizerTicketValidationResponseSchema,
+  organizerTransferRetryResponseSchema,
+  organizerTransfersResponseSchema,
   organizerVenueListResponseSchema,
   organizerVenueResponseSchema,
+  type TransferStatus,
 } from '@ticketvibe/shared';
 
 const GENERIC_MESSAGE = 'Ocorreu um erro inesperado. Tente novamente.';
@@ -45,6 +52,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   lot_not_found: 'Lote não encontrado.',
   lot_forbidden: 'Você não tem permissão para gerenciar este lote.',
   invalid_query: 'Período inválido.',
+  order_not_found: 'Pedido não encontrado.',
+  transfer_not_retryable: 'Este repasse não pode ser reprocessado.',
 };
 
 export type { OrganizerEventDto, OrganizerVenueDto };
@@ -70,7 +79,10 @@ async function requestJson(
 ): Promise<unknown> {
   let response: Response;
   try {
-    response = await fetch(`/api/organizer/${path}`, init);
+    response = await fetch(`/api/organizer/${path}`, {
+      cache: 'no-store',
+      ...init,
+    });
   } catch (error) {
     console.error('Organizer API request failed:', error);
     throw new Error(NETWORK_MESSAGE);
@@ -247,6 +259,45 @@ export async function updateOrganizerLot(
 
 export async function deleteOrganizerLot(lotId: string): Promise<void> {
   await deleteJson(`lots/${encodeURIComponent(lotId)}`);
+}
+
+export async function fetchOrganizerConnectStatus(): Promise<OrganizerConnectStatusDto> {
+  const result = organizerConnectStatusSchema.safeParse(
+    await requestJson('payments/connect'),
+  );
+  if (!result.success) throw payloadError(result.error);
+  return result.data;
+}
+
+export async function startOrganizerConnect(): Promise<string | null> {
+  const result = organizerConnectResponseSchema.safeParse(
+    await postJson('payments/connect', {}),
+  );
+  if (!result.success) throw payloadError(result.error);
+  return result.data.onboardingUrl;
+}
+
+export async function fetchOrganizerTransfers(): Promise<
+  OrganizerTransferEntryDto[]
+> {
+  const result = organizerTransfersResponseSchema.safeParse(
+    await requestJson('payments/transfers'),
+  );
+  if (!result.success) throw payloadError(result.error);
+  return result.data.transfers;
+}
+
+export async function retryOrganizerTransfer(
+  orderId: string,
+): Promise<TransferStatus> {
+  const result = organizerTransferRetryResponseSchema.safeParse(
+    await postJson(
+      `payments/transfers/${encodeURIComponent(orderId)}/retry`,
+      {},
+    ),
+  );
+  if (!result.success) throw payloadError(result.error);
+  return result.data.transferStatus;
 }
 
 function payloadError(error: unknown): Error {

@@ -45,6 +45,16 @@ describe('OrganizerNav', () => {
     expect(link).toHaveAttribute('aria-current', 'page');
   });
 
+  it('renderiza o link Repasses apontando para /organizador/repasses e o destaca na rota', () => {
+    pathname.current = '/organizador/repasses';
+
+    render(<OrganizerNav />);
+
+    const link = screen.getByRole('link', { name: 'Repasses' });
+    expect(link).toHaveAttribute('href', '/organizador/repasses');
+    expect(link).toHaveAttribute('aria-current', 'page');
+  });
+
   it('não destaca o link Painel em outra rota', () => {
     pathname.current = '/organizador/ingressos';
 
