@@ -30,7 +30,7 @@ test('organizador conectado vende, recebe o repasse e vê os valores na tela', a
   const buyerEmail = `e2e-repasses-comprador-${suffix}@ticketvibe.test`;
   const password = 'senha-forte-123';
   const venueName = 'Teatro E2E Repasses';
-  const eventTitle = 'Festival de Repasses E2E';
+  const eventTitle = `Noite de Repasses E2E ${suffix}`;
   const sectorName = 'Plateia';
   const startsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
     .toISOString()
@@ -138,7 +138,7 @@ test('organizador conectado vende, recebe o repasse e vê os valores na tela', a
   await buyerPage.waitForURL(/\?category=shows$/);
   const card = buyerPage.locator('article').filter({ hasText: eventTitle });
   await card.getByRole('link', { name: 'Ver Ingressos' }).click();
-  await buyerPage.waitForURL(/\/events\/festival-de-repasses-e2e(-\d+)?$/);
+  await buyerPage.waitForURL(/\/events\/noite-de-repasses-e2e-\d+$/);
   const eventPath = new URL(buyerPage.url()).pathname;
   await buyerPage.getByRole('link', { name: 'Escolher ingressos' }).click();
   await buyerPage.getByRole('button', { name: 'Cadeira 1, fila A' }).click();
