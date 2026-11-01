@@ -5,6 +5,9 @@ test('busca pelo header filtra os resultados', async ({ page }) => {
 
   const search = page.getByRole('combobox', { name: 'Buscar eventos' });
   await search.fill('cyberpunk');
+  await expect(
+    page.getByRole('listbox').getByRole('option').first(),
+  ).toBeVisible();
   await search.press('Enter');
 
   await expect(page).toHaveURL(/\?q=cyberpunk/);
