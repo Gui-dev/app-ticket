@@ -1,5 +1,7 @@
 # TICKETVIBE
 
+[![CI](https://github.com/Gui-dev/app-ticket/actions/workflows/ci.yml/badge.svg)](https://github.com/Gui-dev/app-ticket/actions/workflows/ci.yml)
+
 Marketplace de ingressos para eventos — projeto de estudo. Tudo roda local; sem deploy de produção.
 
 ## Requisitos
