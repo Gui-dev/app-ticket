@@ -6,6 +6,7 @@ export default defineConfig({
   workers: 1,
   reporter: 'line',
   forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 1 : 0,
   use: {
     baseURL: 'http://127.0.0.1:3000',
     trace: 'retain-on-failure',
