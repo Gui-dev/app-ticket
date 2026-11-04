@@ -88,6 +88,15 @@ Para usar contas Google de verdade:
 | `pnpm infra:up` | sobe Postgres, Redis e Mailpit |
 | `pnpm infra:down` | derruba os containers **e apaga os volumes** |
 
+Com as keys do Stripe preenchidas no `apps/api/.env` (`PAYMENT_PROVIDER=stripe`), os testes E2E (e todos os fluxos fake de pagamento) exigem override no ambiente, porque precisam do provider simulado:
+
+```bash
+PAYMENT_PROVIDER=fake STRIPE_WEBHOOK_SECRET=$(sed -n 's/^STRIPE_WEBHOOK_SECRET=//p' apps/api/.env) \
+  pnpm --filter @ticketvibe/web test:e2e
+```
+
+No CI (`.github/workflows/ci.yml`) o provider simulado é o padrão — o pipeline não lê o `.env` e não usa segredos do Stripe; os containers locais sobem como `ticketvibe-postgres`/`ticketvibe-redis`/`ticketvibe-mailpit` via Docker, nomes que os helpers E2E também usam no Podman (`E2E_CONTAINER_RUNTIME` troca o runtime).
+
 ## Portas
 
 Infra (5432/6379/1025/8025) escuta apenas em 127.0.0.1; web e api aceitam conexões de qualquer interface (acesso local via 127.0.0.1).

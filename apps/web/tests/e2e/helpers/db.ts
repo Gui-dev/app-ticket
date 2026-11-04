@@ -1,5 +1,7 @@
 import { execSync } from 'node:child_process';
 
+const CONTAINER_RUNTIME = process.env.E2E_CONTAINER_RUNTIME ?? 'podman';
+
 const EVENT_SLUG = 'o-fantasma-da-opera';
 const PLATEIA_ROW_A = `row_id in (select sr.id from seat_rows sr join sectors s on s.id = sr.sector_id join events e on e.id = s.event_id where e.slug = '${EVENT_SLUG}' and s.slug = 'plateia' and sr.label = 'A')`;
 
@@ -9,7 +11,7 @@ function shellQuote(value: string): string {
 
 export function query(sql: string): string {
   return execSync(
-    `podman exec ticketvibe-postgres psql -U ticketvibe -d ticketvibe -At -c ${shellQuote(sql)}`,
+    `${CONTAINER_RUNTIME} exec ticketvibe-postgres psql -U ticketvibe -d ticketvibe -At -c ${shellQuote(sql)}`,
     { encoding: 'utf8' },
   ).trim();
 }
@@ -35,9 +37,12 @@ export function restoreSeat(seatLabel: string): void {
     `select e.id || ':' || sr.id || ':' || se.id from seats se join seat_rows sr on sr.id = se.row_id join sectors s on s.id = sr.sector_id join events e on e.id = s.event_id where e.slug = '${EVENT_SLUG}' and s.slug = 'plateia' and sr.label = 'A' and se.label = '${seatLabel}'`,
   );
   if (key) {
-    execSync(`podman exec ticketvibe-redis redis-cli del hold:seat:${key}`, {
-      encoding: 'utf8',
-    });
+    execSync(
+      `${CONTAINER_RUNTIME} exec ticketvibe-redis redis-cli del hold:seat:${key}`,
+      {
+        encoding: 'utf8',
+      },
+    );
   }
   query(
     `update seats set status = 'available', hold_user_id = null, hold_expires_at = null where label = '${seatLabel}' and ${PLATEIA_ROW_A}`,

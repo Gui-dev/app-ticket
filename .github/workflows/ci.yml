@@ -70,34 +70,6 @@ jobs:
     name: E2E (playwright)
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: ticketvibe
-          POSTGRES_PASSWORD: ticketvibe
-          POSTGRES_DB: ticketvibe
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-      mailpit:
-        image: axllent/mailpit:latest
-        ports:
-          - 1025:1025
-          - 8025:8025
     steps:
       - uses: actions/checkout@v4
 
@@ -110,6 +82,34 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Start local containers
+        run: |
+          docker run -d --name ticketvibe-postgres \
+            -e POSTGRES_USER=ticketvibe \
+            -e POSTGRES_PASSWORD=ticketvibe \
+            -e POSTGRES_DB=ticketvibe \
+            -p 127.0.0.1:5432:5432 \
+            postgres:16-alpine
+          docker run -d --name ticketvibe-redis \
+            -p 127.0.0.1:6379:6379 \
+            redis:7-alpine
+          docker run -d --name ticketvibe-mailpit \
+            -p 127.0.0.1:1025:1025 \
+            -p 127.0.0.1:8025:8025 \
+            axllent/mailpit:latest
+
+      - name: Wait for Postgres
+        run: |
+          for attempt in $(seq 1 30); do
+            if docker exec ticketvibe-postgres pg_isready -U ticketvibe > /dev/null 2>&1; then
+              echo "postgres ready after ${attempt}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "postgres did not become ready"
+          exit 1
 
       - name: Resolve installed Playwright version
         id: playwright-version
@@ -130,6 +130,8 @@ jobs:
 
       - name: Run E2E suite
         run: pnpm --filter web test:e2e
+        env:
+          E2E_CONTAINER_RUNTIME: docker
 
       - name: Upload Playwright traces and reports
         if: "!success()"
