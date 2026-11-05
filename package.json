@@ -14,6 +14,7 @@
     "format": "biome check --write .",
     "infra:up": "podman compose -f compose.yaml up -d",
     "infra:down": "podman compose -f compose.yaml down -v",
+    "dev:stripe": "sh scripts/dev-stripe.sh",
     "prepare": "lefthook install"
   },
   "devDependencies": {

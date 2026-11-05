@@ -17,7 +17,10 @@ pnpm infra:up     # Postgres, Redis, Mailpit (apenas 127.0.0.1)
 pnpm --filter @ticketvibe/api db:migrate   # migrações Drizzle (idempotente)
 pnpm --filter @ticketvibe/api db:seed      # categorias, locais, 12 eventos com setores (idempotente)
 pnpm dev          # web :3000 · api :3001 · worker BullMQ
+pnpm dev:stripe   # encaminha webhooks do Stripe para a API local e sincroniza o secret em apps/api/.env
 ```
+
+O `pnpm dev:stripe` é necessário quando `PAYMENT_PROVIDER=stripe` está ativo em `apps/api/.env`: localmente não há URL pública para o Stripe chamar, então o CLI (`stripe listen`) faz a ponte. Execute **antes de subir a API** — o secret de assinatura é lido no boot; se a API já estiver no ar, reinicie-a depois de rodar o script. Se o `STRIPE_WEBHOOK_SECRET` estiver desatualizado, a API responde `400 invalid_signature` aos webhooks e os pedidos ficam pendentes (o checkout fica "em loop" aguardando a confirmação).
 
 Smoke test (com `pnpm dev` rodando):
 
