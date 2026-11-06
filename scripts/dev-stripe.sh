@@ -6,10 +6,23 @@ set -eu
 LOG=/tmp/ticketvibe-stripe-listen.log
 ENV_FILE=apps/api/.env
 
-pkill -f 'stripe listen --forward-to' 2>/dev/null || true
+# OBEY a conta do app (e não a do `stripe login` do config do CLI): listener
+# amarrado a STRIPE_SECRET_KEY, senão os eventos de compra nunca chegam.
+STRIPE_KEY=$(sed -n 's/^STRIPE_SECRET_KEY=//p' "$ENV_FILE")
+if [ -z "$STRIPE_KEY" ]; then
+  echo "STRIPE_SECRET_KEY ausente em $ENV_FILE" >&2
+  exit 1
+fi
+
+pkill -f 'stripe listen' 2>/dev/null || true
 rm -f "$LOG"
 
-stripe listen --forward-to localhost:3001/webhooks/stripe 2>&1 | tee "$LOG" &
+# Tipos exclusivamente os que apps/api/src/modules/payments/infra/stripe-event-mapper.ts mapeia;
+# no CLI 1.55+ é obrigatório explicitar (--events, --all-snapshot ou --all-thin).
+stripe listen \
+  --api-key "$STRIPE_KEY" \
+  --events payment_intent.succeeded,payment_intent.payment_failed,payment_intent.canceled \
+  --forward-to localhost:3001/webhooks/stripe 2>&1 | tee "$LOG" &
 LISTEN_PID=$!
 
 n=0
