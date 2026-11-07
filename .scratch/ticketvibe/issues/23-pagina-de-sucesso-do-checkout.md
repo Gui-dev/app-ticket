@@ -4,9 +4,17 @@
 
 **Blocked by:** 13 (Checkout Stripe cartão e boleto)
 
-**Status:** in progress
+**Status:** done
 
 - [x] Cartão: `confirmPayment` com sucesso navega para `/events/{slug}/checkout/retorno?order={id}` (em vez de ficar na mesma página sem feedback)
 - [x] Página de retorno reformulada: pol "Compra concluída" quando o pedido paga; "Estamos conferindo seu pagamento" durante o intervalo confirm→webhook; CTA na confirmação
 - [x] Formulário Stripe com `appearance.theme: 'night'`
 - [x] Specs: navegação pós-confirm + options do Elements (checkout-flow) e estados da página de sucesso (order-status)
+
+## Implementação
+
+| Commit | Escopo |
+|---|---|
+| `658a933` | checkout-flow (push pós-confirm + `appearance.theme: 'night'`), página de retorno sem heading estático, OrderStatus com headings por status + CTA "Ver meus ingressos", specs |
+
+Verificação: 400 specs web + 650 API, typecheck, lint, CI verde (run `42395415493`).
