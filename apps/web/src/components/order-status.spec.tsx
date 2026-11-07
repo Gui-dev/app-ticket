@@ -44,7 +44,7 @@ afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
 describe('OrderStatus', () => {
-  it('mostra o pedido confirmado quando o pagamento foi aprovado', async () => {
+  it('mostra a página de sucesso quando o pagamento foi aprovado', async () => {
     server.use(
       http.get(/\/api\/orders\/.+$/, () =>
         HttpResponse.json({ order: paidOrder }),
@@ -53,14 +53,22 @@ describe('OrderStatus', () => {
 
     render(<OrderStatus orderId="11111111-1111-4111-8111-111111111111" />);
 
-    expect(await screen.findByText('Pedido confirmado')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Compra concluída',
+        level: 1,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Ver meus ingressos' }),
+    ).toHaveAttribute('href', '/conta/pedidos');
     expect(
       screen.getByText('Plateia · Fila A · Cadeira 6 · R$ 60,00'),
     ).toBeInTheDocument();
     expect(screen.getByText('Total: R$ 66,00')).toBeInTheDocument();
   });
 
-  it('mostra que o pagamento ainda está pendente', async () => {
+  it('mostra que a confirmação do pagamento está em andamento', async () => {
     server.use(
       http.get(/\/api\/orders\/.+$/, () =>
         HttpResponse.json({
@@ -71,7 +79,32 @@ describe('OrderStatus', () => {
 
     render(<OrderStatus orderId="11111111-1111-4111-8111-111111111111" />);
 
-    expect(await screen.findByText('Aguardando pagamento')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Estamos conferindo seu pagamento',
+        level: 1,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'Ver meus ingressos' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('mostra apenas os detalhes do pedido quando o pagamento não foi concluído', async () => {
+    server.use(
+      http.get(/\/api\/orders\/.+$/, () =>
+        HttpResponse.json({
+          order: { ...paidOrder, status: 'failed' },
+        }),
+      ),
+    );
+
+    render(<OrderStatus orderId="11111111-1111-4111-8111-111111111111" />);
+
+    expect(
+      await screen.findByText('Pagamento não confirmado'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
   });
 
   it('avisa quando o pedido não pode ser carregado', async () => {

@@ -17,6 +17,7 @@ import {
   type PaymentMethod,
 } from '@ticketvibe/shared';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { CheckoutSummary } from '@/components/checkout-summary';
 import { OrderConfirmation } from '@/components/order-confirmation';
@@ -97,6 +98,7 @@ function StripePaymentFields({
 }: StripePaymentFieldsProps) {
   const stripe = useStripe();
   const elements = useElements();
+  const router = useRouter();
   const [confirming, setConfirming] = useState(false);
   const ready = Boolean(stripe && elements);
 
@@ -125,6 +127,9 @@ function StripePaymentFields({
         return;
       }
       onStatus(null);
+      router.push(
+        `/events/${encodeURIComponent(eventSlug)}/checkout/retorno?order=${encodeURIComponent(orderId)}`,
+      );
     } catch {
       onStatus(CONFIRM_FAILED_MESSAGE);
       setConfirming(false);
@@ -439,7 +444,10 @@ export function CheckoutFlow({ eventSlug, eventTitle }: CheckoutFlowProps) {
           {!stripeError && payment.clientSecret && stripePromise && order && (
             <Elements
               stripe={stripePromise}
-              options={{ clientSecret: payment.clientSecret }}
+              options={{
+                clientSecret: payment.clientSecret,
+                appearance: { theme: 'night' },
+              }}
             >
               <StripePaymentFields
                 eventSlug={eventSlug}

@@ -31,21 +31,33 @@ vi.mock('@/lib/auth-client', () => ({
   authClient: { useSession: () => sessionState.current },
 }));
 
-const { loadStripeMock, confirmPaymentMock, stripeContext, stripeProps } =
-  vi.hoisted(() => {
-    const instance = { id: 'stripe-instance' };
-    const confirmPayment = vi.fn(async () => ({
-      paymentIntent: { id: 'pi_1' },
-    }));
-    return {
-      loadStripeMock: vi.fn(async () => instance),
-      confirmPaymentMock: confirmPayment,
-      stripeContext: {
-        current: { confirmPayment } as { confirmPayment: unknown } | null,
-      },
-      stripeProps: [] as Promise<unknown>[],
-    };
-  });
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: pushMock }),
+}));
+
+const {
+  loadStripeMock,
+  confirmPaymentMock,
+  pushMock,
+  stripeContext,
+  elementsOptions,
+  stripeProps,
+} = vi.hoisted(() => {
+  const instance = { id: 'stripe-instance' };
+  const confirmPayment = vi.fn(async () => ({
+    paymentIntent: { id: 'pi_1' },
+  }));
+  return {
+    loadStripeMock: vi.fn(async () => instance),
+    confirmPaymentMock: confirmPayment,
+    pushMock: vi.fn(),
+    stripeContext: {
+      current: { confirmPayment } as { confirmPayment: unknown } | null,
+    },
+    elementsOptions: [] as unknown[],
+    stripeProps: [] as Promise<unknown>[],
+  };
+});
 
 const StripeContext = createContext<unknown>(null);
 
@@ -56,13 +68,16 @@ vi.mock('@stripe/stripe-js', () => ({
 vi.mock('@stripe/react-stripe-js', () => ({
   Elements: ({
     stripe,
+    options,
     children,
   }: {
     stripe: unknown;
+    options?: unknown;
     children: ReactNode;
   }) => {
     expect(stripe).toBeInstanceOf(Promise);
     stripeProps.push(stripe as Promise<unknown>);
+    if (options) elementsOptions.push(options);
     return (
       <StripeContext.Provider value={stripeContext.current}>
         {children}
@@ -189,7 +204,9 @@ afterEach(() => {
   sessionState.current = { data: null, isPending: false };
   loadStripeMock.mockClear();
   confirmPaymentMock.mockClear();
+  pushMock.mockClear();
   stripeContext.current = { confirmPayment: confirmPaymentMock };
+  elementsOptions.length = 0;
   stripeProps.length = 0;
   vi.unstubAllEnvs();
 });
@@ -394,7 +411,7 @@ describe('CheckoutFlow', () => {
     expect(screen.queryByTestId('payment-element')).not.toBeInTheDocument();
   });
 
-  it('confirma o pagamento com o Stripe e volta para o retorno do checkout', async () => {
+  it('confirma o pagamento com o Stripe e navega para a página de sucesso', async () => {
     signIn();
     mockCart();
     mockCreateOrder({
@@ -422,6 +439,36 @@ describe('CheckoutFlow', () => {
         redirect: 'if_required',
       }),
     );
+    expect(pushMock).toHaveBeenCalledWith(
+      `/events/${EVENT_SLUG}/checkout/retorno?order=11111111-1111-4111-8111-111111111111`,
+    );
+  });
+
+  it('renderiza o Payment Element com o tema night do Stripe', async () => {
+    signIn();
+    mockCart();
+    mockCreateOrder({
+      provider: 'stripe',
+      providerRef: 'pi_1',
+      clientSecret: 'pi_1_secret',
+    });
+    mockOrderGet('pending');
+    render(
+      <CheckoutFlow eventSlug={EVENT_SLUG} eventTitle="O Fantasma da Ópera" />,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Pagar' }));
+
+    expect(await screen.findByTestId('payment-element')).toBeInTheDocument();
+    expect(elementsOptions.length).toBeGreaterThan(0);
+    for (const options of elementsOptions) {
+      expect(options).toEqual(
+        expect.objectContaining({
+          clientSecret: 'pi_1_secret',
+          appearance: { theme: 'night' },
+        }),
+      );
+    }
   });
 
   it('manda o comprador para o voucher do boleto ao confirmar o boleto', async () => {
