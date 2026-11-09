@@ -4,6 +4,16 @@
 
 Marketplace de ingressos para eventos — projeto de estudo. Tudo roda local; sem deploy de produção.
 
+## Telas
+
+Capturas do app rodando localmente (fonte em `docs/screens/`):
+
+| | |
+|---|---|
+| ![Home com busca, destaque em alta e eventos por categoria](docs/screens/home.png) | ![Login com Google ou e-mail e senha](docs/screens/login.png) |
+| ![Mapa de assentos com carrinho e tempo de reserva](docs/screens/tickets.png) | ![Checkout com pagamento por cartão ou boleto via Stripe, tema night](docs/screens/payment.png) |
+| ![Confirmação da compra com resumo do pedido](docs/screens/success.png) | |
+
 ## Requisitos
 
 - Node `>= 22.12` e pnpm 10 (`npm i -g pnpm@10`; `corepack enable` só existe no Node 22–24)
